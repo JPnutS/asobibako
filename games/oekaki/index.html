@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>おえかきでんごん</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  .players { display: grid; gap: 8px; }
+  .players .k-row { flex-wrap: nowrap; }
+  .players .k-input { flex: 1; min-width: 0; }
+  .pnum { width: 32px; height: 32px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--orange); color: var(--on-color); font-weight: 900; border: 3px solid var(--line); }
+  .stepper { display: flex; align-items: center; gap: 12px; }
+  .stepper b { font-size: 1.8rem; min-width: 2ch; text-align: center; }
+  .big-name { font-family: var(--display); font-size: clamp(2rem, 9vw, 3.4rem); color: var(--orange); }
+  .prompt { font-family: var(--display); font-size: clamp(1.6rem, 7vw, 2.6rem); line-height: 1.3; word-break: break-all; }
+  .board-wrap { position: relative; width: 100%; max-width: 820px; margin: 0 auto; }
+  .board { display: block; width: 100%; aspect-ratio: 4 / 3; background: #fff; border: 3px solid var(--line); border-radius: 16px; touch-action: none; cursor: crosshair; }
+  .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
+  .sw { width: 40px; height: 40px; border-radius: 50%; border: 3px solid var(--line); cursor: pointer; padding: 0; }
+  .sw[aria-pressed="true"] { outline: 4px solid var(--sun); outline-offset: 2px; }
+  .sz { width: 44px; height: 44px; border-radius: 12px; border: 3px solid var(--line); background: var(--card); display: grid; place-items: center; cursor: pointer; padding: 0; }
+  .sz[aria-pressed="true"] { background: var(--sun); }
+  .sz i { display: block; background: var(--ink); border-radius: 50%; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .timer { font-family: var(--display); font-size: 1.6rem; min-width: 3ch; text-align: right; }
+  .timer.low { color: var(--berry); }
+  .step { display: grid; gap: 8px; justify-items: center; text-align: center; }
+  .step .who { font-weight: 900; color: var(--muted); }
+  .bubble { background: var(--soft); border: 3px solid var(--line); border-radius: 18px; padding: 10px 18px; font-family: var(--display); font-size: clamp(1.4rem, 6vw, 2.2rem); word-break: break-all; }
+  .arrow { font-size: 1.6rem; color: var(--muted); }
+  .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+  .thumbs figure { margin: 0; display: grid; gap: 4px; text-align: center; }
+  .thumbs canvas { width: 100%; aspect-ratio: 4 / 3; background: #fff; border: 2px solid var(--line); border-radius: 10px; }
+  .thumbs .txt { display: grid; place-items: center; aspect-ratio: 4 / 3; background: var(--soft); border: 2px solid var(--line); border-radius: 10px; font-weight: 900; font-size: 1.2rem; padding: 6px; word-break: break-all; }
+  .thumbs figcaption { font-size: .8rem; color: var(--muted); font-weight: 700; }
+  details summary { cursor: pointer; font-weight: 700; }
+</style>
+</head>
+<body>
+<main class="k-wrap">
+
+  <!-- せってい -->
+  <section id="setup" class="k-stack">
+    <div class="k-card k-stack">
+      <h2>何人であそぶ？</h2>
+      <div class="stepper">
+        <button class="k-btn k-icon" id="minus" aria-label="へらす">－</button>
+        <b id="count" class="k-num">4</b><span>人</span>
+        <button class="k-btn k-icon" id="plus" aria-label="ふやす">＋</button>
+      </div>
+      <p class="k-muted" style="margin:0">このじゅんばんでタブレットを回します。</p>
+      <div class="players" id="players"></div>
+    </div>
+    <div class="k-card k-stack">
+      <h2>お題</h2>
+      <div class="k-chips" id="optTopic"></div>
+      <h2>絵をかく時間</h2>
+      <div class="k-chips" id="optTime"></div>
+      <h2>こたえる人は…</h2>
+      <div class="k-chips" id="optGuess"></div>
+    </div>
+    <button class="k-btn is-orange is-big is-wide" id="start">はじめる</button>
+  </section>
+
+  <!-- わたす画面 -->
+  <section id="pass" class="k-card k-stack k-center" hidden>
+    <p class="k-label">つぎは</p>
+    <div class="big-name" id="passName"></div>
+    <p id="passWhat" style="margin:0;font-weight:900"></p>
+    <p class="k-muted" style="margin:0">ほかの人は画面を見ないでね👀</p>
+    <button class="k-btn is-sun is-big" id="passGo">わたしの番！</button>
+    <p class="k-muted k-num" id="passStep" style="margin:0"></p>
+  </section>
+
+  <!-- お題を書く -->
+  <section id="write" class="k-card k-stack k-center" hidden>
+    <p class="k-label" id="writeLabel"></p>
+    <div id="writeShow"></div>
+    <input class="k-input" id="writeIn" maxlength="24" autocomplete="off" style="max-width:420px;width:100%;text-align:center;font-size:1.3rem">
+    <div class="k-row" style="justify-content:center">
+      <button class="k-btn is-small" id="writeRand" hidden>🎲 おまかせ</button>
+      <button class="k-btn is-sun is-big" id="writeOk">けってい</button>
+    </div>
+  </section>
+
+  <!-- 絵をかく -->
+  <section id="draw" class="k-stack" hidden>
+    <div class="k-card topbar" style="padding:10px 16px">
+      <div><span class="k-label">これをかいてね</span><div class="prompt" id="drawPrompt"></div></div>
+      <div class="timer k-num" id="timer"></div>
+    </div>
+    <div class="board-wrap"><canvas class="board" id="board" width="800" height="600"></canvas></div>
+    <div class="tools" id="colors"></div>
+    <div class="tools">
+      <div class="tools" id="sizes"></div>
+      <button class="k-btn is-small" id="eraser">🧽 けしゴム</button>
+      <button class="k-btn is-small" id="undo">↩️</button>
+      <button class="k-btn is-small" id="redo">↪️</button>
+      <button class="k-btn is-small" id="clear">🗑️</button>
+      <button class="k-btn is-sun" id="drawOk">できた！</button>
+    </div>
+  </section>
+
+  <!-- はっぴょう -->
+  <section id="reveal" class="k-card k-stack k-center" hidden>
+    <p class="k-label" id="revLabel">はっぴょう</p>
+    <div id="revBody" class="k-stack k-center" style="width:100%"></div>
+    <div class="k-row" style="justify-content:center">
+      <button class="k-btn is-sun is-big" id="revNext">つぎ ▶</button>
+    </div>
+  </section>
+
+  <!-- まとめ -->
+  <section id="summary" class="k-card k-stack" hidden>
+    <h2 id="sumTitle" style="text-align:center"></h2>
+    <div class="thumbs" id="thumbs"></div>
+    <div class="k-row" style="justify-content:center">
+      <button class="k-btn is-orange is-big" id="again">もういっかい</button>
+      <button class="k-btn" id="replay">はじめから見る</button>
+      <button class="k-btn" id="savePng">🖼️ 画像にする</button>
+      <button class="k-btn" id="back">せっていへ</button>
+    </div>
+  </section>
+</main>
+
+<script src="../../common/kit.js"></script>
+<script>
+'use strict';
+/* お題：子どもでもかけて、にたものとまちがえやすいもの */
+const WORDS = {
+  animal: ['ねこ', 'いぬ', 'うさぎ', 'ぞう', 'きりん', 'ライオン', 'ぺんぎん', 'かたつむり', 'たこ', 'かに', 'へび', 'かえる', 'ぶた', 'にわとり', 'くま', 'パンダ', 'さる', 'くじら', 'ちょうちょ', 'かぶとむし', 'ありくい', 'ペリカン', 'ハリネズミ', 'イルカ'],
+  food: ['おにぎり', 'ラーメン', 'すし', 'カレー', 'ハンバーガー', 'いちご', 'バナナ', 'すいか', 'ケーキ', 'アイス', 'たまごやき', 'ドーナツ', 'ピザ', 'おでん', 'ぶどう', 'えだまめ', 'ソフトクリーム', 'たこやき', 'ホットケーキ', 'パイナップル'],
+  thing: ['かさ', 'めがね', 'とけい', 'かぎ', 'でんわ', 'えんぴつ', 'はさみ', 'テレビ', 'ランドセル', 'くつ', 'ぼうし', 'はぶらし', 'せんぷうき', 'カメラ', 'まくら', 'ふうせん', 'ろうそく', 'リボン', 'マイク', 'ペンライト'],
+  vehicle: ['しんかんせん', 'ひこうき', 'じてんしゃ', 'ロケット', 'ふね', 'しょうぼうしゃ', 'パトカー', 'バス', 'ヘリコプター', 'きゅうきゅうしゃ', 'ショベルカー', 'ききゅう'],
+  scene: ['にじ', 'ゆきだるま', 'かみなり', 'おばけ', 'ロボット', 'にんじゃ', 'おうさま', 'まほうつかい', 'うちゅうじん', 'サンタクロース', 'たいよう', 'おしろ', 'ふんすい', 'すべりだい', 'はなび', 'クリスマスツリー', 'かいぞく', 'きょうりゅう'],
+  action: ['なわとび', 'おふろ', 'はみがき', 'ねぼう', 'かくれんぼ', 'さかあがり', 'つなひき', 'プールでおよぐ', 'おにごっこ', 'ダンス', 'カラオケ', 'すいかわり'],
+};
+const ALL = Object.values(WORDS).flat();
+const COLORS = ['#2a2238', '#ffffff', '#ff5d8f', '#ff8a3d', '#ffc93c', '#3ecf8e', '#4aa8ff', '#8b5cf6', '#8d5a3b', '#ffb3c7', '#9aa0a6', '#0f8a5f'];
+const SIZES = [4, 10, 22, 40];
+const DEF_NAMES = ['たろう', 'はなこ', 'ゆうき', 'さくら', 'そうた', 'ひなた', 'れん', 'めい', 'あおい', 'こはる'];
+
+const ww = Kit.store.get('wordwolf:setup', {});
+const O = Object.assign({ count: 4, names: (ww.names || DEF_NAMES).slice(), topic: 'random', time: 60, guess: 'write' }, Kit.store.get('oekaki:setup', {}));
+while (O.names.length < 10) O.names.push(DEF_NAMES[O.names.length]);
+let G = null;      // いまのゲーム
+let startAt = 0;   // ラウンドごとにさいしょの人をずらす
+
+const $ = id => document.getElementById(id);
+const SECTIONS = ['setup', 'pass', 'write', 'draw', 'reveal', 'summary'];
+const show = id => { SECTIONS.forEach(s => $(s).hidden = s !== id); scrollTo(0, 0); };
+const E = Kit.esc;
+
+/* ---------- せってい ---------- */
+function chips(root, items, cur, onTap) {
+  root.innerHTML = '';
+  items.forEach(([v, l]) => {
+    const b = Kit.el(`<button class="k-chip" aria-pressed="${v === cur}">${l}</button>`);
+    b.onclick = () => { Kit.sfx('select'); onTap(v); };
+    root.appendChild(b);
+  });
+}
+function renderSetup() {
+  $('count').textContent = O.count;
+  const root = $('players'); root.innerHTML = '';
+  for (let i = 0; i < O.count; i++) {
+    const row = Kit.el(`<div class="k-row"><span class="pnum">${i + 1}</span><input class="k-input" maxlength="10" value="${E(O.names[i])}"></div>`);
+    row.querySelector('input').oninput = e => { O.names[i] = e.target.value; saveSetup(); };
+    root.appendChild(row);
+  }
+  chips($('optTopic'), [['random', '🎲 おまかせ'], ['animal', 'どうぶつ'], ['food', 'たべもの'], ['thing', 'もの'], ['vehicle', 'のりもの'], ['scene', 'ふしぎ・ひと'], ['action', 'うごき（むずかしい）'], ['self', '✏️ 1番の人が書く']], O.topic, v => { O.topic = v; saveSetup(); renderSetup(); });
+  chips($('optTime'), [[0, 'じかんなし'], [30, '30びょう'], [60, '60びょう'], [90, '90びょう']], O.time, v => { O.time = v; saveSetup(); renderSetup(); });
+  chips($('optGuess'), [['write', '✏️ 字で書く'], ['say', '🗣️ 口で言って、だれかが入力']], O.guess, v => { O.guess = v; saveSetup(); renderSetup(); });
+}
+function saveSetup() { Kit.store.set('oekaki:setup', O); }
+$('minus').onclick = () => { if (O.count > 3) { O.count--; Kit.sfx('tap'); saveSetup(); renderSetup(); } };
+$('plus').onclick = () => { if (O.count < 10) { O.count++; Kit.sfx('tap'); saveSetup(); renderSetup(); } };
+
+/* ---------- ゲームのながれ ----------
+   chain: [{kind:'text'|'draw', who, text?, strokes?}]
+   お題 → 絵 → こたえ → 絵 → こたえ … みんな1回ずつ */
+function pickTopic() {
+  const list = O.topic === 'random' || O.topic === 'self' ? ALL : WORDS[O.topic];
+  const used = Kit.store.get('oekaki:used', []);
+  const fresh = list.filter(w => !used.includes(w));
+  const w = Kit.pick(fresh.length ? fresh : list);
+  Kit.store.set('oekaki:used', [...used, w].slice(-60));
+  return w;
+}
+function newGame() {
+  const names = O.names.slice(0, O.count).map((n, i) => n.trim() || `${i + 1}ばん`);
+  const order = names.map((_, i) => names[(i + startAt) % names.length]);
+  startAt = (startAt + 1) % names.length;
+  G = { order, chain: [], turn: 0 };
+  // turns: self なら [書く, 絵, こたえ…]、おまかせなら お題は自動で [絵, こたえ…]
+  G.turns = [];
+  if (O.topic === 'self') G.turns.push({ who: order[0], kind: 'topic' });
+  else G.chain.push({ kind: 'text', who: 'お題', text: pickTopic() });
+  const rest = O.topic === 'self' ? order.slice(1) : order;
+  rest.forEach((who, i) => G.turns.push({ who, kind: i % 2 === 0 ? 'draw' : 'guess' }));
+  Kit.keepAwake(true);
+  nextTurn();
+}
+function nextTurn() {
+  if (G.turn >= G.turns.length) return startReveal();
+  const t = G.turns[G.turn];
+  $('passName').textContent = `${t.who}さん`;
+  $('passWhat').textContent = { topic: 'お題を考えて書く番', draw: '絵をかく番 🎨', guess: '絵を見て、なにかあてる番 🤔' }[t.kind];
+  $('passStep').textContent = `${G.turn + 1} / ${G.turns.length}`;
+  show('pass'); Kit.sfx('whoosh');
+}
+$('passGo').onclick = () => {
+  const t = G.turns[G.turn];
+  Kit.sfx('tap');
+  if (t.kind === 'draw') startDraw(G.chain[G.chain.length - 1].text);
+  else startWrite(t);
+};
+const last = () => G.chain[G.chain.length - 1];
+
+/* ---------- 書く（お題・こたえ） ---------- */
+function startWrite(t) {
+  const inp = $('writeIn'); inp.value = '';
+  $('writeRand').hidden = t.kind !== 'topic';
+  if (t.kind === 'topic') {
+    $('writeLabel').textContent = 'お題を書いてね（絵でかけるもの）';
+    $('writeShow').innerHTML = '';
+    inp.placeholder = 'れい：ゆきだるま';
+  } else {
+    $('writeLabel').textContent = O.guess === 'say' ? 'この絵はなに？口で言って、だれかに入力してもらおう' : 'この絵はなに？';
+    $('writeShow').innerHTML = '';
+    const c = document.createElement('canvas'); c.width = 800; c.height = 600; c.className = 'board';
+    c.style.cursor = 'default';
+    $('writeShow').appendChild(c); $('writeShow').style.width = 'min(100%, 640px)';
+    paint(c.getContext('2d'), last().strokes);
+    inp.placeholder = 'こたえを入力';
+  }
+  show('write');
+  if (t.kind === 'topic') inp.focus();
+}
+$('writeRand').onclick = () => { $('writeIn').value = pickTopic(); Kit.sfx('select'); };
+function submitWrite() {
+  const v = $('writeIn').value.trim();
+  if (!v) { Kit.toast('ことばを入れてね'); $('writeIn').focus(); return; }
+  const t = G.turns[G.turn];
+  G.chain.push({ kind: 'text', who: t.kind === 'topic' ? `お題（${t.who}さん）` : t.who, text: v, topic: t.kind === 'topic' });
+  G.turn++; $('writeIn').blur(); Kit.sfx('good'); nextTurn();
+}
+$('writeOk').onclick = submitWrite;
+$('writeIn').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) submitWrite(); });
+
+/* ---------- おえかき ---------- */
+const board = $('board'), bg = board.getContext('2d');
+const D = { strokes: [], redo: [], color: COLORS[0], size: SIZES[1], eraser: false, cur: null, timer: null, left: 0 };
+function renderTools() {
+  $('colors').innerHTML = COLORS.map(c => `<button class="sw" data-c="${c}" style="background:${c}" aria-pressed="${!D.eraser && D.color === c}" aria-label="色"></button>`).join('');
+  $('sizes').innerHTML = SIZES.map(s => `<button class="sz" data-s="${s}" aria-pressed="${D.size === s}" aria-label="ふとさ"><i style="width:${Math.min(30, s * 0.7 + 3)}px;height:${Math.min(30, s * 0.7 + 3)}px"></i></button>`).join('');
+  $('eraser').classList.toggle('is-sun', D.eraser);
+  $('undo').disabled = !D.strokes.length; $('redo').disabled = !D.redo.length; $('clear').disabled = !D.strokes.length;
+}
+$('colors').onclick = e => { const b = e.target.closest('[data-c]'); if (!b) return; D.color = b.dataset.c; D.eraser = false; Kit.sfx('select'); renderTools(); };
+$('sizes').onclick = e => { const b = e.target.closest('[data-s]'); if (!b) return; D.size = +b.dataset.s; Kit.sfx('select'); renderTools(); };
+$('eraser').onclick = () => { D.eraser = !D.eraser; Kit.sfx('select'); renderTools(); };
+$('undo').onclick = () => { if (D.strokes.length) { D.redo.push(D.strokes.pop()); redraw(); renderTools(); } };
+$('redo').onclick = () => { if (D.redo.length) { D.strokes.push(D.redo.pop()); redraw(); renderTools(); } };
+$('clear').onclick = async () => { if (await Kit.ask('ぜんぶけす？', 'けす', 'やめる')) { D.redo = []; D.strokes.push({ clear: true }); redraw(); renderTools(); } };
+
+/* 線はベクターでのこす（はっぴょうで、かいたじゅんに再生するため） */
+function strokePath(g, s, upto = s.pts.length) {
+  g.strokeStyle = g.fillStyle = s.c; g.lineWidth = s.w; g.lineCap = g.lineJoin = 'round';
+  const p = s.pts;
+  if (upto === 1 || p.length === 1) { g.beginPath(); g.arc(p[0][0], p[0][1], s.w / 2, 0, 6.29); g.fill(); return; }
+  g.beginPath(); g.moveTo(p[0][0], p[0][1]);
+  for (let i = 1; i < upto - 1; i++) { const mx = (p[i][0] + p[i + 1][0]) / 2, my = (p[i][1] + p[i + 1][1]) / 2; g.quadraticCurveTo(p[i][0], p[i][1], mx, my); }
+  g.lineTo(p[upto - 1][0], p[upto - 1][1]); g.stroke();
+}
+function paint(g, strokes, limitPts = Infinity) {
+  g.save(); g.setTransform(g.canvas.width / 800, 0, 0, g.canvas.height / 600, 0, 0);
+  g.fillStyle = '#fff'; g.fillRect(0, 0, 800, 600);
+  let n = 0;
+  for (const s of strokes) {
+    if (s.clear) { g.fillStyle = '#fff'; g.fillRect(0, 0, 800, 600); continue; }
+    if (n >= limitPts) break;
+    const take = Math.min(s.pts.length, limitPts - n);
+    strokePath(g, s, take); n += take;
+  }
+  g.restore();
+}
+const totalPts = strokes => strokes.reduce((a, s) => a + (s.pts ? s.pts.length : 0), 0);
+function redraw() { paint(bg, D.cur ? [...D.strokes, D.cur] : D.strokes); }
+function bpos(e) { const r = board.getBoundingClientRect(); return [Math.round((e.clientX - r.left) * 800 / r.width), Math.round((e.clientY - r.top) * 600 / r.height)]; }
+board.addEventListener('pointerdown', e => {
+  if (D.cur) return;
+  board.setPointerCapture(e.pointerId);
+  D.cur = { c: D.eraser ? '#ffffff' : D.color, w: D.eraser ? Math.max(24, D.size * 1.6) : D.size, pts: [bpos(e)], id: e.pointerId };
+  redraw();
+});
+board.addEventListener('pointermove', e => {
+  if (!D.cur || e.pointerId !== D.cur.id) return;
+  const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+  for (const ev of evs) {
+    const p = bpos(ev), q = D.cur.pts[D.cur.pts.length - 1];
+    if (Math.hypot(p[0] - q[0], p[1] - q[1]) >= 2) D.cur.pts.push(p);
+  }
+  redraw();
+});
+const endStroke = e => {
+  if (!D.cur || e.pointerId !== D.cur.id) return;
+  delete D.cur.id; D.strokes.push(D.cur); D.cur = null; D.redo = []; redraw(); renderTools();
+};
+board.addEventListener('pointerup', endStroke); board.addEventListener('pointercancel', endStroke);
+
+function startDraw(text) {
+  Object.assign(D, { strokes: [], redo: [], cur: null, eraser: false, color: COLORS[0], size: SIZES[1] });
+  $('drawPrompt').textContent = text;
+  renderTools(); redraw(); show('draw');
+  clearInterval(D.timer); $('timer').textContent = '';
+  $('timer').classList.remove('low');
+  if (O.time) {
+    D.left = O.time; $('timer').textContent = D.left;
+    D.timer = setInterval(() => {
+      D.left--; $('timer').textContent = Math.max(0, D.left);
+      $('timer').classList.toggle('low', D.left <= 10);
+      if (D.left <= 5 && D.left > 0) Kit.sfx('tick');
+      if (D.left <= 0) { clearInterval(D.timer); Kit.sfx('alarm'); Kit.toast('じかんだよ！'); finishDraw(); }
+    }, 1000);
+  }
+}
+function finishDraw() {
+  clearInterval(D.timer);
+  if (D.cur) { delete D.cur.id; D.strokes.push(D.cur); D.cur = null; }
+  const t = G.turns[G.turn];
+  G.chain.push({ kind: 'draw', who: t.who, strokes: D.strokes.slice() });
+  G.turn++; Kit.sfx('good'); nextTurn();
+}
+$('drawOk').onclick = async () => {
+  if (!D.strokes.some(s => s.pts) && !(await Kit.ask('まだなにもかいてないよ。これでいい？', 'いい', 'かく'))) return;
+  finishDraw();
+};
+
+/* ---------- はっぴょう ---------- */
+const norm = s => s.replace(/[\s　、。！!？?ー〜~・]/g, '').replace(/[ァ-ン]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60)).toLowerCase();
+let R = null;
+function startReveal() {
+  Kit.keepAwake(false);
+  R = { i: 0, anim: 0 };
+  show('reveal'); Kit.sfx('win');
+  showStep();
+}
+function showStep() {
+  cancelAnimationFrame(R.anim);
+  const s = G.chain[R.i], body = $('revBody');
+  $('revLabel').textContent = `はっぴょう ${R.i + 1} / ${G.chain.length}`;
+  if (s.kind === 'text') {
+    const first = R.i === 0;
+    body.innerHTML = `<div class="step"><span class="who">${first ? E(s.who) : `${E(s.who)}さんは…`}</span>
+      <div class="bubble">${first ? '' : '「'}${E(s.text)}${first ? '' : '」だとおもった！'}</div></div>`;
+    Kit.sfx(first ? 'select' : 'pop');
+  } else {
+    body.innerHTML = `<div class="step" style="width:100%"><span class="who">${E(s.who)}さんがかいた絵</span>
+      <canvas class="board" width="800" height="600" style="max-width:640px;cursor:default"></canvas></div>`;
+    const g = body.querySelector('canvas').getContext('2d');
+    // かいたじゅんに、1.8びょうくらいで再生
+    const total = totalPts(s.strokes), t0 = performance.now(), dur = Math.min(2600, 600 + total * 4);
+    const step = now => {
+      const k = Math.min(1, (now - t0) / dur);
+      paint(g, s.strokes, Math.ceil(total * k) || 0);
+      if (k < 1) R.anim = requestAnimationFrame(step);
+    };
+    R.anim = requestAnimationFrame(step);
+    Kit.sfx('whoosh');
+  }
+  const isLast = R.i === G.chain.length - 1;
+  $('revNext').textContent = isLast ? 'けっかを見る 🎉' : 'つぎ ▶';
+}
+$('revNext').onclick = () => {
+  if (R.i < G.chain.length - 1) { R.i++; showStep(); return; }
+  cancelAnimationFrame(R.anim);
+  showSummary();
+};
+function showSummary() {
+  const first = G.chain[0].text, lastText = [...G.chain].reverse().find(s => s.kind === 'text' && s !== G.chain[0]);
+  const ok = lastText && norm(lastText.text) === norm(first);
+  $('sumTitle').innerHTML = ok ? '🎉 さいごまでつたわった！' : lastText ? `「${E(first)}」が「${E(lastText.text)}」に！？` : `お題は「${E(first)}」でした`;
+  if (ok) { Kit.confetti(); Kit.sfx('win'); } else Kit.sfx('boom');
+  const th = $('thumbs'); th.innerHTML = '';
+  G.chain.forEach((s, i) => {
+    const f = document.createElement('figure');
+    if (s.kind === 'text') f.innerHTML = `<div class="txt">${E(s.text)}</div><figcaption>${i === 0 ? E(s.who) : E(s.who) + 'さんのこたえ'}</figcaption>`;
+    else {
+      const c = document.createElement('canvas'); c.width = 400; c.height = 300;
+      paint(c.getContext('2d'), s.strokes);
+      f.appendChild(c); f.insertAdjacentHTML('beforeend', `<figcaption>${E(s.who)}さんの絵</figcaption>`);
+    }
+    th.appendChild(f);
+  });
+  show('summary');
+  const hist = Kit.store.get('oekaki:history', []);
+  hist.unshift({ at: Date.now(), from: first, to: lastText ? lastText.text : '' });
+  Kit.store.set('oekaki:history', hist.slice(0, 30));
+}
+$('again').onclick = () => { Kit.sfx('tap'); newGame(); };
+$('replay').onclick = () => { R = { i: 0, anim: 0 }; show('reveal'); showStep(); };
+$('back').onclick = () => { show('setup'); renderSetup(); };
+
+/* ぜんぶを1まいの画像に */
+$('savePng').onclick = () => {
+  const W = 600, H = 450, pad = 24, cap = 44;
+  const rows = G.chain.length, c = document.createElement('canvas');
+  c.width = W + pad * 2; c.height = 90 + rows * (H + cap + pad);
+  const g = c.getContext('2d');
+  g.fillStyle = '#fff6dc'; g.fillRect(0, 0, c.width, c.height);
+  g.fillStyle = '#2a2238'; g.font = '900 34px "Zen Maru Gothic", sans-serif'; g.textAlign = 'center';
+  g.fillText('おえかきでんごん', c.width / 2, 56);
+  let y = 90;
+  G.chain.forEach((s, i) => {
+    g.font = '700 22px "Zen Maru Gothic", sans-serif'; g.fillStyle = '#6b6378';
+    g.fillText(s.kind === 'draw' ? `${s.who}さんの絵` : i === 0 ? s.who : `${s.who}さんのこたえ`, c.width / 2, y + 28);
+    y += cap;
+    g.fillStyle = '#2a2238'; g.fillRect(pad - 3, y - 3, W + 6, H + 6);
+    if (s.kind === 'draw') {
+      const off = document.createElement('canvas'); off.width = W; off.height = H;
+      paint(off.getContext('2d'), s.strokes); g.drawImage(off, pad, y);
+    } else {
+      g.fillStyle = '#ffeec2'; g.fillRect(pad, y, W, H);
+      g.fillStyle = '#2a2238'; g.font = '900 56px "Zen Maru Gothic", sans-serif';
+      g.fillText(s.text, c.width / 2, y + H / 2 + 20, W - 40);
+    }
+    y += H + pad;
+  });
+  c.toBlob(b => {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(b);
+    a.download = `oekaki-${new Date().toISOString().slice(0, 10)}.png`; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    Kit.toast('画像をほぞんしたよ');
+  }, 'image/png');
+};
+
+$('start').onclick = () => { Kit.sfx('tap'); saveSetup(); newGame(); };
+addEventListener('beforeunload', e => { if (G && G.turn < G.turns.length && $('setup').hidden) e.preventDefault(); });
+
+Kit.bar({ id: 'oekaki', title: '🖍️ おえかきでんごん', help: `
+  <ol>
+    <li>お題がひとりめの人にだけ出ます。その絵をかいたら、つぎの人へ。</li>
+    <li>つぎの人は、絵だけを見て「なにの絵か」を書きます。そのつぎの人は、その<b>ことばだけ</b>を見て絵をかきます。</li>
+    <li>絵 → ことば → 絵 → … と、みんな1回ずつ回します。前の人の画面は見ないでね。</li>
+    <li>さいごに、お題がどう変わっていったかを、絵をかいたじゅんに再生してはっぴょう！</li>
+    <li>字が書けない子は「口で言って、だれかが入力」にしてね。</li>
+  </ol>` });
+renderSetup();
+</script>
+</body>
+</html>
