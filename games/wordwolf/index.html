@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ワードウルフ</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  .players { display: grid; gap: 8px; }
+  .players .k-row { flex-wrap: nowrap; }
+  .players .k-input { flex: 1; min-width: 0; }
+  .pnum { width: 32px; height: 32px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--grape); color: #fff; font-weight: 900; border: 3px solid var(--line); }
+  .stepper { display: flex; align-items: center; gap: 12px; }
+  .stepper b { font-size: 1.8rem; min-width: 2ch; text-align: center; }
+  .secret { min-height: 52vh; display: grid; place-items: center; text-align: center; gap: 16px; }
+  .word { font-family: var(--display); font-size: clamp(2.4rem, 11vw, 4.4rem); line-height: 1.5; }
+  .word rt { font-family: var(--font); font-weight: 700; }
+  .ring { width: min(64vw, 260px); aspect-ratio: 1; position: relative; display: grid; place-items: center; }
+  .ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+  .ring .t { font-family: var(--display); font-size: 3.2rem; }
+  .hint { background: var(--soft); border-radius: 14px; padding: 12px 16px; font-weight: 700; min-height: 3.2em; display: grid; place-items: center; text-align: center; }
+  .vote-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+  .score-table { width: 100%; border-collapse: collapse; }
+  .score-table td { padding: 8px 6px; border-bottom: 2px dashed var(--soft); }
+  .score-table td:last-child { text-align: right; font-weight: 900; }
+  .reveal-name { font-family: var(--display); font-size: clamp(2rem, 9vw, 3.4rem); color: var(--berry); }
+  .wolf-tag { display: inline-block; background: var(--grape); color: #fff; border-radius: 999px; padding: 0 10px; font-size: .8rem; margin-left: 6px; }
+  .tally { display: grid; gap: 6px; }
+  .tally div { display: flex; justify-content: space-between; gap: 8px; }
+  details summary { cursor: pointer; font-weight: 700; }
+</style>
+</head>
+<body>
+<main class="k-wrap">
+
+  <!-- せってい -->
+  <section id="setup" class="k-stack">
+    <div class="k-card k-stack">
+      <h2>何人であそぶ？</h2>
+      <div class="stepper">
+        <button class="k-btn k-icon" id="minus" aria-label="へらす">－</button>
+        <b id="count" class="k-num">4</b><span>人</span>
+        <button class="k-btn k-icon" id="plus" aria-label="ふやす">＋</button>
+      </div>
+      <div class="players" id="players"></div>
+    </div>
+
+    <div class="k-card k-stack">
+      <h2>お題のジャンル</h2>
+      <div class="k-chips" id="cats"></div>
+      <details>
+        <summary>じぶんでお題をつくる（<span id="customCount">0</span>こ）</summary>
+        <div class="k-stack" style="margin-top:10px">
+          <p class="k-muted" style="margin:0">にているけど、ちょっとちがう2つのことばを入れてね。</p>
+          <div class="k-row">
+            <input class="k-input" id="cA" placeholder="れい：コーヒー" style="flex:1;min-width:120px">
+            <input class="k-input" id="cB" placeholder="れい：こうちゃ" style="flex:1;min-width:120px">
+            <button class="k-btn is-small is-grass" id="cAdd">ついか</button>
+          </div>
+          <div id="customList" class="k-chips"></div>
+        </div>
+      </details>
+    </div>
+
+    <div class="k-card k-stack">
+      <h2>ルール</h2>
+      <span class="k-label">はなしあいの時間</span>
+      <div class="k-chips" id="times"></div>
+      <span class="k-label">ウルフの数</span>
+      <div class="k-chips" id="wolves"></div>
+      <span class="k-label">ウルフの逆転チャンス（見つかっても、みんなのお題を当てたら勝ち）</span>
+      <div class="k-chips" id="comeback"></div>
+    </div>
+
+    <button class="k-btn is-sun is-big" id="start">はじめる</button>
+    <div class="k-card" id="scoreCard" hidden>
+      <h2 style="font-size:1.1rem">これまでのポイント</h2>
+      <table class="score-table" id="scoreTable"></table>
+      <button class="k-btn is-small" id="resetScore" style="margin-top:10px">ポイントをリセット</button>
+    </div>
+  </section>
+
+  <!-- お題をくばる -->
+  <section id="deal" class="k-card secret" hidden>
+    <div id="dealPass" class="k-stack k-center">
+      <p class="k-label">スマホをわたしてね</p>
+      <div class="reveal-name" id="dealName"></div>
+      <p>ほかの人は見ないでね 🙈</p>
+      <button class="k-btn is-sky is-big" id="showWord">お題を見る</button>
+    </div>
+    <div id="dealWord" class="k-stack k-center" hidden>
+      <p class="k-label" id="dealWho"></p>
+      <div class="word" id="wordText"></div>
+      <p class="k-muted">このことばについて話してね。<br>自分がウルフかどうかは、まだわからないよ。</p>
+      <button class="k-btn is-sun is-big" id="memorized">おぼえた！</button>
+    </div>
+  </section>
+
+  <!-- はなしあい -->
+  <section id="talk" class="k-card k-stack k-center" hidden>
+    <h2>はなしあいタイム</h2>
+    <div class="ring">
+      <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44" fill="none" stroke="var(--soft)" stroke-width="10"/><circle id="arc" cx="50" cy="50" r="44" fill="none" stroke="var(--grape)" stroke-width="10" stroke-linecap="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="0"/></svg>
+      <div class="t k-num" id="clock">3:00</div>
+    </div>
+    <div class="hint" id="hint">しつもんのヒントを出せるよ</div>
+    <div class="k-row" style="justify-content:center">
+      <button class="k-btn is-small" id="newHint">💡 ヒント</button>
+      <button class="k-btn is-small" id="pause">⏸ とめる</button>
+      <button class="k-btn is-small" id="add30">＋30びょう</button>
+      <button class="k-btn is-small" id="peek">👀 お題をもう一度</button>
+    </div>
+    <button class="k-btn is-berry is-big" id="toVote">とうひょうへ</button>
+  </section>
+
+  <!-- とうひょう -->
+  <section id="vote" class="k-card k-stack" hidden>
+    <div class="k-stack k-center" id="votePass">
+      <p class="k-label">とうひょう</p>
+      <div class="reveal-name" id="voterName"></div>
+      <p>ウルフだと思う人をえらんでね（ないしょで）</p>
+    </div>
+    <div class="vote-grid" id="voteGrid"></div>
+  </section>
+
+  <!-- けっか -->
+  <section id="result" class="k-card k-stack k-center" hidden></section>
+</main>
+
+<script src="../../common/kit.js"></script>
+<script>
+'use strict';
+/* お題：「漢字(よみ)」はルビになる */
+const CATS = {
+  food: { name: 'たべもの', pairs: [
+    'カレー/シチュー','ラーメン/うどん','おにぎり/おすし','ケーキ/プリン','アイスクリーム/かき氷(かきごおり)','ハンバーガー/サンドイッチ',
+    'いちご/さくらんぼ','りんご/なし','みかん/グレープフルーツ','ぎゅうにゅう/ヨーグルト','チョコレート/クッキー','ポテトチップス/フライドポテト',
+    'たこやき/おこのみやき','ぎょうざ/しゅうまい','ピザ/グラタン','パン/ごはん','たまごやき/目玉焼き(めだまやき)','ドーナツ/ホットケーキ',
+    'スイカ/メロン','バナナ/パイナップル','ジュース/お茶(おちゃ)','からあげ/とんかつ','そば/スパゲッティ','ガム/あめ','にんじん/だいこん',
+    'トマト/ピーマン','みそしる/コーンスープ','ポップコーン/わたあめ','ハンバーグ/ステーキ','ぶどう/ブルーベリー'] },
+  animal: { name: 'どうぶつ', pairs: [
+    'いぬ/ねこ','ライオン/トラ','うさぎ/ハムスター','ペンギン/アザラシ','ぞう/キリン','パンダ/コアラ','イルカ/クジラ','さる/ゴリラ',
+    'カブトムシ/クワガタ','ちょうちょ/トンボ','にわとり/アヒル','カエル/カメ','ヘビ/トカゲ','うま/しまうま','くま/たぬき','きつね/オオカミ',
+    'サメ/ワニ','ハト/カラス','アリ/ハチ','ひつじ/やぎ','フクロウ/ワシ','金魚(きんぎょ)/メダカ','リス/モモンガ','タコ/イカ','カニ/エビ'] },
+  school: { name: 'がっこう', pairs: [
+    '学校(がっこう)/保育園(ほいくえん)','えんぴつ/ボールペン','けしゴム/のり','算数(さんすう)/国語(こくご)','体育(たいいく)/音楽(おんがく)',
+    '給食(きゅうしょく)/お弁当(おべんとう)','ランドセル/リュック','運動会(うんどうかい)/遠足(えんそく)','先生(せんせい)/校長先生(こうちょうせんせい)',
+    '黒板(こくばん)/ホワイトボード','教科書(きょうかしょ)/ノート','図書室(としょしつ)/保健室(ほけんしつ)','夏休み(なつやすみ)/冬休み(ふゆやすみ)',
+    '宿題(しゅくだい)/テスト','鉄棒(てつぼう)/うんてい','なわとび/フラフープ','習字(しゅうじ)/図工(ずこう)','はさみ/カッター',
+    '入学式(にゅうがくしき)/卒業式(そつぎょうしき)','クレヨン/絵の具(えのぐ)','理科(りか)/社会(しゃかい)','チャイム/目覚まし時計(めざましどけい)'] },
+  play: { name: 'あそび', pairs: [
+    'サッカー/バスケットボール','野球(やきゅう)/ソフトボール','かくれんぼ/おにごっこ','すべり台(すべりだい)/ブランコ','トランプ/かるた',
+    '折り紙(おりがみ)/あやとり','ゲーム/スマホ','けん玉(けんだま)/こま','水泳(すいえい)/スケート','ピアノ/ギター','公園(こうえん)/遊園地(ゆうえんち)',
+    '動物園(どうぶつえん)/水族館(すいぞくかん)','カラオケ/ダンス','映画館(えいがかん)/テレビ','まんが/えほん','自転車(じてんしゃ)/一輪車(いちりんしゃ)',
+    'シャボン玉(シャボンだま)/風船(ふうせん)','ジェットコースター/観覧車(かんらんしゃ)','花火(はなび)/お祭り(おまつり)','キャンプ/バーベキュー',
+    'つみき/ブロック','人形(にんぎょう)/ぬいぐるみ','ドッジボール/バレーボール','テニス/卓球(たっきゅう)','将棋(しょうぎ)/囲碁(いご)'] },
+  home: { name: 'いえ・まち', pairs: [
+    'れいぞうこ/電子レンジ(でんしレンジ)','テレビ/パソコン','ベッド/ふとん','おふろ/シャワー','はぶらし/くし','せんたくき/そうじき',
+    'まくら/クッション','かさ/レインコート','くつ/サンダル','ぼうし/ヘルメット','手ぶくろ(てぶくろ)/マフラー','病院(びょういん)/歯医者(はいしゃ)',
+    'スーパー/コンビニ','駅(えき)/空港(くうこう)','交番(こうばん)/消防署(しょうぼうしょ)','図書館(としょかん)/本屋(ほんや)',
+    'エレベーター/エスカレーター','かがみ/まど','とけい/カレンダー','めがね/サングラス','カーテン/ドア','いす/ソファ'] },
+  nature: { name: 'しぜん・きせつ', pairs: [
+    '春(はる)/秋(あき)','夏(なつ)/冬(ふゆ)','海(うみ)/川(かわ)','山(やま)/森(もり)','雨(あめ)/雪(ゆき)','太陽(たいよう)/月(つき)',
+    '虹(にじ)/流れ星(ながれぼし)','さくら/ひまわり','チューリップ/バラ','かみなり/台風(たいふう)','クリスマス/お正月(おしょうがつ)',
+    'ハロウィン/節分(せつぶん)','誕生日(たんじょうび)/こどもの日(こどものひ)','砂浜(すなはま)/砂場(すなば)','どんぐり/まつぼっくり',
+    '星(ほし)/ほたる','朝(あさ)/夜(よる)','氷(こおり)/雪だるま(ゆきだるま)','島(しま)/湖(みずうみ)'] },
+  work: { name: 'のりもの・しごと', pairs: [
+    '電車(でんしゃ)/新幹線(しんかんせん)','バス/タクシー','飛行機(ひこうき)/ヘリコプター','船(ふね)/ボート','パトカー/救急車(きゅうきゅうしゃ)',
+    '消防車(しょうぼうしゃ)/ゴミ収集車(ごみしゅうしゅうしゃ)','ロケット/UFO(ユーフォー)','警察官(けいさつかん)/消防士(しょうぼうし)',
+    'お医者さん(おいしゃさん)/看護師さん(かんごしさん)','コックさん/パティシエ','大工さん(だいくさん)/電気屋さん(でんきやさん)',
+    '歌手(かしゅ)/アイドル','ユーチューバー/お笑い芸人(おわらいげいにん)','サッカー選手(サッカーせんしゅ)/野球選手(やきゅうせんしゅ)',
+    '宇宙飛行士(うちゅうひこうし)/パイロット','自転車(じてんしゃ)/バイク','トラック/ショベルカー','郵便屋さん(ゆうびんやさん)/宅配便(たくはいびん)'] },
+};
+const HINTS = [
+  'それは何色（なにいろ）？','どこで見る？どこにある？','大きさはどれくらい？','さわったらどんなかんじ？','すき？きらい？',
+  'さいごに見たのはいつ？','いくつ持ってる？','どの季節（きせつ）に合う？','どんな音（おと）がする？','においはある？',
+  'それを使う（つかう）のはだれ？','ねだんは高い？安い？','子どもとおとな、どっちが好き？','一日に何回くらい見る？','家（いえ）にある？',
+];
+const NAMES = ['たろう','はなこ','ゆうき','さくら','そうた','ひなた','れん','めい'];
+
+const S = Object.assign({ count: 4, names: NAMES.slice(), cats: ['food','animal','play'], time: 180, wolves: 1, comeback: true },
+  Kit.store.get('wordwolf:setup', {}));
+let custom = Kit.store.get('wordwolf:custom', []);
+let scores = Kit.store.get('wordwolf:scores', {});
+let G = null; // いまのラウンド
+
+const $ = id => document.getElementById(id);
+const show = id => ['setup','deal','talk','vote','result'].forEach(s => $(s).hidden = s !== id);
+function ruby(w) {
+  const m = w.match(/^(.+)\((.+)\)$/);
+  return m ? `<ruby>${Kit.esc(m[1])}<rt>${Kit.esc(m[2])}</rt></ruby>` : Kit.esc(w);
+}
+const plain = w => w.replace(/\(.+\)$/, '');
+
+/* ---------- せってい画面 ---------- */
+function chipGroup(root, items, isOn, onTap) {
+  root.innerHTML = '';
+  items.forEach(([val, label]) => {
+    const b = Kit.el(`<button class="k-chip" aria-pressed="${isOn(val)}">${label}</button>`);
+    b.onclick = () => { Kit.sfx('select'); onTap(val); renderSetup(); };
+    root.appendChild(b);
+  });
+}
+function renderSetup() {
+  $('count').textContent = S.count;
+  const wrap = $('players');
+  const keep = [...wrap.querySelectorAll('input')].map(i => i.value);
+  keep.forEach((v, i) => { if (v.trim()) S.names[i] = v.trim(); });
+  wrap.innerHTML = '';
+  for (let i = 0; i < S.count; i++) {
+    const row = Kit.el(`<div class="k-row"><span class="pnum">${i + 1}</span><input class="k-input" id="pn${i}" maxlength="10" aria-label="${i + 1}人目のなまえ"></div>`);
+    row.querySelector('input').value = S.names[i] || NAMES[i];
+    wrap.appendChild(row);
+  }
+  const catItems = Object.entries(CATS).map(([k, c]) => [k, c.name]);
+  if (custom.length) catItems.push(['custom', '⭐ じぶんのお題']);
+  chipGroup($('cats'), catItems, v => S.cats.includes(v), v => {
+    S.cats = S.cats.includes(v) ? S.cats.filter(x => x !== v) : [...S.cats, v];
+  });
+  chipGroup($('times'), [[60,'1分'],[120,'2分'],[180,'3分'],[300,'5分']], v => S.time === v, v => S.time = v);
+  const maxW = S.count >= 6 ? 2 : 1;
+  if (S.wolves > maxW) S.wolves = maxW;
+  chipGroup($('wolves'), [[1,'1人'],[2,'2人（6人以上）']], v => S.wolves === v, v => { if (v <= maxW) S.wolves = v; else Kit.toast('2人ウルフは6人以上のときだけ'); });
+  chipGroup($('comeback'), [[true,'あり'],[false,'なし']], v => S.comeback === v, v => S.comeback = v);
+  $('customCount').textContent = custom.length;
+  const cl = $('customList'); cl.innerHTML = '';
+  custom.forEach((p, i) => {
+    const b = Kit.el(`<button class="k-chip" title="けす">${Kit.esc(p)} ✕</button>`);
+    b.onclick = () => { custom.splice(i, 1); Kit.store.set('wordwolf:custom', custom); if (!custom.length) S.cats = S.cats.filter(c => c !== 'custom'); renderSetup(); };
+    cl.appendChild(b);
+  });
+  renderScores();
+}
+function renderScores() {
+  const names = Object.keys(scores);
+  $('scoreCard').hidden = !names.length;
+  $('scoreTable').innerHTML = names.sort((a, b) => scores[b] - scores[a])
+    .map(n => `<tr><td>${Kit.esc(n)}</td><td class="k-num">${scores[n]} pt</td></tr>`).join('');
+}
+function readNames() {
+  S.names = [...$('players').querySelectorAll('input')].map((i, k) => i.value.trim() || NAMES[k]);
+  const seen = {};
+  return S.names.slice(0, S.count).map(n => { seen[n] = (seen[n] || 0) + 1; return seen[n] > 1 ? `${n}${seen[n]}` : n; });
+}
+$('minus').onclick = () => { if (S.count > 3) { S.count--; Kit.sfx('tap'); renderSetup(); } };
+$('plus').onclick = () => { if (S.count < 8) { S.count++; Kit.sfx('tap'); renderSetup(); } };
+$('cAdd').onclick = () => {
+  const a = $('cA').value.trim().replace(/\//g, ''), b = $('cB').value.trim().replace(/\//g, '');
+  if (!a || !b || a === b) { Kit.toast('ちがう2つのことばを入れてね'); return; }
+  custom.push(`${a}/${b}`); Kit.store.set('wordwolf:custom', custom);
+  if (!S.cats.includes('custom')) S.cats.push('custom');
+  $('cA').value = $('cB').value = ''; Kit.sfx('good'); renderSetup();
+};
+$('resetScore').onclick = async () => {
+  if (await Kit.ask('ポイントを0にもどす？', 'もどす', 'やめる')) { scores = {}; Kit.store.set('wordwolf:scores', scores); renderScores(); }
+};
+
+/* ---------- ラウンド ---------- */
+let usedPairs = new Set();
+function pickPair() {
+  let pool = [];
+  S.cats.forEach(c => { pool = pool.concat(c === 'custom' ? custom : (CATS[c] ? CATS[c].pairs : [])); });
+  if (!pool.length) return null;
+  let fresh = pool.filter(p => !usedPairs.has(p));
+  if (!fresh.length) { usedPairs.clear(); fresh = pool; }
+  const p = Kit.pick(fresh); usedPairs.add(p);
+  const [a, b] = Kit.shuffle(p.split('/'));
+  return { village: a, wolf: b };
+}
+$('start').onclick = () => {
+  const players = readNames();
+  const pair = pickPair();
+  if (!pair) { Kit.toast('お題のジャンルを1つ以上えらんでね'); return; }
+  Kit.store.set('wordwolf:setup', S);
+  const wolfIdx = Kit.shuffle([...players.keys()]).slice(0, S.wolves);
+  G = { players, pair, wolves: new Set(wolfIdx), turn: 0, votes: [], left: S.time, timer: null, paused: false, runoff: null };
+  Kit.sfx('select');
+  dealNext();
+};
+function wordOf(i) { return G.wolves.has(i) ? G.pair.wolf : G.pair.village; }
+function dealNext() {
+  show('deal');
+  $('dealPass').hidden = false; $('dealWord').hidden = true;
+  $('dealName').textContent = G.players[G.turn] + ' さん';
+}
+$('showWord').onclick = () => {
+  Kit.sfx('pop');
+  $('dealPass').hidden = true; $('dealWord').hidden = false;
+  $('dealWho').textContent = G.players[G.turn] + ' さんのお題';
+  $('wordText').innerHTML = ruby(wordOf(G.turn));
+};
+$('memorized').onclick = () => {
+  Kit.sfx('tap');
+  G.turn++;
+  if (G.turn < G.players.length) dealNext(); else startTalk();
+};
+
+/* ---------- はなしあい ---------- */
+function fmt(s) { return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
+function paintClock() {
+  $('clock').textContent = fmt(G.left);
+  $('arc').style.strokeDashoffset = String(100 - (G.left / G.total) * 100);
+  $('arc').style.stroke = G.left <= 10 ? 'var(--berry)' : 'var(--grape)';
+}
+function startTalk(sec) {
+  show('talk');
+  G.left = G.total = sec || S.time; G.paused = false;
+  $('pause').textContent = '⏸ とめる';
+  $('hint').textContent = 'しつもんのヒントを出せるよ';
+  paintClock();
+  clearInterval(G.timer);
+  Kit.keepAwake(true);
+  G.timer = setInterval(() => {
+    if (G.paused) return;
+    G.left--;
+    if (G.left <= 10 && G.left > 0) Kit.sfx('tick');
+    paintClock();
+    if (G.left <= 0) { clearInterval(G.timer); Kit.sfx('alarm'); Kit.vibrate([200, 100, 200]); Kit.toast('時間です！とうひょうしよう'); }
+  }, 1000);
+}
+$('newHint').onclick = () => { Kit.sfx('pop'); $('hint').textContent = Kit.pick(HINTS); };
+$('pause').onclick = () => { G.paused = !G.paused; $('pause').textContent = G.paused ? '▶ つづける' : '⏸ とめる'; };
+$('add30').onclick = () => { G.left += 30; G.total = Math.max(G.total, G.left); paintClock(); };
+$('peek').onclick = () => {
+  const body = Kit.el('<div class="k-stack"></div>');
+  G.players.forEach((n, i) => {
+    const b = Kit.el(`<button class="k-btn">${Kit.esc(n)}</button>`);
+    b.onclick = () => { m.close(); Kit.modal({ title: `${Kit.esc(n)} さんのお題`, body: `<div class="word" style="text-align:center">${ruby(wordOf(i))}</div>`, actions: [{ label: 'とじる', primary: true }] }); };
+    body.appendChild(b);
+  });
+  const m = Kit.modal({ title: 'だれが見る？', body, actions: [{ label: 'やめる' }] });
+};
+$('toVote').onclick = () => { clearInterval(G.timer); Kit.keepAwake(false); startVote(); };
+
+/* ---------- とうひょう ---------- */
+function startVote(candidates) {
+  G.candidates = candidates || [...G.players.keys()];
+  G.votes = []; G.voter = 0;
+  show('vote'); nextVoter();
+}
+function nextVoter() {
+  $('voterName').textContent = G.players[G.voter] + ' さん';
+  const grid = $('voteGrid'); grid.innerHTML = '';
+  G.candidates.filter(i => i !== G.voter).forEach(i => {
+    const b = Kit.el(`<button class="k-btn is-wide">${Kit.esc(G.players[i])}</button>`);
+    b.onclick = () => {
+      Kit.sfx('select');
+      G.votes[G.voter] = i;
+      G.voter++;
+      if (G.voter < G.players.length) {
+        grid.innerHTML = ''; $('voterName').textContent = '…';
+        setTimeout(nextVoter, 250);
+      } else tally();
+    };
+    grid.appendChild(b);
+  });
+}
+function tally() {
+  const count = new Array(G.players.length).fill(0);
+  G.votes.forEach(v => { if (v != null) count[v]++; });
+  const max = Math.max(...count);
+  const top = count.map((c, i) => c === max ? i : -1).filter(i => i >= 0);
+  if (top.length > 1 && !G.runoff) {
+    G.runoff = true;
+    Kit.modal({
+      title: 'おなじ票（ひょう）！',
+      body: `<p>${top.map(i => Kit.esc(G.players[i])).join('、')} さんが同じ票です。<br>30びょう話して、この人たちの中からもう一度えらぼう。</p>`,
+      actions: [{ label: 'けっしょうとうひょう', primary: true, onClick: () => { startTalk(30); G.afterTalk = top; } }],
+      dismissable: false,
+    });
+    $('toVote').onclick = () => { clearInterval(G.timer); Kit.keepAwake(false); startVote(G.afterTalk); $('toVote').onclick = defaultToVote; };
+    return;
+  }
+  const accused = top.length === 1 ? top[0] : null;
+  showResult(accused, count);
+}
+const defaultToVote = $('toVote').onclick;
+
+/* ---------- けっか ---------- */
+function showResult(accused, count) {
+  show('result');
+  const r = $('result');
+  const caught = accused != null && G.wolves.has(accused);
+  const wolvesNames = [...G.wolves].map(i => G.players[i]);
+  r.innerHTML = `<p class="k-label">いちばん票（ひょう）があつまったのは…</p>
+    <div class="reveal-name">${accused == null ? '同じ票で決まらず' : Kit.esc(G.players[accused]) + ' さん'}</div>
+    <p id="drum" class="k-muted">ドキドキ…</p>`;
+  Kit.sfx('tick');
+  setTimeout(() => {
+    if (caught && S.comeback && G.wolves.size === 1) return comeback(accused, count);
+    finish(caught ? 'village' : 'wolf', count);
+  }, 1400);
+  function comeback(w, count) {
+    Kit.sfx('select');
+    r.innerHTML = `<p class="k-label">${Kit.esc(G.players[w])} さんは…</p>
+      <div class="reveal-name">ウルフ！🐺</div>
+      <div class="k-card k-stack" style="box-shadow:none">
+        <h2 style="font-size:1.2rem">逆転チャンス！</h2>
+        <p style="margin:0">ウルフは、みんなのお題が何だったか、声に出して当ててね。<br>みんなで正解か決めよう。</p>
+        <div class="k-row" style="justify-content:center">
+          <button class="k-btn is-grass" id="cbYes">⭕ 当たった</button>
+          <button class="k-btn is-berry" id="cbNo">❌ ちがう</button>
+        </div>
+      </div>`;
+    $('cbYes').onclick = () => finish('wolf-comeback', count);
+    $('cbNo').onclick = () => finish('village', count);
+  }
+  function finish(winner, count) {
+    const villageWin = winner === 'village';
+    G.players.forEach((n, i) => {
+      const isWolf = G.wolves.has(i);
+      const pts = villageWin ? (isWolf ? 0 : 1) : (isWolf ? 3 : 0);
+      scores[n] = (scores[n] || 0) + pts;
+    });
+    Kit.store.set('wordwolf:scores', scores);
+    villageWin ? Kit.sfx('win') : Kit.sfx('boom');
+    Kit.confetti();
+    const title = villageWin ? '村人（むらびと）チームの勝ち！' : winner === 'wolf-comeback' ? 'ウルフの大逆転！' : 'ウルフの勝ち！';
+    r.innerHTML = `<h2 style="font-size:1.8rem">${title}</h2>
+      <div class="k-row" style="justify-content:center;gap:24px">
+        <div><p class="k-label">みんなのお題</p><div class="word" style="font-size:2rem">${ruby(G.pair.village)}</div></div>
+        <div><p class="k-label">ウルフのお題</p><div class="word" style="font-size:2rem;color:var(--grape)">${ruby(G.pair.wolf)}</div></div>
+      </div>
+      <p>ウルフは <b>${wolvesNames.map(Kit.esc).join('、')}</b> さんでした</p>
+      <div class="k-card tally" style="box-shadow:none;width:100%;text-align:left">
+        ${G.players.map((n, i) => `<div><span>${Kit.esc(n)}${G.wolves.has(i) ? '<span class="wolf-tag">ウルフ</span>' : ''} → ${G.votes[i] != null ? Kit.esc(G.players[G.votes[i]]) : '-'}</span><b class="k-num">${count[i]}票</b></div>`).join('')}
+      </div>
+      <div class="k-row" style="justify-content:center">
+        <button class="k-btn is-sun is-big" id="again">つぎのラウンド</button>
+        <button class="k-btn" id="back">せっていにもどる</button>
+      </div>`;
+    $('again').onclick = () => { $('toVote').onclick = defaultToVote; $('start').click(); };
+    $('back').onclick = () => { $('toVote').onclick = defaultToVote; show('setup'); renderSetup(); };
+  }
+}
+
+Kit.bar({ id: 'wordwolf', title: '🐺 ワードウルフ', help: `
+  <ol>
+    <li>スマホをじゅんばんにわたして、ひとりずつお題を見ます。</li>
+    <li>ひとり（または2人）だけ、ちょっとちがうお題（ウルフ）がまざっています。自分がウルフかどうかはわかりません。</li>
+    <li>お題のことばを言わないように、お題について話しあいます。こまったら「ヒント」ボタン。</li>
+    <li>時間になったら、ウルフだと思う人にとうひょう。同じ票なら、けっしょうとうひょうをします。</li>
+    <li>ウルフを見つけたら村人の勝ち（1ポイント）。ウルフがにげきったり、逆転したらウルフの勝ち（3ポイント）。</li>
+  </ol>` });
+renderSetup();
+</script>
+</body>
+</html>

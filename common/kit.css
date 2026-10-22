@@ -1,0 +1,147 @@
+/* あそびばこ 共通スタイル
+   ステッカー風：太いふちどり＋ずらした影。どのゲームもこのトークンから色をとる */
+:root {
+  --paper: #fff6dc;
+  --card: #ffffff;
+  --ink: #2a2238;
+  --muted: #6b6178;
+  --line: #2a2238;
+  --sun: #ffc93c;
+  --sky: #4cb8ff;
+  --grass: #4fcf7a;
+  --berry: #ff5d8f;
+  --grape: #9b6bff;
+  --orange: #ff8a3d;
+  --soft: #f3ead2;
+  --on-color: #2a2238;
+  --font: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "BIZ UDPGothic", "Meiryo", system-ui, sans-serif;
+  --display: "Dela Gothic One", "Zen Maru Gothic", "Hiragino Maru Gothic ProN", system-ui, sans-serif;
+  --r: 18px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #1d1b2a; --card: #2a2740; --ink: #f6f1ff; --muted: #b5abc8; --line: #0b0a12;
+    --soft: #35314f; --on-color: #1d1b2a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #1d1b2a; --card: #2a2740; --ink: #f6f1ff; --muted: #b5abc8; --line: #0b0a12;
+  --soft: #35314f; --on-color: #1d1b2a; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+h1, h2, h3 { font-family: var(--display); font-weight: 400; line-height: 1.25; text-wrap: balance; margin: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+ruby rt { font-size: .55em; }
+
+/* 上のバー */
+.kbar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  display: flex; align-items: center; gap: 8px;
+  padding-block: 8px;
+  padding-left: max(12px, env(safe-area-inset-left, 0px));
+  padding-right: max(12px, env(safe-area-inset-right, 0px));
+  background: var(--paper);
+  border-bottom: 3px solid var(--line);
+}
+.kbar h1 { font-size: 1.15rem; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kbar .k-icon { flex: none; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--paper); }
+
+/* ボタン */
+.k-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .4em;
+  min-height: 52px; padding: 10px 22px;
+  border: 3px solid var(--line); border-radius: var(--r);
+  background: var(--card); color: var(--ink);
+  box-shadow: 0 5px 0 var(--line);
+  font-weight: 700; font-size: 1.05rem; line-height: 1.2;
+  cursor: pointer; user-select: none; touch-action: manipulation;
+  transition: transform .06s, box-shadow .06s;
+  text-decoration: none;
+}
+.k-btn:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 1px 0 var(--line); }
+.k-btn:disabled { opacity: .45; cursor: not-allowed; }
+.k-btn.is-sun { background: var(--sun); color: var(--on-color); }
+.k-btn.is-sky { background: var(--sky); color: var(--on-color); }
+.k-btn.is-grass { background: var(--grass); color: var(--on-color); }
+.k-btn.is-berry { background: var(--berry); color: var(--on-color); }
+.k-btn.is-grape { background: var(--grape); color: #fff; }
+.k-btn.is-orange { background: var(--orange); color: var(--on-color); }
+.k-btn.is-big { min-height: 64px; font-size: 1.3rem; padding: 12px 30px; }
+.k-btn.is-small { min-height: 40px; padding: 6px 14px; font-size: .95rem; box-shadow: 0 3px 0 var(--line); }
+.k-btn.is-wide { width: 100%; }
+.k-icon {
+  width: 44px; height: 44px; min-height: 0; padding: 0; font-size: 1.3rem;
+  border-radius: 14px; box-shadow: 0 3px 0 var(--line);
+}
+
+/* 選択チップ */
+.k-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.k-chip {
+  min-height: 44px; padding: 6px 16px; border: 3px solid var(--line); border-radius: 999px;
+  background: var(--card); font-weight: 700; cursor: pointer; touch-action: manipulation;
+}
+.k-chip[aria-pressed="true"] { background: var(--sun); color: var(--on-color); }
+
+/* カード・パネル */
+.k-card { background: var(--card); border: 3px solid var(--line); border-radius: var(--r); box-shadow: 0 6px 0 var(--line); padding: 18px; }
+.k-wrap {
+  max-width: 760px; margin: 0 auto;
+  padding-block: 18px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 18px;
+}
+.k-stack { display: grid; gap: 12px; }
+.k-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.k-center { text-align: center; justify-items: center; }
+.k-label { font-size: .85rem; font-weight: 700; color: var(--muted); letter-spacing: .05em; }
+.k-muted { color: var(--muted); }
+.k-input {
+  min-height: 48px; padding: 8px 14px; width: 100%;
+  border: 3px solid var(--line); border-radius: 14px; background: var(--card);
+}
+.k-num { font-variant-numeric: tabular-nums; }
+
+/* モーダル */
+.k-modal-back {
+  position: fixed; inset: 0; z-index: 100; display: grid; place-items: center;
+  background: rgba(20, 16, 30, .55); padding: 16px; animation: k-fade .15s;
+}
+.k-modal {
+  width: min(520px, 100%); max-height: 88vh; overflow: auto;
+  background: var(--card); border: 3px solid var(--line); border-radius: 22px; box-shadow: 0 8px 0 var(--line);
+  padding: 22px; display: grid; gap: 14px; animation: k-pop .2s;
+}
+.k-modal h2 { font-size: 1.4rem; }
+.k-modal .k-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+.k-toast {
+  position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  z-index: 120; background: var(--ink); color: var(--paper); padding: 10px 20px; border-radius: 999px;
+  font-weight: 700; animation: k-pop .2s; max-width: calc(100% - 32px); text-align: center;
+}
+.k-confetti { position: fixed; inset: 0; pointer-events: none; z-index: 110; }
+
+@keyframes k-fade { from { opacity: 0 } }
+@keyframes k-pop { from { transform: scale(.85); opacity: 0 } }
+@keyframes k-shake { 20%, 60% { transform: translateX(-6px) } 40%, 80% { transform: translateX(6px) } }
+.k-shake { animation: k-shake .3s; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

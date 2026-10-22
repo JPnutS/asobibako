@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>推し活ノート</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  :root { --oshi: #ff5d8f; }
+  .k-wrap { max-width: 640px; }
+  .hero { display: flex; gap: 14px; align-items: center; background: var(--oshi); border: 3px solid var(--line); border-radius: 22px; box-shadow: 0 6px 0 var(--line); padding: 14px; color: #fff; }
+  .avatar { width: 84px; height: 84px; border-radius: 50%; border: 4px solid #fff; background: rgba(255,255,255,.3) center / cover; flex: none; display: grid; place-items: center; font-size: 2.2rem; cursor: pointer; padding: 0; }
+  .hero h2 { font-size: 1.5rem; text-shadow: 0 2px 0 rgba(0,0,0,.25); word-break: break-all; }
+  .hero p { margin: 0; font-weight: 700; opacity: .95; }
+  .oshis { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+  .oshis .k-chip { flex: none; display: flex; align-items: center; gap: 6px; }
+  .dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); display: inline-block; }
+  .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .tabs .k-chip { padding: 6px 2px; font-size: .8rem; white-space: nowrap; border-radius: 14px; }
+  .tabs .k-chip[aria-pressed="true"] { background: var(--oshi); color: #fff; }
+  .big { font-family: var(--display); font-size: clamp(2.6rem, 13vw, 4rem); line-height: 1.1; color: var(--oshi); }
+  .cd { display: flex; gap: 8px; justify-content: center; }
+  .cd div { background: var(--soft); border-radius: 14px; padding: 6px 12px; text-align: center; min-width: 70px; }
+  .cd b { display: block; font-family: var(--display); font-size: 1.8rem; }
+  .ev { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 2px dashed var(--soft); }
+  .ev .when { font-weight: 900; color: var(--oshi); min-width: 5.5em; text-align: right; }
+  .ev .t { flex: 1; min-width: 0; word-break: break-all; }
+  .bar { height: 22px; border: 3px solid var(--line); border-radius: 99px; background: var(--soft); overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--oshi); width: 0; transition: width .4s; }
+  .hist div { display: flex; gap: 8px; padding: 6px 0; border-bottom: 2px dashed var(--soft); font-size: .92rem; }
+  .hist .amt { margin-left: auto; font-weight: 900; font-variant-numeric: tabular-nums; }
+  .memo { border: 3px solid var(--line); border-radius: 16px; padding: 10px 12px; background: var(--card); display: grid; gap: 4px; }
+  .memo .meta { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: .82rem; font-weight: 700; }
+  .memo p { margin: 0; white-space: pre-wrap; word-break: break-word; }
+  .chat { display: grid; gap: 8px; max-height: 50vh; overflow-y: auto; padding: 4px; }
+  .msg { display: flex; gap: 8px; align-items: flex-end; }
+  .msg.me { flex-direction: row-reverse; }
+  .msg .bub { max-width: 75%; padding: 8px 12px; border-radius: 16px; border: 3px solid var(--line); background: var(--card); white-space: pre-wrap; word-break: break-word; }
+  .msg.me .bub { background: var(--oshi); color: #fff; }
+  .msg .av { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--line); background: var(--soft) center / cover; flex: none; display: grid; place-items: center; font-size: 1rem; }
+  .moods { display: flex; gap: 6px; flex-wrap: wrap; }
+  .moods button { font-size: 1.4rem; width: 44px; height: 44px; border-radius: 12px; border: 3px solid var(--line); background: var(--card); padding: 0; }
+  .moods button[aria-pressed="true"] { background: var(--sun); }
+  .colors { display: flex; gap: 8px; flex-wrap: wrap; }
+  .colors button { width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--line); padding: 0; }
+  .colors button[aria-pressed="true"] { outline: 4px solid var(--sun); outline-offset: 2px; }
+  .ex { font-size: .75rem; background: var(--sun); color: #2a2238; border-radius: 99px; padding: 1px 8px; font-weight: 900; }
+</style>
+</head>
+<body>
+<main class="k-wrap">
+  <div class="oshis" id="oshis"></div>
+  <section class="hero">
+    <button class="avatar" id="avatar" aria-label="アイコンをかえる"></button>
+    <div style="min-width:0">
+      <h2 id="heroName"></h2>
+      <p id="heroSub"></p>
+    </div>
+    <input type="file" id="iconFile" accept="image/*" hidden>
+  </section>
+  <div class="tabs" id="tabs"></div>
+  <section id="view" class="k-stack"></section>
+</main>
+
+<script src="../../common/kit.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const E = Kit.esc;
+const COLORS = ['#ff5d8f', '#e0245e', '#ff8a3d', '#f2b705', '#2fb862', '#18a3a3', '#3d8bff', '#1e3a8a', '#9b6bff', '#8a5a35', '#555555', '#b0b0b0'];
+const MOODS = ['😍', '🥹', '🎉', '😭', '🔥', '✨', '🙏', '💤'];
+const today = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
+const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+function example() {
+  const d = today(); d.setDate(d.getDate() + 20);
+  const b = today(); b.setMonth(b.getMonth() + 2);
+  return { cur: 0, tab: 'count', oshis: [{
+    id: uid(), name: '推しさん', color: '#ff5d8f', icon: '', birthday: iso(b).slice(5), example: true,
+    events: [{ id: uid(), title: 'ライブ（れい）', at: iso(d) + 'T18:00' }],
+    savings: { goal: 10000, log: [{ id: uid(), at: Date.now(), amt: 1500, note: 'おこづかいから（れい）' }] },
+    memos: [{ id: uid(), at: Date.now(), mood: '😍', text: 'ここに推し活のきろくを書けるよ（れいです。けしてOK）' }],
+    chat: [],
+  }] };
+}
+let D = Kit.store.get('oshi:data', null) || example();
+const save = () => { if (!Kit.store.set('oshi:data', D)) Kit.toast('保存できませんでした（容量がいっぱいかも）', 3000); };
+const O = () => D.oshis[D.cur] || D.oshis[0];
+
+/* ---------- 上の部分 ---------- */
+function render() {
+  const o = O();
+  document.documentElement.style.setProperty('--oshi', o.color);
+  $('oshis').innerHTML = D.oshis.map((x, i) => `<button class="k-chip" data-i="${i}" aria-pressed="${i === D.cur}"><span class="dot" style="background:${x.color}"></span>${E(x.name)}</button>`).join('') +
+    `<button class="k-chip" data-add="1">＋ 推しをふやす</button>`;
+  const av = $('avatar');
+  av.style.backgroundImage = o.icon ? `url(${o.icon})` : ''; av.textContent = o.icon ? '' : '📷';
+  $('heroName').innerHTML = `${E(o.name)} ${o.example ? '<span class="ex">れい</span>' : ''}`;
+  const bd = o.birthday ? daysToBirthday(o.birthday) : null;
+  $('heroSub').textContent = bd == null ? 'たんじょうびを「せってい」で入れてね' : bd === 0 ? '🎂 今日はおたんじょうび！' : `🎂 おたんじょうびまで あと ${bd}日`;
+  $('tabs').innerHTML = [['count', '⏳ カウント'], ['money', '💰 推し貯金'], ['memo', '📝 きろく'], ['chat', '💬 おはなし']].map(([k, l]) => `<button class="k-chip" data-t="${k}" aria-pressed="${D.tab === k}">${l}</button>`).join('') ;
+  $('tabs').insertAdjacentHTML('beforeend', '');
+  renderView();
+}
+$('oshis').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.add) { D.oshis.push({ id: uid(), name: `推し${D.oshis.length + 1}`, color: Kit.pick(COLORS), icon: '', birthday: '', events: [], savings: { goal: 0, log: [] }, memos: [], chat: [] }); D.cur = D.oshis.length - 1; D.tab = 'settings'; }
+  else D.cur = +b.dataset.i;
+  Kit.sfx('select'); save(); render();
+};
+$('tabs').onclick = e => { const b = e.target.closest('button'); if (!b) return; D.tab = b.dataset.t; Kit.sfx('tap'); save(); render(); };
+$('avatar').onclick = () => $('iconFile').click();
+$('iconFile').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const img = new Image();
+  img.onload = () => {
+    const s = 256, c = document.createElement('canvas'); c.width = c.height = s;
+    const k = Math.max(s / img.width, s / img.height), w = img.width * k, h = img.height * k;
+    c.getContext('2d').drawImage(img, (s - w) / 2, (s - h) / 2, w, h);
+    O().icon = c.toDataURL('image/jpeg', 0.85); save(); render(); URL.revokeObjectURL(img.src);
+  };
+  img.src = URL.createObjectURL(f); e.target.value = '';
+};
+function daysToBirthday(mmdd) {
+  const [m, d] = mmdd.split('-').map(Number); if (!m || !d) return null;
+  const t = today(); let b = new Date(t.getFullYear(), m - 1, d);
+  if (b < t) b = new Date(t.getFullYear() + 1, m - 1, d);
+  return Math.round((b - t) / 86400000);
+}
+
+/* ---------- タブの中身 ---------- */
+let cdTimer = null;
+function renderView() {
+  clearInterval(cdTimer);
+  const v = $('view'), o = O();
+  ({ count: viewCount, money: viewMoney, memo: viewMemo, chat: viewChat, settings: viewSettings })[D.tab](v, o);
+  if (D.tab !== 'settings') v.insertAdjacentHTML('beforeend', '<button class="k-btn is-small" id="toSettings" style="justify-self:start">⚙️ せってい・バックアップ</button>');
+  const ts = $('toSettings'); if (ts) ts.onclick = () => { D.tab = 'settings'; render(); };
+}
+function upcoming(o) {
+  const now = Date.now(), list = o.events.map(e => ({ ...e, t: new Date(e.at).getTime() }));
+  if (o.birthday) { const n = daysToBirthday(o.birthday); if (n != null) { const d = today(); d.setDate(d.getDate() + n); list.push({ id: 'bd', title: `🎂 ${o.name}のおたんじょうび`, t: d.getTime(), bd: true }); } }
+  return list.filter(e => e.t + 86400000 > now).sort((a, b) => a.t - b.t);
+}
+function viewCount(v, o) {
+  const list = upcoming(o), next = list[0];
+  v.innerHTML = `<div class="k-card k-stack k-center">
+      ${next ? `<p class="k-label" style="margin:0">つぎのイベント</p><h2>${E(next.title)}</h2><div class="cd" id="cd"></div>
+        <p class="k-muted" style="margin:0">${new Date(next.t).toLocaleString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short', hour: next.bd ? undefined : '2-digit', minute: next.bd ? undefined : '2-digit' })}</p>`
+        : '<p style="margin:0">イベントを下から入れてね</p>'}
+    </div>
+    <div class="k-card k-stack">
+      <h2 style="font-size:1.15rem">イベント</h2>
+      <div>${list.map(e => `<div class="ev"><span class="when">あと${Math.max(0, Math.ceil((e.t - Date.now()) / 86400000))}日</span><span class="t">${E(e.title)}<br><small class="k-muted">${new Date(e.t).toLocaleDateString('ja-JP')}</small></span>${e.bd ? '' : `<button class="k-btn is-small" data-del="${e.id}" aria-label="けす">🗑</button>`}</div>`).join('') || '<p class="k-muted">まだありません</p>'}</div>
+      <input class="k-input" id="evTitle" placeholder="イベントのなまえ（れい：ライブ、はつばいび）" maxlength="40">
+      <div class="k-row"><input class="k-input" type="datetime-local" id="evAt" style="flex:1;min-width:200px"><button class="k-btn is-sun" id="evAdd">ついか</button></div>
+    </div>`;
+  v.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { if (await Kit.ask('このイベントをけす？', 'けす', 'やめる')) { o.events = o.events.filter(e => e.id !== b.dataset.del); save(); render(); } });
+  $('evAdd').onclick = () => {
+    const title = $('evTitle').value.trim(), at = $('evAt').value;
+    if (!title || !at) { Kit.toast('なまえと日にちを入れてね'); return; }
+    o.events.push({ id: uid(), title, at }); o.example = false; save(); Kit.sfx('good'); render();
+  };
+  if (next) {
+    const tick = () => {
+      const ms = Math.max(0, next.t - Date.now());
+      const d = Math.floor(ms / 86400000), h = Math.floor(ms / 3600000) % 24, m = Math.floor(ms / 60000) % 60, s = Math.floor(ms / 1000) % 60;
+      const cd = $('cd'); if (!cd) return;
+      cd.innerHTML = ms === 0 ? '<div><b>きょう！</b></div>' : [[d, '日'], [h, '時間'], [m, '分'], [s, '秒']].map(([n, l]) => `<div><b class="k-num">${n}</b>${l}</div>`).join('');
+    };
+    tick(); cdTimer = setInterval(tick, 1000);
+  }
+}
+function viewMoney(v, o) {
+  const s = o.savings, total = s.log.reduce((a, x) => a + x.amt, 0);
+  const pct = s.goal ? Math.min(100, Math.round(total / s.goal * 100)) : 0;
+  v.innerHTML = `<div class="k-card k-stack k-center">
+      <p class="k-label" style="margin:0">いまの推し貯金</p>
+      <div class="big k-num">¥${total.toLocaleString()}</div>
+      ${s.goal ? `<div class="bar" style="width:100%"><i style="width:${pct}%"></i></div><p style="margin:0;font-weight:900">もくひょう ¥${s.goal.toLocaleString()} の ${pct}%${total >= s.goal ? ' 🎉 たっせい！' : `（あと ¥${(s.goal - total).toLocaleString()}）`}</p>` : ''}
+    </div>
+    <div class="k-card k-stack">
+      <div class="k-row"><input class="k-input" type="number" inputmode="numeric" id="amt" placeholder="金がく" style="flex:1;min-width:120px"><input class="k-input" id="note" placeholder="メモ（れい：おてつだい）" maxlength="30" style="flex:2;min-width:160px"></div>
+      <div class="k-row"><button class="k-btn is-sun" id="dep">＋ ちょきん</button><button class="k-btn" id="use">－ つかった</button></div>
+      <div class="k-row"><span class="k-label">もくひょう</span><input class="k-input" type="number" inputmode="numeric" id="goal" value="${s.goal || ''}" placeholder="れい：12000" style="flex:1;min-width:120px"><button class="k-btn is-small" id="setGoal">きめる</button></div>
+    </div>
+    <div class="k-card hist"><h2 style="font-size:1.1rem">りれき</h2>${s.log.slice().reverse().map(x => `<div><span>${new Date(x.at).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}</span><span>${E(x.note || '')}</span><span class="amt" style="color:${x.amt < 0 ? 'var(--berry)' : 'inherit'}">${x.amt < 0 ? '−' : '+'}¥${Math.abs(x.amt).toLocaleString()}</span><button class="k-btn is-small" data-del="${x.id}" aria-label="けす" style="min-height:30px;padding:0 8px">✕</button></div>`).join('') || '<p class="k-muted">まだありません</p>'}</div>`;
+  const add = sign => {
+    const n = Math.round(Number($('amt').value));
+    if (!n || n <= 0) { Kit.toast('金がくを入れてね'); return; }
+    s.log.push({ id: uid(), at: Date.now(), amt: n * sign, note: $('note').value.trim() }); o.example = false;
+    save(); Kit.sfx(sign > 0 ? 'coin' : 'tap');
+    const after = s.log.reduce((a, x) => a + x.amt, 0);
+    if (sign > 0 && s.goal && after >= s.goal && after - n < s.goal) { Kit.confetti(); Kit.sfx('win'); }
+    render();
+  };
+  $('dep').onclick = () => add(1); $('use').onclick = () => add(-1);
+  $('setGoal').onclick = () => { s.goal = Math.max(0, Math.round(Number($('goal').value) || 0)); save(); render(); };
+  v.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { if (await Kit.ask('このりれきをけす？', 'けす', 'やめる')) { s.log = s.log.filter(x => x.id !== b.dataset.del); save(); render(); } });
+}
+let mood = '😍', editing = null;
+function viewMemo(v, o) {
+  v.innerHTML = `<div class="k-card k-stack">
+      <div class="moods" id="moods">${MOODS.map(m => `<button aria-pressed="${m === mood}">${m}</button>`).join('')}</div>
+      <textarea class="k-input" id="memoText" rows="3" placeholder="今日の推し活、うれしかったこと、がんばったこと…"></textarea>
+      <button class="k-btn is-sun" id="memoAdd">${editing ? 'なおす' : 'きろくする'}</button>
+    </div>
+    <div class="k-stack" id="memos">${o.memos.slice().reverse().map(x => `<div class="memo"><div class="meta"><span>${x.mood || ''} ${new Date(x.at).toLocaleString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span><span><button class="k-btn is-small" data-ed="${x.id}" style="min-height:30px;padding:0 10px">なおす</button> <button class="k-btn is-small" data-del="${x.id}" style="min-height:30px;padding:0 10px">けす</button></span></div><p>${E(x.text)}</p></div>`).join('') || '<p class="k-muted">まだきろくがありません</p>'}</div>`;
+  if (editing) { const m = o.memos.find(x => x.id === editing); if (m) $('memoText').value = m.text; }
+  $('moods').onclick = e => { const b = e.target.closest('button'); if (!b) return; mood = b.textContent; Kit.sfx('tap'); [...$('moods').children].forEach(x => x.setAttribute('aria-pressed', x === b)); };
+  $('memoAdd').onclick = () => {
+    const t = $('memoText').value.trim(); if (!t) { Kit.toast('なにか書いてね'); return; }
+    if (editing) { const m = o.memos.find(x => x.id === editing); if (m) { m.text = t; m.mood = mood; } editing = null; }
+    else o.memos.push({ id: uid(), at: Date.now(), mood, text: t });
+    o.example = false; save(); Kit.sfx('good'); render();
+  };
+  v.querySelectorAll('[data-ed]').forEach(b => b.onclick = () => { editing = b.dataset.ed; const m = o.memos.find(x => x.id === editing); if (m) mood = m.mood || mood; render(); $('memoText').focus(); });
+  v.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { if (await Kit.ask('このきろくをけす？', 'けす', 'やめる')) { o.memos = o.memos.filter(x => x.id !== b.dataset.del); save(); render(); } });
+}
+
+/* おはなし：ことばにあわせて、推しっぽくへんじする（AIではなく、きめたへんじ） */
+const REPLIES = [
+  [/おはよ/, ['おはよう！今日も一日いっしょにがんばろうね☀️', 'おはよ〜！ねぐせついてない？笑']],
+  [/おやすみ|ねる|寝る/, ['おやすみ！いいゆめ見てね🌙', '今日もおつかれさま。ゆっくりやすんでね']],
+  [/テスト|しけん|試験|べんきょう|勉強|しゅくだい|宿題/, ['{name}はおうえんしてるよ！ファイト📚', 'がんばってるの、ちゃんと知ってるよ。おわったらごほうびだね！']],
+  [/つかれ|疲れ|しんど|かなし|悲し|つらい/, ['きょうはたくさんがんばったんだね。えらいよ', 'むりしないでね。{name}はいつでもここにいるよ']],
+  [/すき|好き|だいすき|大好き/, ['ありがとう！こっちもだいすきだよ💖', 'えっ…てれる…！うれしい！']],
+  [/ライブ|コンサート|イベント/, ['会えるのたのしみだね！{event}', 'ペンライトのじゅんびはOK？✨']],
+  [/ちょきん|貯金|おこづかい/, ['推し貯金えらい！いま¥{money}だね💰', 'コツコツがいちばん。いっしょにがんばろう！']],
+  [/おめでと|たんじょうび|誕生日/, ['ありがとう！お祝いしてくれてうれしい🎂', '{bd}']],
+];
+const GENERIC = ['うんうん、それで？', 'そうなんだ！もっと聞かせて〜', 'いいね！それすごくわかる', 'えらい！今日もがんばったね', 'メッセージありがとう！元気でた✨', 'わらっちゃった😂'];
+function reply(text, o) {
+  const pickIt = list => Kit.pick(list);
+  let r = null;
+  for (const [re, list] of REPLIES) if (re.test(text)) { r = pickIt(list); break; }
+  if (!r) { const h = new Date().getHours(); r = h < 5 ? 'まだおきてるの？はやくねてね🌙' : pickIt(GENERIC); }
+  const next = upcoming(o).find(e => !e.bd);
+  const bd = o.birthday ? daysToBirthday(o.birthday) : null;
+  return r.replace('{name}', o.name)
+    .replace('{event}', next ? `「${next.title}」まであと${Math.ceil((next.t - Date.now()) / 86400000)}日！` : '')
+    .replace('{money}', o.savings.log.reduce((a, x) => a + x.amt, 0).toLocaleString())
+    .replace('{bd}', bd != null ? `おたんじょうびまで、あと${bd}日だよ！` : 'いつもありがとう！');
+}
+function viewChat(v, o) {
+  const av = o.icon ? `style="background-image:url(${o.icon})"` : '';
+  v.innerHTML = `<div class="k-card k-stack">
+      <div class="chat" id="chat">${o.chat.map(m => `<div class="msg ${m.me ? 'me' : ''}">${m.me ? '' : `<span class="av" ${av}>${o.icon ? '' : '💖'}</span>`}<div class="bub">${E(m.t)}</div></div>`).join('') || `<p class="k-muted" style="margin:0">${E(o.name)}に話しかけてみよう（きまったへんじが返ってくるよ）</p>`}</div>
+      <div class="k-row" style="flex-wrap:nowrap"><input class="k-input" id="say" placeholder="メッセージ" maxlength="120"><button class="k-btn is-sun" id="send">送る</button></div>
+      <button class="k-btn is-small" id="clearChat" style="justify-self:start">りれきをけす</button>
+    </div>`;
+  const chat = $('chat'); chat.scrollTop = chat.scrollHeight;
+  const send = () => {
+    const t = $('say').value.trim(); if (!t) return;
+    o.chat.push({ me: 1, t }); $('say').value = ''; Kit.sfx('pop'); save(); renderView(); $('say').focus();
+    setTimeout(() => { o.chat.push({ me: 0, t: reply(t, o) }); o.chat = o.chat.slice(-100); save(); if (D.tab === 'chat') { renderView(); $('say').focus(); } Kit.sfx('select'); }, 700 + Math.random() * 600);
+  };
+  $('send').onclick = send;
+  $('say').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) send(); });
+  $('clearChat').onclick = async () => { if (await Kit.ask('おはなしのりれきをけす？', 'けす', 'やめる')) { o.chat = []; save(); render(); } };
+}
+function viewSettings(v, o) {
+  v.innerHTML = `<div class="k-card k-stack">
+      <h2 style="font-size:1.15rem">推しのプロフィール</h2>
+      <span class="k-label">なまえ</span><input class="k-input" id="sName" maxlength="20" value="${E(o.name)}">
+      <span class="k-label">たんじょうび</span>
+      <div class="k-row"><select class="k-input" id="sM" style="width:auto">${['', ...Array.from({ length: 12 }, (_, i) => i + 1)].map(m => `<option value="${m}">${m ? m + '月' : '−'}</option>`).join('')}</select>
+      <select class="k-input" id="sD" style="width:auto">${['', ...Array.from({ length: 31 }, (_, i) => i + 1)].map(d => `<option value="${d}">${d ? d + '日' : '−'}</option>`).join('')}</select></div>
+      <span class="k-label">メンバーカラー</span>
+      <div class="colors" id="sColors">${COLORS.map(c => `<button style="background:${c}" data-c="${c}" aria-pressed="${c === o.color}" aria-label="${c}"></button>`).join('')}</div>
+      <div class="k-row"><button class="k-btn is-sun" id="sSave">保存</button><button class="k-btn" id="sBack">もどる</button></div>
+    </div>
+    <div class="k-card k-stack">
+      <h2 style="font-size:1.15rem">バックアップ</h2>
+      <p class="k-muted" style="margin:0">データはこのたんまつの中だけにあります。機種をかえるときは、ファイルに書き出して、あたらしい機種で読みこんでね。</p>
+      <div class="k-row"><button class="k-btn is-small is-grass" id="exp">書き出す</button><label class="k-btn is-small">読みこむ<input type="file" id="imp" accept="application/json" hidden></label></div>
+    </div>
+    <div class="k-card k-stack">
+      <button class="k-btn is-small" id="sDel" style="justify-self:start">🗑 この推しのデータをけす</button>
+    </div>`;
+  const [m, d] = (o.birthday || '-').split('-');
+  $('sM').value = m ? String(+m) : ''; $('sD').value = d ? String(+d) : '';
+  let color = o.color;
+  $('sColors').onclick = e => { const b = e.target.closest('button'); if (!b) return; color = b.dataset.c; [...$('sColors').children].forEach(x => x.setAttribute('aria-pressed', x === b)); document.documentElement.style.setProperty('--oshi', color); };
+  $('sSave').onclick = () => {
+    o.name = $('sName').value.trim() || o.name; o.color = color;
+    const mm = $('sM').value, dd = $('sD').value;
+    o.birthday = mm && dd ? `${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}` : '';
+    o.example = false; D.tab = 'count'; save(); Kit.sfx('good'); Kit.toast('保存しました'); render();
+  };
+  $('sBack').onclick = () => { D.tab = 'count'; render(); };
+  $('exp').onclick = () => {
+    const blob = new Blob([JSON.stringify(D)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `oshi-note-${iso(new Date())}.json`;
+    document.body.appendChild(a); a.click(); a.remove(); Kit.toast('書き出しました');
+  };
+  $('imp').onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    try {
+      const data = JSON.parse(await f.text());
+      if (!data || !Array.isArray(data.oshis) || !data.oshis.length) throw new Error('bad');
+      if (!(await Kit.ask('いまのデータを、このファイルの中身でおきかえる？', 'おきかえる', 'やめる'))) return;
+      D = data; D.cur = 0; D.tab = 'count'; save(); render(); Kit.toast('読みこみました');
+    } catch (err) { Kit.toast('読みこめませんでした（推し活ノートのファイルをえらんでね）', 3000); }
+  };
+  $('sDel').onclick = async () => {
+    if (!(await Kit.ask(`${o.name}のデータをぜんぶけす？もどせません。`, 'けす', 'やめる'))) return;
+    D.oshis.splice(D.cur, 1);
+    if (!D.oshis.length) D = example();
+    D.cur = 0; D.tab = 'count'; save(); render();
+  };
+}
+
+Kit.bar({ id: 'oshi', title: '💖 推し活ノート', help: `
+  <p><b>カウント</b>：ライブやはつばいびまでのカウントダウン。たんじょうびも自動で入ります。</p>
+  <p><b>推し貯金</b>：もくひょうをきめて、ちょきんとつかったお金をきろく。</p>
+  <p><b>きろく</b>：推し活の日記。気分スタンプつき。</p>
+  <p><b>おはなし</b>：推しに話しかけると、ことばにあわせたへんじがきます（きまった文で、AIではありません）。</p>
+  <p>推しは何人でもふやせます。メンバーカラーで画面の色がかわるよ。</p>` });
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ドット＆ボックス</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  .slots { display: grid; gap: 10px; }
+  .slot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .mark { width: 40px; height: 40px; border-radius: 12px; border: 3px solid var(--line); display: grid; place-items: center; font-weight: 900; color: #fff; flex: none; }
+  .scores { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .sc { display: flex; align-items: center; gap: 8px; padding: 4px 14px 4px 4px; border: 3px solid var(--line); border-radius: 999px; background: var(--card); font-weight: 900; opacity: .6; }
+  .sc.now { opacity: 1; transform: scale(1.06); box-shadow: 0 4px 0 var(--line); }
+  .sc .mark { width: 32px; height: 32px; border-radius: 50%; font-size: .9rem; }
+  .sc b { font-size: 1.2rem; }
+  .boardWrap { display: grid; place-items: center; }
+  svg.board { width: min(100%, 620px, calc(100dvh - 300px)); height: auto; touch-action: manipulation; user-select: none; }
+  .hit { fill: transparent; cursor: pointer; }
+  .ln { stroke: var(--soft); stroke-width: 7; stroke-linecap: round; pointer-events: none; }
+  .dot, .box { pointer-events: none; }
+  .hit:hover + .ln { stroke: var(--muted); }
+  .ln.on { stroke-width: 10; }
+  .ln.last { animation: blink .8s 2; }
+  @keyframes blink { 50% { stroke-width: 16; } }
+  .dot { fill: var(--ink); }
+  .box { opacity: .85; }
+  .box-t { font-family: var(--display); font-size: 40px; fill: #fff; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+  .msg { text-align: center; font-weight: 900; min-height: 1.6em; }
+  .dice { display: flex; align-items: center; justify-content: center; gap: 12px; }
+  .die { width: 54px; height: 54px; border-radius: 14px; border: 3px solid var(--line); background: var(--card); display: grid; place-items: center; font-family: var(--display); font-size: 1.8rem; box-shadow: 0 4px 0 var(--line); }
+  .die.roll { animation: roll .5s; }
+  @keyframes roll { 50% { transform: rotate(180deg) scale(1.2); } }
+</style>
+</head>
+<body>
+<main class="k-wrap">
+  <section id="menu" class="k-stack">
+    <div class="k-card k-stack">
+      <h2>だれがあそぶ？</h2>
+      <div class="slots" id="slots"></div>
+    </div>
+    <div class="k-card k-stack">
+      <h2>ルール</h2>
+      <span class="k-label">ばんの大きさ（はこの数）</span>
+      <div class="k-chips" id="optSize"></div>
+      <span class="k-label">あそびかた</span>
+      <div class="k-chips" id="optRule"></div>
+      <p class="k-muted" id="ruleNote" style="margin:0"></p>
+    </div>
+    <button class="k-btn is-sun is-big" id="go">スタート</button>
+  </section>
+
+  <section id="game" class="k-stack" hidden>
+    <div class="scores" id="scores"></div>
+    <div class="dice" id="diceRow" hidden>
+      <div class="die" id="die">?</div>
+      <button class="k-btn is-grape" id="roll">サイコロをふる</button>
+      <span class="k-num" id="movesLeft"></span>
+    </div>
+    <div class="msg" id="msg" aria-live="polite"></div>
+    <div class="boardWrap"><svg class="board" id="board"></svg></div>
+    <div class="k-row" style="justify-content:center">
+      <button class="k-btn is-small is-sky" id="again">もう一回</button>
+      <button class="k-btn is-small" id="toMenu">せっていにもどる</button>
+    </div>
+  </section>
+</main>
+
+<script src="../../common/kit.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const COLORS = ['#ff5d8f', '#3d8bff', '#2fb862', '#9b6bff'];
+const MARKS = ['●', '▲', '■', '★'];
+const KINDS = [['off', 'なし'], ['human', 'ひと'], ['cpu1', 'CPU よわい'], ['cpu2', 'CPU ふつう'], ['cpu3', 'CPU つよい']];
+const O = Object.assign({ slots: ['human', 'cpu2', 'off', 'off'], names: ['プレイヤー1', 'プレイヤー2', 'プレイヤー3', 'プレイヤー4'], size: 4, rule: 'classic' },
+  Kit.store.get('dots:opts', {}));
+
+function renderMenu() {
+  const wrap = $('slots'); wrap.innerHTML = '';
+  O.slots.forEach((k, i) => {
+    const row = Kit.el(`<div class="slot"><span class="mark" style="background:${COLORS[i]}">${MARKS[i]}</span><div class="k-chips"></div></div>`);
+    KINDS.forEach(([v, l]) => {
+      if (i < 2 && v === 'off') return;
+      const b = Kit.el(`<button class="k-chip" aria-pressed="${k === v}">${l}</button>`);
+      b.onclick = () => { O.slots[i] = v; Kit.sfx('select'); renderMenu(); };
+      row.lastChild.appendChild(b);
+    });
+    wrap.appendChild(row);
+  });
+  const sizes = $('optSize'); sizes.innerHTML = '';
+  [[3, '3×3'], [4, '4×4'], [5, '5×5'], [6, '6×6'], [7, '7×7']].forEach(([v, l]) => {
+    const b = Kit.el(`<button class="k-chip" aria-pressed="${O.size === v}">${l}</button>`);
+    b.onclick = () => { O.size = v; Kit.sfx('select'); renderMenu(); }; sizes.appendChild(b);
+  });
+  const rules = $('optRule'); rules.innerHTML = '';
+  [['classic', 'ふつう（取ったらもう1回）'], ['dice', 'サイコロ']].forEach(([v, l]) => {
+    const b = Kit.el(`<button class="k-chip" aria-pressed="${O.rule === v}">${l}</button>`);
+    b.onclick = () => { O.rule = v; Kit.sfx('select'); renderMenu(); }; rules.appendChild(b);
+  });
+  $('ruleNote').textContent = O.rule === 'classic'
+    ? 'はこをかこんだら、もう1本ひけます。'
+    : 'サイコロの数だけ線をひけます。はこを取ってもおまけはなし。';
+}
+
+/* ---------- 盤面データ ---------- */
+let N, P, lines, owner, cur, players, moves, gen = 0, lastLine = null, busy = false;
+const SP = 100, M = 30;
+function key(t, r, c) { return `${t}${r},${c}`; }
+function boxesOf(t, r, c) {
+  const out = [];
+  if (t === 'h') { if (r > 0) out.push([r - 1, c]); if (r < N) out.push([r, c]); }
+  else { if (c > 0) out.push([r, c - 1]); if (c < N) out.push([r, c]); }
+  return out;
+}
+function sides(L, r, c) { return (L.has(key('h', r, c)) + L.has(key('h', r + 1, c)) + L.has(key('v', r, c)) + L.has(key('v', r, c + 1))); }
+function allLines() {
+  const a = [];
+  for (let r = 0; r <= N; r++) for (let c = 0; c < N; c++) a.push(['h', r, c]);
+  for (let r = 0; r < N; r++) for (let c = 0; c <= N; c++) a.push(['v', r, c]);
+  return a;
+}
+
+function start() {
+  gen++; busy = false;
+  players = O.slots.map((k, i) => ({ k, i, score: 0 })).filter(p => p.k !== 'off');
+  N = O.size; lines = new Set(); owner = {}; cur = 0; lastLine = null;
+  $('menu').hidden = true; $('game').hidden = false;
+  $('diceRow').hidden = O.rule !== 'dice';
+  drawBoard(); beginTurn();
+}
+function drawBoard() {
+  const size = SP * N + M * 2;
+  const svg = $('board');
+  svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
+  let h = '';
+  allLines().forEach(([t, r, c]) => {
+    const x1 = M + c * SP, y1 = M + r * SP, x2 = t === 'h' ? x1 + SP : x1, y2 = t === 'h' ? y1 : y1 + SP;
+    const hx = t === 'h' ? x1 + 12 : x1 - 22, hy = t === 'h' ? y1 - 22 : y1 + 12;
+    const hw = t === 'h' ? SP - 24 : 44, hh = t === 'h' ? 44 : SP - 24;
+    h += `<rect class="hit" data-l="${t},${r},${c}" x="${hx}" y="${hy}" width="${hw}" height="${hh}" rx="10"/>`;
+    h += `<line class="ln" id="L${key(t, r, c)}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
+  });
+  h += '<g id="boxes"></g>';
+  for (let r = 0; r <= N; r++) for (let c = 0; c <= N; c++) h += `<circle class="dot" cx="${M + c * SP}" cy="${M + r * SP}" r="9"/>`;
+  svg.innerHTML = h;
+}
+function paintScores() {
+  $('scores').innerHTML = players.map((p, j) => `<div class="sc ${j === cur ? 'now' : ''}"><span class="mark" style="background:${COLORS[p.i]}">${MARKS[p.i]}</span>${label(p)} <b class="k-num">${p.score}</b></div>`).join('');
+}
+const label = p => p.k === 'human' ? (players.filter(x => x.k === 'human').length > 1 ? `ひと${p.i + 1}` : 'あなた') : `CPU${p.i + 1}`;
+
+function beginTurn() {
+  paintScores();
+  const p = players[cur];
+  if (O.rule === 'dice') { moves = 0; $('die').textContent = '?'; $('movesLeft').textContent = ''; $('roll').disabled = p.k !== 'human'; }
+  else moves = Infinity;
+  $('msg').textContent = p.k === 'human' ? `${label(p)}のばん${O.rule === 'dice' ? '：サイコロをふってね' : ''}` : `${label(p)}がかんがえ中…`;
+  if (p.k !== 'human') cpuPlay();
+}
+function roll() {
+  const n = Kit.randInt(1, 6);
+  const d = $('die'); d.classList.remove('roll'); void d.offsetWidth; d.classList.add('roll');
+  Kit.sfx('whoosh');
+  setTimeout(() => { d.textContent = n; }, 250);
+  moves = n; $('roll').disabled = true;
+  $('movesLeft').textContent = `のこり ${n} 本`;
+  $('msg').textContent = `${label(players[cur])}：${n}本ひけるよ`;
+  return n;
+}
+$('roll').onclick = () => { if (!busy && players[cur].k === 'human' && moves === 0) roll(); };
+
+function draw(t, r, c) {
+  const k = key(t, r, c);
+  if (lines.has(k)) return false;
+  lines.add(k);
+  const p = players[cur];
+  if (lastLine) lastLine.classList.remove('last');
+  const el = $('L' + k); el.classList.add('on', 'last'); el.style.stroke = COLORS[p.i]; lastLine = el;
+  let got = 0;
+  boxesOf(t, r, c).forEach(([br, bc]) => {
+    if (sides(lines, br, bc) === 4) {
+      owner[`${br},${bc}`] = p.i; p.score++; got++;
+      $('boxes').insertAdjacentHTML('beforeend',
+        `<rect class="box" x="${M + bc * SP + 8}" y="${M + br * SP + 8}" width="${SP - 16}" height="${SP - 16}" rx="12" fill="${COLORS[p.i]}"/><text class="box-t" x="${M + bc * SP + SP / 2}" y="${M + br * SP + SP / 2}">${MARKS[p.i]}</text>`);
+    }
+  });
+  got ? Kit.sfx('coin') : Kit.sfx('tap');
+  paintScores();
+  if (lines.size === allLines().length) { endGame(); return true; }
+  if (O.rule === 'dice') {
+    moves--; $('movesLeft').textContent = `のこり ${moves} 本`;
+    if (moves <= 0) next();
+  } else if (!got) next();
+  else if (p.k === 'human') $('msg').textContent = 'はこを取った！もう1本ひけるよ';
+  return true;
+}
+function next() { cur = (cur + 1) % players.length; busy = true; const my = gen; setTimeout(() => { if (my !== gen) return; busy = false; beginTurn(); }, 350); }
+
+$('board').addEventListener('click', e => {
+  const h = e.target.closest('.hit'); if (!h || busy) return;
+  const p = players[cur]; if (p.k !== 'human') return;
+  if (O.rule === 'dice' && moves === 0) { Kit.toast('さきにサイコロをふってね'); return; }
+  const [t, r, c] = h.dataset.l.split(','); draw(t, +r, +c);
+  if (p.k === 'human' && players[cur] === p && O.rule === 'classic' && !$('game').hidden) {/* もう1回 */}
+});
+
+/* ---------- CPU ---------- */
+function freeLines() { return allLines().filter(([t, r, c]) => !lines.has(key(t, r, c))); }
+function completes(L, [t, r, c]) { return boxesOf(t, r, c).some(([br, bc]) => sides(L, br, bc) === 3); }
+function givesThird(L, [t, r, c]) { return boxesOf(t, r, c).some(([br, bc]) => sides(L, br, bc) === 2); }
+function chainGift(line) {
+  // この線をひいたあと、相手が続けて取れるはこの数（貪欲に数える）
+  const L = new Set(lines); L.add(key(...line));
+  let count = 0, again = true;
+  while (again) {
+    again = false;
+    for (const l of allLines()) {
+      const k = key(...l); if (L.has(k)) continue;
+      if (completes(L, l)) { L.add(k); boxesOf(...l).forEach(([br, bc]) => { if (sides(L, br, bc) === 4) count++; }); again = true; }
+    }
+  }
+  return count;
+}
+function cpuChoose(level) {
+  const free = freeLines();
+  if (level === 1) {
+    const cap = free.filter(l => completes(lines, l));
+    return cap.length && Math.random() < 0.6 ? Kit.pick(cap) : Kit.pick(free);
+  }
+  const cap = free.filter(l => completes(lines, l));
+  if (cap.length) return Kit.pick(cap);
+  const safe = free.filter(l => !givesThird(lines, l));
+  if (safe.length) return Kit.pick(safe);
+  if (level === 2) return Kit.pick(free);
+  let best = null, bv = Infinity;
+  Kit.shuffle(free).forEach(l => { const v = chainGift(l); if (v < bv) { bv = v; best = l; } });
+  return best;
+}
+function cpuPlay() {
+  busy = true; const my = gen;
+  const p = players[cur];
+  const level = +p.k.slice(3);
+  const stepOnce = () => {
+    if (my !== gen || $('game').hidden) return;
+    if (players[cur] !== p) { busy = false; return; }
+    if (O.rule === 'dice' && moves === 0) { roll(); setTimeout(stepOnce, 700); return; }
+    draw(...cpuChoose(level));
+    if (lines.size === allLines().length) return;
+    if (players[cur] === p && (O.rule === 'classic' || moves > 0)) setTimeout(stepOnce, 420);
+    else busy = true; // next() が busy を戻す
+  };
+  setTimeout(stepOnce, 600);
+}
+
+function endGame() {
+  gen++; busy = false;
+  paintScores();
+  const top = Math.max(...players.map(p => p.score));
+  const winners = players.filter(p => p.score === top);
+  const ranked = players.slice().sort((a, b) => b.score - a.score);
+  const humanWin = winners.length === 1 && winners[0].k === 'human' && players.some(p => p.k !== 'human');
+  if (humanWin) Kit.addWin('dots');
+  const allCpuWin = winners.every(p => p.k !== 'human') && players.some(p => p.k === 'human');
+  allCpuWin ? Kit.sfx('lose') : (Kit.sfx('win'), Kit.confetti());
+  $('msg').textContent = winners.length > 1 ? 'ひきわけ！' : `${label(winners[0])}の勝ち！`;
+  Kit.modal({
+    title: winners.length > 1 ? `${winners.map(label).join('と')}がひきわけ！` : `${label(winners[0])}の勝ち！`,
+    body: `<ol>${ranked.map(p => `<li><span style="color:${COLORS[p.i]}">${MARKS[p.i]}</span> ${label(p)}：<b>${p.score}</b> こ</li>`).join('')}</ol>`,
+    actions: [{ label: 'せっていへ', onClick: () => $('toMenu').click() }, { label: 'もう一回', primary: true, onClick: () => start() }],
+  });
+}
+$('again').onclick = () => { Kit.sfx('select'); start(); };
+$('toMenu').onclick = () => { gen++; busy = false; $('game').hidden = true; $('menu').hidden = false; renderMenu(); };
+$('go').onclick = () => { Kit.store.set('dots:opts', O); Kit.sfx('select'); start(); };
+
+Kit.bar({ id: 'dots', title: '✏️ ドット＆ボックス', help: `
+  <p>じゅんばんに、点と点のあいだに線を1本ひきます。</p>
+  <p>はこの<b>4つめの線</b>をひいた人が、そのはこをもらえます。はこを取ったら、もう1本ひけます。</p>
+  <p>3本かこまれたはこを作ると、相手に取られちゃうよ。はこをいちばん多く取った人の勝ち！</p>
+  <p>「サイコロ」ルールでは、サイコロの数だけ線をひけます。</p>` });
+renderMenu();
+</script>
+</body>
+</html>

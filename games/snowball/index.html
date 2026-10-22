@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ゆきがっせん</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  .stage { flex: 1; position: relative; min-height: 0; touch-action: none; user-select: none; -webkit-user-select: none; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .over { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(30, 50, 90, .35); overflow: auto; }
+  .over .k-card { width: min(460px, 100%); }
+  .pauseBtn { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <canvas id="cv"></canvas>
+  <button class="k-btn k-icon pauseBtn" id="pauseBtn" aria-label="一時停止" hidden>⏸</button>
+  <div class="over" id="startOv">
+    <div class="k-card k-stack k-center">
+      <h2>⛄ ゆきがっせん</h2>
+      <p style="margin:0">スティックでうごいて、ボタンで雪玉をなげよう。<br><b>ボタンを長おし</b>すると大きな雪玉！かべもこわせるよ。</p>
+      <span class="k-label">モード</span>
+      <div class="k-chips" id="optMode" style="justify-content:center"></div>
+      <div id="cpuBox" class="k-stack k-center">
+        <span class="k-label">CPUのつよさ</span>
+        <div class="k-chips" id="optLv" style="justify-content:center"></div>
+      </div>
+      <p class="k-muted" style="margin:0;font-size:.85rem">キーボード：1P は WASD＋スペース、2P は ←↑→↓＋Enter</p>
+      <button class="k-btn is-sun is-big" id="startBtn">スタート</button>
+    </div>
+  </div>
+  <div class="over" id="pauseOv" hidden>
+    <div class="k-card k-stack k-center"><h2>ひとやすみ</h2>
+      <button class="k-btn is-sun is-big" id="resume">つづける</button>
+      <button class="k-btn" id="quit">やめる</button></div>
+  </div>
+  <div class="over" id="msgOv" hidden><div class="k-card k-stack k-center" id="msgCard"></div></div>
+</div>
+
+<script src="../../common/kit.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const cv = $('cv');
+let W = 0, H = 0, g = null, band = 120;
+const O = Object.assign({ mode: 'cpu', level: 2 }, Kit.store.get('snow:opts', {}));
+const COL = ['#ff5d8f', '#3d8bff'];
+const ITEMS = { rapid: '⚡', triple: '🔱', shield: '🛡️', heal: '❤️' };
+const MAXHP = 5, ROUND_TIME = 60;
+let S = null, wins = [0, 0];
+
+function renderStart() {
+  const chips = (root, list, key) => { root.innerHTML = ''; list.forEach(([v, l]) => { const b = Kit.el(`<button class="k-chip" aria-pressed="${O[key] === v}">${l}</button>`); b.onclick = () => { O[key] = v; Kit.sfx('select'); renderStart(); }; root.appendChild(b); }); };
+  chips($('optMode'), [['cpu', '🤖 CPUとたいせん'], ['2p', '👫 ふたりで（むかいあって）']], 'mode');
+  chips($('optLv'), [[1, 'よわい'], [2, 'ふつう'], [3, 'つよい']], 'level');
+  $('cpuBox').hidden = O.mode !== 'cpu';
+}
+function resize() {
+  ({ w: W, h: H, g } = Kit.fitCanvas(cv));
+  band = Math.min(130, Math.max(96, H * 0.16));
+  if (S) layoutControls();
+  if (!loop.running) draw();
+}
+addEventListener('resize', resize);
+
+/* ---------- ラウンド ---------- */
+function newMatch() { wins = [0, 0]; Kit.store.set('snow:opts', O); newRound(1); }
+function newRound(no) {
+  const top = band + 10, bot = H - band - 10, mid = H / 2;
+  S = {
+    no, t: ROUND_TIME, balls: [], walls: [], items: [], parts: [], over: false,
+    field: { top, bot, mid },
+    p: [mkPlayer(0, W / 2, bot - 40), mkPlayer(1, W / 2, top + 40)],
+    ctrl: [ctrlState(), ctrlState()], cpu: { t: 0, tx: W / 2, throwT: 1 },
+  };
+  // かべ：1Pがわを作って、2Pがわは点対称にうつす
+  const n = 4;
+  for (let i = 0; i < n; i++) {
+    let x, y, tries = 0;
+    do { x = Kit.rand(40, W - 80); y = Kit.rand(mid + 30, bot - 110); tries++; }
+    while (tries < 30 && S.walls.some(w => Math.abs(w.x - x) < 90 && Math.abs(w.y - y) < 50));
+    const w = Math.min(90, W * 0.18), h = 26;
+    S.walls.push({ x, y, w, h, hp: 4, max: 4 });
+    S.walls.push({ x: W - x - w, y: H - y - h, w, h, hp: 4, max: 4 });
+  }
+  layoutControls();
+  ['startOv', 'pauseOv', 'msgOv'].forEach(id => $(id).hidden = true);
+  $('pauseBtn').hidden = false;
+  showMsg(`ラウンド ${no}`, 'よーい…', 1100, () => { S.go = true; Kit.sfx('whoosh'); });
+  Kit.music.play({ bpm: 150, lead: [784, 0, 659, 0, 784, 880, 784, 0, 659, 0, 587, 0, 523, 0, 0, 0], bass: [131, 0, 196, 0, 131, 0, 196, 0], vol: 0.025, type: 'square' });
+  loop.start();
+}
+function mkPlayer(i, x, y) { return { i, x, y, r: 18, hp: MAXHP, ammo: 5, reload: 0, cd: 0, inv: 0, item: null, itemT: 0, shield: 0, face: 0, charge: 0 }; }
+function ctrlState() { return { stick: null, sx: 0, sy: 0, btn: null, down: false, downT: 0, keys: {} }; }
+function layoutControls() {
+  const cy1 = H - band / 2, cy2 = band / 2, rs = Math.min(52, band * 0.42);
+  S.ui = [
+    { stick: { x: rs + 26, y: cy1, r: rs }, btn: { x: W - rs - 22, y: cy1, r: rs * 0.85 } },
+    { stick: { x: W - rs - 26, y: cy2, r: rs }, btn: { x: rs + 22, y: cy2, r: rs * 0.85 } },
+  ];
+}
+function showMsg(title, sub, ms, then) {
+  $('msgCard').innerHTML = `<h2 style="font-size:2rem">${title}</h2><p style="margin:0;font-weight:900">${sub}</p>`;
+  $('msgOv').hidden = false;
+  setTimeout(() => { $('msgOv').hidden = true; then && then(); }, ms);
+}
+
+/* ---------- うごき ---------- */
+function moveVec(i) {
+  const c = S.ctrl[i]; let x = c.sx, y = c.sy;
+  const k = c.keys;
+  if (k.l) x -= 1; if (k.r) x += 1; if (k.u) y -= 1; if (k.d) y += 1;
+  const m = Math.hypot(x, y); if (m > 1) { x /= m; y /= m; }
+  return [x, y];
+}
+function throwBall(p, big) {
+  if (p.ammo <= 0 || p.cd > 0) { if (p.ammo <= 0) Kit.sfx('bad'); return; }
+  const dir = p.i === 0 ? -1 : 1;
+  const v = big ? 330 : 440;
+  const mv = p.lastMx || 0;
+  const shots = p.item === 'triple' ? [-0.28, 0, 0.28] : [0];
+  shots.forEach(a => S.balls.push({ x: p.x, y: p.y + dir * 22, vx: Math.sin(a) * v + mv * 60, vy: Math.cos(a) * v * dir, o: p.i, big, r: big ? 13 : 7 }));
+  p.ammo -= big ? 2 : 1; p.ammo = Math.max(0, p.ammo);
+  p.cd = p.item === 'rapid' ? 0.12 : 0.32;
+  Kit.sfx(big ? 'jump' : 'whoosh');
+}
+function hitWall(b) {
+  for (const w of S.walls) {
+    if (w.hp <= 0) continue;
+    if (b.x > w.x - b.r && b.x < w.x + w.w + b.r && b.y > w.y - b.r && b.y < w.y + w.h + b.r) {
+      w.hp -= b.big ? 3 : 1;
+      burst(b.x, b.y, '#ffffff', 8);
+      if (w.hp <= 0) {
+        Kit.sfx('boom'); burst(w.x + w.w / 2, w.y + w.h / 2, '#dfefff', 20);
+        if (Math.random() < 0.55) S.items.push({ x: w.x + w.w / 2, y: w.y + w.h / 2, k: Kit.pick(Object.keys(ITEMS)), t: 10 });
+      } else Kit.sfx('tap');
+      return true;
+    }
+  }
+  return false;
+}
+function update(dt) {
+  if (!S) return;
+  const F = S.field;
+  if (S.go && !S.over) {
+    S.t -= dt;
+    if (S.t <= 0) { S.t = 0; endRound(); }
+  }
+  S.p.forEach(p => {
+    p.cd = Math.max(0, p.cd - dt); p.inv = Math.max(0, p.inv - dt);
+    if (p.item) { p.itemT -= dt; if (p.itemT <= 0) p.item = null; }
+    p.reload += dt;
+    if (p.reload > 0.75 && p.ammo < 6) { p.ammo++; p.reload = 0; }
+    if (!S.go || S.over) return;
+    const isCpu = O.mode === 'cpu' && p.i === 1;
+    let [mx, my] = isCpu ? cpuMove(p, dt) : moveVec(p.i);
+    p.lastMx = mx;
+    const sp = 220;
+    const nx = p.x + mx * sp * dt, ny = p.y + my * sp * dt;
+    const minY = p.i === 0 ? F.mid + p.r + 6 : F.top + p.r, maxY = p.i === 0 ? F.bot - p.r : F.mid - p.r - 6;
+    const tryMove = (x, y) => !S.walls.some(w => w.hp > 0 && x > w.x - p.r && x < w.x + w.w + p.r && y > w.y - p.r && y < w.y + w.h + p.r);
+    if (tryMove(nx, p.y)) p.x = Kit.clamp(nx, p.r, W - p.r);
+    if (tryMove(p.x, ny)) p.y = Kit.clamp(ny, minY, maxY);
+    // ちゃーじ
+    const c = S.ctrl[p.i];
+    if (!isCpu && c.down) { c.downT += dt; p.charge = Math.min(1, c.downT / 0.7); } else p.charge = 0;
+    S.items = S.items.filter(it => {
+      if (Math.hypot(it.x - p.x, it.y - p.y) < p.r + 16) {
+        Kit.sfx('coin');
+        if (it.k === 'heal') p.hp = Math.min(MAXHP, p.hp + 1);
+        else if (it.k === 'shield') p.shield = 1;
+        else { p.item = it.k; p.itemT = 8; }
+        return false;
+      }
+      return true;
+    });
+  });
+  S.items.forEach(it => it.t -= dt); S.items = S.items.filter(it => it.t > 0);
+  // 雪玉
+  S.balls.forEach(b => { b.x += b.vx * dt; b.y += b.vy * dt; });
+  S.balls = S.balls.filter(b => {
+    if (b.y < -20 || b.y > H + 20 || b.x < -20 || b.x > W + 20) return false;
+    if (hitWall(b)) return false;
+    const t = S.p[1 - b.o];
+    if (Math.hypot(b.x - t.x, b.y - t.y) < t.r + b.r && !S.over) {
+      if (t.inv > 0) return false;
+      if (t.shield) { t.shield = 0; Kit.sfx('select'); burst(t.x, t.y, '#9be7ff', 12); return false; }
+      t.hp -= b.big ? 2 : 1; t.inv = 0.45;
+      Kit.sfx('hit'); Kit.vibrate(50); burst(b.x, b.y, '#ffffff', 14);
+      if (t.hp <= 0) { t.hp = 0; endRound(); }
+      return false;
+    }
+    return true;
+  });
+  S.parts.forEach(q => { q.x += q.vx * dt; q.y += q.vy * dt; q.vy += 300 * dt; q.life -= dt; });
+  S.parts = S.parts.filter(q => q.life > 0);
+  draw();
+}
+function burst(x, y, c, n) { for (let i = 0; i < n; i++) { const a = Math.random() * 6.28, s = Kit.rand(40, 180); S.parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, c, life: Kit.rand(.3, .6) }); } }
+
+/* ---------- CPU ---------- */
+function cpuMove(p, dt) {
+  const L = O.level, me = S.cpu, foe = S.p[0];
+  me.t -= dt; me.throwT -= dt;
+  // よける
+  const danger = S.balls.find(b => b.o === 0 && b.vy < 0 && b.y > p.y && b.y - p.y < [0, 120, 190, 260][L] && Math.abs(b.x - p.x) < p.r + b.r + 10);
+  if (danger && Math.random() < [0, 0.4, 0.75, 0.95][L]) {
+    me.tx = p.x + (danger.x < p.x ? 1 : -1) * 90;
+  } else if (me.t <= 0) {
+    me.t = Kit.rand(0.4, 1.0);
+    const err = [0, 90, 45, 15][L];
+    me.tx = Kit.clamp(foe.x + Kit.rand(-err, err), 30, W - 30);
+  }
+  // なげる
+  const lined = Math.abs(foe.x - p.x) < [0, 50, 34, 24][L];
+  if (me.throwT <= 0 && lined && p.ammo > 0) {
+    const blocked = S.walls.some(w => w.hp > 0 && w.y > p.y && p.x > w.x - 6 && p.x < w.x + w.w + 6);
+    throwBall(p, blocked && p.ammo >= 2 && L >= 2);
+    me.throwT = Kit.rand(...[[0, 0], [0.9, 1.6], [0.55, 1.0], [0.3, 0.7]][L]);
+  }
+  const dx = me.tx - p.x;
+  let my = 0;
+  const wantY = S.field.top + 40 + (L === 3 ? Math.sin(performance.now() / 700) * 50 + 50 : 30);
+  if (Math.abs(wantY - p.y) > 10) my = Math.sign(wantY - p.y) * 0.6;
+  return [Math.abs(dx) < 6 ? 0 : Math.sign(dx) * Math.min(1, Math.abs(dx) / 40), my];
+}
+
+function endRound() {
+  if (S.over) return;
+  S.over = true; S.balls = [];
+  const [a, b] = S.p;
+  let win = a.hp === b.hp ? -1 : a.hp > b.hp ? 0 : 1;
+  if (win >= 0) wins[win]++;
+  const name = i => O.mode === 'cpu' ? (i === 0 ? 'あなた' : 'CPU') : `${i + 1}P`;
+  const done = wins[0] >= 2 || wins[1] >= 2 || S.no >= 5;
+  if (win === 0 || O.mode === '2p') Kit.sfx('win'); else Kit.sfx(win === 1 ? 'lose' : 'select');
+  setTimeout(() => {
+    if (!done) {
+      showMsg(win < 0 ? 'ひきわけ' : `${name(win)}の勝ち！`, `${wins[0]} − ${wins[1]}`, 1600, () => newRound(S.no + 1));
+      return;
+    }
+    loop.stop(); Kit.music.stop();
+    const champ = wins[0] === wins[1] ? -1 : wins[0] > wins[1] ? 0 : 1;
+    if (O.mode === 'cpu' && champ === 0) Kit.addWin('snowball');
+    if (champ === 0 || O.mode === '2p') Kit.confetti();
+    $('msgCard').innerHTML = `<h2 style="font-size:2rem">${champ < 0 ? 'ひきわけ！' : `${name(champ)}のゆうしょう！`}</h2>
+      <p style="margin:0;font-weight:900;font-size:1.4rem">${wins[0]} − ${wins[1]}</p>
+      <button class="k-btn is-sun is-big" id="again">もう一回</button><button class="k-btn" id="back">モードをかえる</button>`;
+    $('msgOv').hidden = false;
+    $('again').onclick = newMatch;
+    $('back').onclick = () => { $('msgOv').hidden = true; $('startOv').hidden = false; $('pauseBtn').hidden = true; renderStart(); };
+  }, 700);
+}
+
+/* ---------- 絵 ---------- */
+function draw() {
+  if (!g) return;
+  g.fillStyle = '#eaf4ff'; g.fillRect(0, 0, W, H);
+  if (!S) return;
+  const F = S.field;
+  // ひかえのエリア
+  g.fillStyle = '#cfe3f7'; g.fillRect(0, 0, W, F.top - 10); g.fillRect(0, F.bot + 10, W, H - F.bot);
+  g.strokeStyle = '#9cc0e6'; g.setLineDash([10, 10]); g.lineWidth = 3;
+  g.beginPath(); g.moveTo(0, F.mid); g.lineTo(W, F.mid); g.stroke(); g.setLineDash([]);
+  const ink = '#2a2238';
+  S.walls.forEach(w => {
+    if (w.hp <= 0) return;
+    g.fillStyle = ink; g.beginPath(); g.roundRect(w.x, w.y + 4, w.w, w.h, 10); g.fill();
+    g.fillStyle = `hsl(205, 60%, ${78 + (w.hp / w.max) * 18}%)`; g.beginPath(); g.roundRect(w.x, w.y, w.w, w.h, 10); g.fill();
+    g.strokeStyle = ink; g.lineWidth = 3; g.stroke();
+    if (w.hp < w.max) { g.strokeStyle = 'rgba(42,34,56,.4)'; g.lineWidth = 2; g.beginPath(); g.moveTo(w.x + w.w * .3, w.y); g.lineTo(w.x + w.w * .45, w.y + w.h); g.stroke(); }
+  });
+  g.font = '24px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  S.items.forEach(it => { if (it.t > 2 || Math.floor(it.t * 6) % 2) g.fillText(ITEMS[it.k], it.x, it.y); });
+  S.p.forEach(p => drawKid(p));
+  S.balls.forEach(b => { g.fillStyle = ink; g.beginPath(); g.arc(b.x, b.y + 2, b.r + 2, 0, 6.28); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(b.x, b.y, b.r, 0, 6.28); g.fill(); });
+  S.parts.forEach(q => { g.globalAlpha = Math.max(0, q.life * 1.8); g.fillStyle = q.c; g.beginPath(); g.arc(q.x, q.y, 3, 0, 6.28); g.fill(); });
+  g.globalAlpha = 1;
+  drawHud(0); drawHud(1);
+  drawControls(0); if (O.mode === '2p') drawControls(1);
+}
+function drawKid(p) {
+  if (p.inv > 0 && Math.floor(p.inv * 20) % 2) return;
+  const ink = '#2a2238', dir = p.i === 0 ? -1 : 1;
+  g.fillStyle = 'rgba(42,34,56,.18)'; g.beginPath(); g.ellipse(p.x, p.y + 16, 18, 7, 0, 0, 6.28); g.fill();
+  g.fillStyle = '#fff'; g.strokeStyle = ink; g.lineWidth = 3;
+  g.beginPath(); g.arc(p.x, p.y, p.r, 0, 6.28); g.fill(); g.stroke();
+  g.fillStyle = COL[p.i]; g.beginPath(); g.arc(p.x, p.y + dir * -2, p.r, dir < 0 ? Math.PI : 0, dir < 0 ? 2 * Math.PI : Math.PI); g.fill(); g.stroke();
+  g.fillStyle = ink; g.beginPath(); g.arc(p.x - 6, p.y + dir * 5, 2.5, 0, 6.28); g.arc(p.x + 6, p.y + dir * 5, 2.5, 0, 6.28); g.fill();
+  if (p.shield) { g.strokeStyle = '#3db8ff'; g.lineWidth = 3; g.beginPath(); g.arc(p.x, p.y, p.r + 8, 0, 6.28); g.stroke(); }
+  if (p.charge > 0) { g.strokeStyle = '#ffc93c'; g.lineWidth = 5; g.beginPath(); g.arc(p.x, p.y, p.r + 6, -Math.PI / 2, -Math.PI / 2 + p.charge * 6.28); g.stroke(); }
+  if (p.item) { g.font = '18px sans-serif'; g.fillText(ITEMS[p.item], p.x + 22, p.y - 18); }
+}
+function drawHud(i) {
+  const p = S.p[i];
+  g.save();
+  const y = i === 0 ? S.field.mid + 18 : S.field.mid - 18;
+  if (i === 1 && O.mode === '2p') { g.translate(W / 2, y); g.rotate(Math.PI); g.translate(-W / 2, -y); }
+  g.font = '900 16px "Zen Maru Gothic", sans-serif'; g.textBaseline = 'middle';
+  g.textAlign = 'left'; g.fillStyle = COL[i];
+  g.fillText((O.mode === 'cpu' && i === 1 ? 'CPU ' : `${i + 1}P `) + '❤'.repeat(p.hp) + '♡'.repeat(MAXHP - p.hp), 10, y);
+  g.textAlign = 'right'; g.fillStyle = '#2a2238';
+  g.fillText('●'.repeat(Math.min(6, p.ammo)), W - 60, y);
+  if (i === 0 || O.mode === '2p') { g.textAlign = 'center'; g.fillText(`⏱ ${Math.ceil(S.t)}`, W / 2, y); }
+  g.restore();
+}
+function drawControls(i) {
+  const u = S.ui[i], c = S.ctrl[i];
+  g.fillStyle = 'rgba(42,34,56,.12)'; g.strokeStyle = 'rgba(42,34,56,.5)'; g.lineWidth = 3;
+  g.beginPath(); g.arc(u.stick.x, u.stick.y, u.stick.r, 0, 6.28); g.fill(); g.stroke();
+  let kx = c.sx, ky = c.sy; if (i === 1) { kx = -kx; ky = -ky; }
+  g.fillStyle = COL[i]; g.beginPath(); g.arc(u.stick.x + kx * u.stick.r * 0.55, u.stick.y + ky * u.stick.r * 0.55, u.stick.r * 0.45, 0, 6.28); g.fill(); g.stroke();
+  g.fillStyle = c.down ? '#ffc93c' : '#ffffff'; g.beginPath(); g.arc(u.btn.x, u.btn.y, u.btn.r, 0, 6.28); g.fill(); g.strokeStyle = '#2a2238'; g.stroke();
+  g.save(); g.translate(u.btn.x, u.btn.y); if (i === 1) g.rotate(Math.PI);
+  g.fillStyle = '#2a2238'; g.font = '900 15px "Zen Maru Gothic", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText('なげる', 0, 0); g.restore();
+}
+const loop = Kit.loop(update);
+
+/* ---------- タッチ ---------- */
+function pos(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; }
+$('stage').addEventListener('pointerdown', e => {
+  if (!S || e.target.closest('button') || e.target.closest('.over')) return;
+  const q = pos(e);
+  const players = O.mode === '2p' ? [0, 1] : [0];
+  for (const i of players) {
+    const u = S.ui[i], c = S.ctrl[i];
+    if (Math.hypot(q.x - u.btn.x, q.y - u.btn.y) < u.btn.r * 1.4 && c.btn == null) {
+      c.btn = e.pointerId; c.down = true; c.downT = 0; cv.setPointerCapture(e.pointerId); return;
+    }
+    const inHalf = i === 0 ? q.y > H / 2 : q.y < H / 2;
+    if (inHalf && c.stick == null && Math.hypot(q.x - u.stick.x, q.y - u.stick.y) < u.stick.r * 2.2) {
+      c.stick = e.pointerId; cv.setPointerCapture(e.pointerId); setStick(i, q); return;
+    }
+  }
+});
+function setStick(i, q) {
+  const u = S.ui[i].stick, c = S.ctrl[i];
+  let dx = (q.x - u.x) / u.r, dy = (q.y - u.y) / u.r;
+  const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; }
+  if (m < 0.15) { dx = dy = 0; }
+  if (i === 1) { dx = -dx; dy = -dy; }
+  c.sx = dx; c.sy = dy;
+}
+cv.addEventListener('pointermove', e => {
+  if (!S) return;
+  [0, 1].forEach(i => { if (S.ctrl[i].stick === e.pointerId) setStick(i, pos(e)); });
+});
+const up = e => {
+  if (!S) return;
+  [0, 1].forEach(i => {
+    const c = S.ctrl[i];
+    if (c.stick === e.pointerId) { c.stick = null; c.sx = c.sy = 0; }
+    if (c.btn === e.pointerId) { c.btn = null; release(i); }
+  });
+};
+cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+function release(i) {
+  const c = S.ctrl[i]; if (!c.down) return;
+  c.down = false;
+  if (S.go && !S.over) throwBall(S.p[i], c.downT >= 0.7);
+  c.downT = 0;
+}
+const KEYMAP = {
+  w: [0, 'u'], a: [0, 'l'], s: [0, 'd'], d: [0, 'r'], W: [0, 'u'], A: [0, 'l'], S: [0, 'd'], D: [0, 'r'],
+  ArrowUp: [1, 'u'], ArrowDown: [1, 'd'], ArrowLeft: [1, 'l'], ArrowRight: [1, 'r'],
+};
+addEventListener('keydown', e => {
+  if (!S) return;
+  const k = KEYMAP[e.key];
+  if (k) {
+    let [i, d] = k;
+    if (O.mode === 'cpu') i = 0;
+    S.ctrl[i].keys[d] = true; e.preventDefault();
+  }
+  const fire = e.key === ' ' ? 0 : e.key === 'Enter' ? (O.mode === 'cpu' ? 0 : 1) : -1;
+  if (fire >= 0 && !e.repeat) { e.preventDefault(); const c = S.ctrl[fire]; c.down = true; c.downT = 0; }
+  if (e.key === 'Escape') pause();
+});
+addEventListener('keyup', e => {
+  if (!S) return;
+  const k = KEYMAP[e.key];
+  if (k) { let [i, d] = k; if (O.mode === 'cpu') i = 0; S.ctrl[i].keys[d] = false; }
+  const fire = e.key === ' ' ? 0 : e.key === 'Enter' ? (O.mode === 'cpu' ? 0 : 1) : -1;
+  if (fire >= 0) release(fire);
+});
+function pause() { if (!S || !loop.running || S.over) return; loop.stop(); Kit.music.stop(); $('pauseOv').hidden = false; }
+$('pauseBtn').onclick = pause;
+$('resume').onclick = () => { $('pauseOv').hidden = true; loop.start(); Kit.music.play(Kit.music.opts); };
+$('quit').onclick = () => { $('pauseOv').hidden = true; S = null; draw(); $('pauseBtn').hidden = true; $('startOv').hidden = false; renderStart(); };
+document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+$('startBtn').onclick = newMatch;
+
+Kit.bar({ id: 'snowball', title: '⛄ ゆきがっせん', help: `
+  <p>左下のスティックでうごいて、右下の「なげる」で雪玉をなげます。ふたりモードでは、むかいあって2Pは上がわをつかいます。</p>
+  <p>なげるボタンを<b>長おし</b>すると、大きな雪玉（2ダメージ・かべをこわしやすい）。雪玉は●の数だけ。時間がたつとふえます。</p>
+  <p>かべをこわすと、アイテムが出ることがあるよ：⚡れんしゃ 🔱3方向 🛡️1回ガード ❤️かいふく</p>
+  <p>ハートを0にするか、時間ぎれのときハートが多いほうがラウンドの勝ち。先に2ラウンド取ったらゆうしょう！</p>` });
+resize(); renderStart();
+</script>
+</body>
+</html>

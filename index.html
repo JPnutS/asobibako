@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>あそびばこ</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#ffc93c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="common/kit.css">
+<style>
+  /* レイアウト：おもちゃ箱のふた（ヘッダー）＋ステッカー状のタイルが並ぶ */
+  .lid {
+    background: var(--sun);
+    border-bottom: 4px solid var(--line);
+    padding-block: 26px 22px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    position: relative; overflow: hidden;
+  }
+  .lid-in { max-width: 1040px; margin: 0 auto; display: grid; gap: 6px; position: relative; z-index: 1; }
+  .lid h1 { font-size: clamp(2.4rem, 10vw, 4.2rem); color: #2a2238; letter-spacing: .02em; }
+  .lid p { margin: 0; font-weight: 700; color: #2a2238; }
+  .lid .dots { position: absolute; inset: 0; opacity: .22; background-image: radial-gradient(#2a2238 2px, transparent 2.5px); background-size: 22px 22px; }
+  .box { max-width: 1040px; margin: 0 auto; display: grid; gap: 22px;
+    padding-block: 22px 48px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 16px; }
+  .tile {
+    --c: var(--sun);
+    display: grid; grid-template-rows: auto 1fr auto; gap: 8px;
+    background: var(--card); border: 3px solid var(--line); border-radius: 22px; box-shadow: 0 6px 0 var(--line);
+    padding: 14px 16px 16px; text-decoration: none; color: var(--ink);
+    transition: transform .1s, box-shadow .1s; position: relative; min-width: 0;
+  }
+  .tile:hover { transform: translateY(-2px) rotate(-.6deg); box-shadow: 0 8px 0 var(--line); }
+  .tile:active { transform: translateY(4px); box-shadow: 0 2px 0 var(--line); }
+  .tile .top { display: flex; align-items: center; gap: 12px; }
+  .tile .ico { width: 62px; height: 62px; flex: none; display: grid; place-items: center; font-size: 2rem; background: var(--c); border: 3px solid var(--line); border-radius: 18px; }
+  .tile h2 { font-size: 1.2rem; min-width: 0; }
+  .tile p { margin: 0; font-size: .95rem; color: var(--muted); }
+  @media (max-width: 520px) {
+    .grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+    .tile { padding: 12px; border-radius: 18px; }
+    .tile .top { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .tile .ico { width: 54px; height: 54px; font-size: 1.7rem; }
+    .tile h2 { font-size: 1.05rem; }
+    .tile p { font-size: .82rem; line-height: 1.45; }
+    .pill { font-size: .7rem; padding: 1px 8px; }
+  }
+  .tile .meta { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill { font-size: .78rem; font-weight: 900; padding: 2px 10px; border-radius: 999px; border: 2px solid var(--line); background: var(--soft); }
+  .pill.best { background: var(--sun); color: #2a2238; }
+  .c-sun { --c: var(--sun); } .c-sky { --c: var(--sky); } .c-grass { --c: var(--grass); }
+  .c-berry { --c: var(--berry); } .c-grape { --c: var(--grape); } .c-orange { --c: var(--orange); }
+  .recent { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+  .recent a { flex: none; display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px; border: 3px solid var(--line); border-radius: 999px; background: var(--card); text-decoration: none; color: var(--ink); font-weight: 700; }
+  .recent a span { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: var(--soft); }
+  .foot { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+  .foot h3 { font-size: 1.1rem; }
+  .switch { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .install ol { margin: 0; padding-left: 1.2em; }
+</style>
+</head>
+<body>
+<header class="lid">
+  <div class="dots"></div>
+  <div class="lid-in">
+    <h1>あそびばこ</h1>
+    <p>みんなで、ひとりで、つくって遊ぶ 14のゲーム</p>
+  </div>
+</header>
+
+<main class="box">
+  <section id="recentWrap" class="k-stack" hidden>
+    <span class="k-label">さいきん あそんだ</span>
+    <div class="recent" id="recent"></div>
+  </section>
+
+  <div class="k-chips" id="filters" role="toolbar" aria-label="しゅるい"></div>
+  <div class="grid" id="grid"></div>
+
+  <section class="foot">
+    <div class="k-card k-stack">
+      <h3>せってい</h3>
+      <div class="switch"><span>こうかおん・BGM</span><button class="k-chip" id="optSound"></button></div>
+      <div class="switch"><span>ぶるぶる（対応する機種だけ）</span><button class="k-chip" id="optVib"></button></div>
+      <div class="switch"><span>がめんの色</span><button class="k-chip" id="optTheme"></button></div>
+      <button class="k-btn is-small" id="clearAll">記録をぜんぶけす</button>
+    </div>
+    <div class="k-card k-stack install">
+      <h3>アプリみたいに使うには</h3>
+      <ol>
+        <li><b>iPhone・iPad</b>：Safari の共有ボタン → 「ホーム画面に追加」</li>
+        <li><b>Android</b>：Chrome のメニュー → 「ホーム画面に追加」</li>
+      </ol>
+      <p class="k-muted" style="margin:0">一度ひらいたゲームは、インターネットがなくても遊べます。</p>
+      <button class="k-btn is-small is-grass" id="installBtn" hidden>ホーム画面に追加</button>
+    </div>
+  </section>
+</main>
+
+<script src="common/kit.js"></script>
+<script src="common/games.js"></script>
+<script>
+'use strict';
+const games = self.ASOBI_GAMES;
+const FILTERS = ['ぜんぶ', 'みんなで', 'たいせん', 'ひとりで', 'つくる'];
+let filter = Kit.store.get('portal:filter', 'ぜんぶ');
+const $ = id => document.getElementById(id);
+
+function bestLabel(g) {
+  const b = Kit.getBest(g.id);
+  if (b == null) return '';
+  const units = { flick: '点', colors: '点', thread: '点', swing: 'm', babanuki: '回勝ち', connect4: '回勝ち', brawl: '回勝ち', snowball: '回勝ち', sandpile: '回勝ち', dots: '回勝ち' };
+  return `<span class="pill best">🏆 ${b}${units[g.id] || ''}</span>`;
+}
+function render() {
+  const fb = $('filters'); fb.innerHTML = '';
+  FILTERS.forEach(f => {
+    const b = Kit.el(`<button class="k-chip" aria-pressed="${f === filter}">${f}</button>`);
+    b.onclick = () => { filter = f; Kit.store.set('portal:filter', f); Kit.sfx('select'); render(); };
+    fb.appendChild(b);
+  });
+  $('grid').innerHTML = games.filter(g => filter === 'ぜんぶ' || g.tag === filter).map(g => `
+    <a class="tile c-${g.color}" href="games/${g.id}/index.html">
+      <div class="top"><div class="ico" aria-hidden="true">${g.icon}</div><h2>${g.name}</h2></div>
+      <p>${g.desc}</p>
+      <div class="meta"><span class="pill">${g.tag}</span>${g.who ? `<span class="pill">${g.who}</span>` : ''}${bestLabel(g)}</div>
+    </a>`).join('');
+  const recent = Kit.store.get('recent', []).map(id => games.find(g => g.id === id)).filter(Boolean);
+  $('recentWrap').hidden = !recent.length;
+  $('recent').innerHTML = recent.map(g => `<a href="games/${g.id}/index.html"><span>${g.icon}</span>${g.name}</a>`).join('');
+  const s = Kit.settings;
+  $('optSound').textContent = s.sound ? 'オン' : 'オフ'; $('optSound').setAttribute('aria-pressed', s.sound);
+  $('optVib').textContent = s.vibrate ? 'オン' : 'オフ'; $('optVib').setAttribute('aria-pressed', s.vibrate);
+  const th = Kit.store.get('theme', 'auto');
+  $('optTheme').textContent = { auto: 'じどう', light: 'あかるい', dark: 'くらい' }[th];
+}
+$('optSound').onclick = () => { Kit.settings.sound = Kit.settings.music = !Kit.settings.sound; Kit.saveSettings(); Kit.sfx('select'); render(); };
+$('optVib').onclick = () => { Kit.settings.vibrate = !Kit.settings.vibrate; Kit.saveSettings(); Kit.vibrate(80); render(); };
+$('optTheme').onclick = () => {
+  const order = ['auto', 'light', 'dark'];
+  const next = order[(order.indexOf(Kit.store.get('theme', 'auto')) + 1) % 3];
+  Kit.store.set('theme', next); applyTheme(); render();
+};
+function applyTheme() {
+  const th = Kit.store.get('theme', 'auto');
+  if (th === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.dataset.theme = th;
+}
+$('clearAll').onclick = async () => {
+  if (!(await Kit.ask('ハイスコアや記録をぜんぶけしますか？', 'けす', 'やめる'))) return;
+  games.forEach(g => Kit.store.remove('best:' + g.id));
+  Kit.store.remove('recent');
+  Kit.toast('記録をけしました'); render();
+};
+let deferred = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; $('installBtn').hidden = false; });
+$('installBtn').onclick = async () => { if (!deferred) return; deferred.prompt(); await deferred.userChoice; deferred = null; $('installBtn').hidden = true; };
+applyTheme();
+render();
+window.addEventListener('pageshow', render);
+</script>
+</body>
+</html>

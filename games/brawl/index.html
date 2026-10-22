@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>モンスターバトル</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  #menu { overflow: auto; flex: 1; }
+  .chars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .char { min-height: 96px; display: grid; justify-items: center; align-content: center; gap: 2px; padding: 6px; font-size: .85rem; }
+  .char canvas { width: 54px; height: 54px; }
+  .char[aria-pressed="true"] { background: var(--sun); color: #2a2238; }
+  .char small { font-weight: 500; font-size: .7rem; line-height: 1.3; }
+  #game { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .stage { flex: 1; position: relative; min-height: 0; background: #20264a; }
+  canvas#cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .pads { display: flex; justify-content: space-between; gap: 10px; padding-block: 8px calc(8px + env(safe-area-inset-bottom, 0px)); padding-left: max(10px, env(safe-area-inset-left, 0px)); padding-right: max(10px, env(safe-area-inset-right, 0px)); background: var(--soft); border-top: 3px solid var(--line); touch-action: none; user-select: none; -webkit-user-select: none; }
+  .pad { display: flex; gap: 8px; align-items: center; flex: 1; justify-content: space-between; min-width: 0; }
+  .pad .grp { display: flex; gap: 6px; }
+  .pad button { width: 58px; height: 58px; border-radius: 50%; border: 3px solid var(--line); background: var(--card); box-shadow: 0 4px 0 var(--line); font-weight: 900; font-size: .78rem; padding: 0; touch-action: none; }
+  .pad button.on { transform: translateY(3px); box-shadow: 0 1px 0 var(--line); background: var(--sun); color: #2a2238; }
+  .pad.p1 button[data-k="a"], .pad.p1 button[data-k="s"] { background: #ffd0de; }
+  .pad.p2 button[data-k="a"], .pad.p2 button[data-k="s"] { background: #cfe2ff; }
+  .two .pad button { width: 46px; height: 46px; font-size: .68rem; }
+  .two .pad { flex-direction: column; align-items: stretch; }
+  .two .pad .grp { justify-content: center; }
+  .over { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(10, 10, 30, .5); }
+  .over .k-card { width: min(420px, 100%); }
+  .pauseBtn { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); }
+</style>
+</head>
+<body>
+<main class="k-wrap" id="menu">
+  <div class="k-card k-stack">
+    <span class="k-label">モード</span>
+    <div class="k-chips" id="optMode"></div>
+    <div id="cpuBox" class="k-stack"><span class="k-label">CPUのつよさ</span><div class="k-chips" id="optLv"></div></div>
+  </div>
+  <div class="k-card k-stack">
+    <h2 style="color:var(--berry)">1P のモンスター</h2>
+    <div class="chars" id="pick0"></div>
+    <h2 style="color:#3d8bff" id="p2title">2P のモンスター</h2>
+    <div class="chars" id="pick1"></div>
+  </div>
+  <div class="k-card k-stack">
+    <span class="k-label">ステージ</span>
+    <div class="k-chips" id="optStage"></div>
+    <span class="k-label">ストック（のこり人数）</span>
+    <div class="k-chips" id="optStock"></div>
+  </div>
+  <button class="k-btn is-sun is-big" id="go">バトル開始！</button>
+  <p class="k-muted" style="margin:0;font-size:.85rem">キーボード：1P は A D W ＋ F（パンチ）G（スマッシュ）、2P は ← → ↑ ＋ K（パンチ）L（スマッシュ）。スマートフォンは横向きがおすすめ。</p>
+</main>
+
+<section id="game" hidden>
+  <div class="stage" id="stage">
+    <canvas id="cv"></canvas>
+    <button class="k-btn k-icon pauseBtn" id="pauseBtn" aria-label="一時停止">⏸</button>
+    <div class="over" id="pauseOv" hidden><div class="k-card k-stack k-center"><h2>ひとやすみ</h2>
+      <button class="k-btn is-sun is-big" id="resume">つづける</button><button class="k-btn" id="quit">やめる</button></div></div>
+    <div class="over" id="endOv" hidden><div class="k-card k-stack k-center" id="endCard"></div></div>
+  </div>
+  <div class="pads" id="pads"></div>
+</section>
+
+<script src="../../common/kit.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const CHARS = [
+  { id: 'drago', name: 'ドラゴ', note: 'バランス', color: '#4fcf7a', speed: 330, jump: 1, weight: 1, power: 1, reach: 1, horns: 'horn' },
+  { id: 'golem', name: 'ゴーレム', note: 'おもくて パワー', color: '#a08d7a', speed: 260, jump: 0.88, weight: 1.35, power: 1.3, reach: 1.05, horns: 'rock' },
+  { id: 'rabi', name: 'ラビ', note: 'はやい ジャンプ', color: '#ffb3cf', speed: 400, jump: 1.18, weight: 0.8, power: 0.85, reach: 0.9, horns: 'ears' },
+  { id: 'tako', name: 'タコ', note: 'うでが ながい', color: '#ff7a5c', speed: 300, jump: 0.98, weight: 0.95, power: 0.95, reach: 1.4, horns: 'tako' },
+];
+const STAGES = {
+  island: { name: 'たいらな島', sky: ['#7cc4ff', '#d8f0ff'], plats: [{ x: 170, y: 400, w: 620, solid: true }] },
+  castle: { name: 'くものおしろ', sky: ['#5b5bd6', '#f2b5ff'], plats: [{ x: 210, y: 410, w: 540, solid: true }, { x: 250, y: 290, w: 150 }, { x: 560, y: 290, w: 150 }, { x: 405, y: 180, w: 150 }] },
+  tiny: { name: 'ちいさな足場', sky: ['#ff9a5c', '#ffe1a8'], plats: [{ x: 300, y: 390, w: 360, solid: true }, { x: 130, y: 300, w: 110 }, { x: 720, y: 300, w: 110 }] },
+};
+const WW = 960, WH = 540, GRAV = 1900;
+const O = Object.assign({ mode: 'cpu', level: 2, chars: [0, 1], stage: 'island', stock: 3 }, Kit.store.get('brawl:opts', {}));
+
+/* ---------- メニュー ---------- */
+function chips(root, list, key) { root.innerHTML = ''; list.forEach(([v, l]) => { const b = Kit.el(`<button class="k-chip" aria-pressed="${O[key] === v}">${l}</button>`); b.onclick = () => { O[key] = v; Kit.sfx('select'); renderMenu(); }; root.appendChild(b); }); }
+function renderMenu() {
+  chips($('optMode'), [['cpu', '🤖 CPUとたいせん'], ['2p', '👫 ふたりで']], 'mode');
+  chips($('optLv'), [[1, 'よわい'], [2, 'ふつう'], [3, 'つよい']], 'level');
+  chips($('optStage'), Object.entries(STAGES).map(([k, s]) => [k, s.name]), 'stage');
+  chips($('optStock'), [[1, '1'], [2, '2'], [3, '3'], [5, '5']], 'stock');
+  $('cpuBox').hidden = O.mode !== 'cpu';
+  $('p2title').textContent = O.mode === 'cpu' ? 'CPU のモンスター' : '2P のモンスター';
+  [0, 1].forEach(p => {
+    const root = $('pick' + p); root.innerHTML = '';
+    CHARS.forEach((c, i) => {
+      const b = Kit.el(`<button class="k-btn char" aria-pressed="${O.chars[p] === i}"><canvas width="108" height="108"></canvas>${c.name}<small>${c.note}</small></button>`);
+      const cg = b.querySelector('canvas').getContext('2d'); cg.scale(2, 2);
+      drawMonster(cg, { x: 27, y: 50, facing: 1, ch: c, t: 0, state: 'idle', w: 40, h: 44 }, 0.8);
+      b.onclick = () => { O.chars[p] = i; Kit.sfx('select'); renderMenu(); };
+      root.appendChild(b);
+    });
+  });
+}
+
+/* ---------- ゲーム ---------- */
+let S = null, cv = $('cv'), g, scale = 1, ox = 0, oy = 0, CW = 0, CH = 0;
+function resize() {
+  ({ w: CW, h: CH, g } = Kit.fitCanvas(cv));
+  scale = Math.min(CW / WW, CH / WH); ox = (CW - WW * scale) / 2; oy = (CH - WH * scale) / 2;
+  if (S && !loop.running) draw();
+}
+addEventListener('resize', resize);
+
+function mkFighter(i) {
+  const st = STAGES[O.stage], main = st.plats[0];
+  const ch = CHARS[O.chars[i]];
+  return { i, ch, x: main.x + main.w * (i ? 0.75 : 0.25), y: main.y, vx: 0, vy: 0, w: 56, h: 62, facing: i ? -1 : 1,
+    onGround: true, jumps: 2, dmg: 0, stocks: O.stock, stun: 0, atk: null, cool: 0, inv: 0, t: 0, dead: 0, input: {}, prev: {}, charge: 0, dropT: 0 };
+}
+function start() {
+  Kit.store.set('brawl:opts', O);
+  $('menu').hidden = true; $('game').hidden = false;
+  buildPads();
+  resize();
+  S = { f: [mkFighter(0), mkFighter(1)], parts: [], texts: [], shake: 0, over: false, t: 0, cpu: { t: 0, act: null } };
+  $('pauseOv').hidden = $('endOv').hidden = true;
+  Kit.music.play({ bpm: 150, lead: [440, 0, 523, 587, 659, 0, 587, 523, 440, 0, 392, 0, 440, 0, 0, 0], bass: [110, 0, 110, 0, 131, 0, 98, 0], vol: 0.03, type: 'square' });
+  S.texts.push({ x: WW / 2, y: 200, s: 'ファイト！', life: 1.2, size: 60 });
+  Kit.sfx('select');
+  loop.start();
+}
+
+/* ---------- 入力 ---------- */
+function buildPads() {
+  const pads = $('pads');
+  pads.classList.toggle('two', O.mode === '2p');
+  const pad = p => `<div class="pad p${p + 1}" data-p="${p}">
+    <div class="grp"><button data-k="l" aria-label="ひだり">◀</button><button data-k="r" aria-label="みぎ">▶</button></div>
+    <div class="grp"><button data-k="j">ジャンプ</button><button data-k="a">パンチ</button><button data-k="s">スマッシュ</button></div></div>`;
+  pads.innerHTML = pad(0) + (O.mode === '2p' ? pad(1) : '');
+}
+const touches = new Map();
+$('pads').addEventListener('pointerdown', e => {
+  const b = e.target.closest('button'); if (!b || !S) return;
+  e.preventDefault();
+  const p = +b.closest('.pad').dataset.p;
+  touches.set(e.pointerId, { p, k: b.dataset.k, b });
+  b.classList.add('on'); S.f[p].input[b.dataset.k] = true;
+  try { b.releasePointerCapture(e.pointerId); } catch (err) { /* なし */ }
+});
+$('pads').addEventListener('pointerover', e => {
+  // ゆびをすべらせて となりのボタンへ
+  const t = touches.get(e.pointerId); const b = e.target.closest('button');
+  if (!t || !b || b === t.b || !S) return;
+  t.b.classList.remove('on'); S.f[t.p].input[t.k] = false;
+  const p = +b.closest('.pad').dataset.p;
+  Object.assign(t, { p, k: b.dataset.k, b }); b.classList.add('on'); S.f[p].input[b.dataset.k] = true;
+});
+const endTouch = e => { const t = touches.get(e.pointerId); if (!t) return; touches.delete(e.pointerId); t.b.classList.remove('on'); if (S) S.f[t.p].input[t.k] = false; };
+addEventListener('pointerup', endTouch); addEventListener('pointercancel', endTouch);
+const KEYS = { a: [0, 'l'], d: [0, 'r'], w: [0, 'j'], f: [0, 'a'], g: [0, 's'], s: [0, 'dn'], ArrowLeft: [1, 'l'], ArrowRight: [1, 'r'], ArrowUp: [1, 'j'], ArrowDown: [1, 'dn'], k: [1, 'a'], l: [1, 's'] };
+function keyTo(e) { const k = KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key]; if (!k) return null; let [p, a] = k; if (O.mode === 'cpu') p = 0; return [p, a]; }
+addEventListener('keydown', e => { const k = keyTo(e); if (!k || !S) return; e.preventDefault(); S.f[k[0]].input[k[1]] = true; if (e.key === 'Escape') pause(); });
+addEventListener('keyup', e => { const k = keyTo(e); if (!k || !S) return; S.f[k[0]].input[k[1]] = false; });
+
+/* ---------- CPU ---------- */
+function cpuThink(f, o, dt) {
+  const L = O.level, c = S.cpu, inp = {};
+  const st = STAGES[O.stage], main = st.plats[0];
+  const off = f.x < main.x - 5 || f.x > main.x + main.w + 5;
+  if (off && f.y > main.y - 120) {
+    inp[f.x < main.x ? 'r' : 'l'] = true;
+    if (f.vy > 0 && f.jumps > 0 && f.y > main.y - 40) inp.j = !f.prev.j;
+    return inp;
+  }
+  c.t -= dt;
+  if (c.t <= 0) {
+    c.t = [0, 0.45, 0.25, 0.12][L];
+    const dx = o.x - f.x, dy = o.y - f.y;
+    const reach = 60 * f.ch.reach + 20;
+    c.act = {};
+    if (o.dead) { c.act[f.x < main.x + main.w / 2 ? 'r' : 'l'] = Math.abs(f.x - (main.x + main.w / 2)) > 60; }
+    else if (Math.abs(dx) > reach - 10) c.act[dx > 0 ? 'r' : 'l'] = true;
+    if (!o.dead && Math.abs(dx) < reach + 10 && Math.abs(dy) < 50 && Math.random() < [0, 0.45, 0.7, 0.9][L]) {
+      c.act.face = Math.sign(dx);
+      if (o.dmg > 70 && Math.random() < [0, 0.2, 0.4, 0.6][L]) c.act.s = true; else c.act.a = true;
+    }
+    if (!o.dead && dy < -60 && Math.random() < 0.5) c.act.j = true;
+    if (Math.random() < 0.04 * L) c.act.j = true;
+  }
+  Object.assign(inp, c.act);
+  if (inp.face && f.atk == null) f.facing = inp.face;
+  // スマッシュはすこしためる
+  if (inp.s) { f.cpuHold = (f.cpuHold || 0) + dt; inp.s = f.cpuHold < [0, 0.2, 0.45, 0.6][L]; if (!inp.s) { f.cpuHold = 0; c.act.s = false; } }
+  if (inp.j && f.prev.j) inp.j = false;
+  return inp;
+}
+
+/* ---------- うごき ---------- */
+function update(dt) {
+  if (!S) return;
+  S.t += dt;
+  const st = STAGES[O.stage];
+  S.f.forEach((f, idx) => {
+    const o = S.f[1 - idx];
+    f.t += dt;
+    if (f.dead > 0) { f.dead -= dt; if (f.dead <= 0) respawn(f); return; }
+    const inp = O.mode === 'cpu' && idx === 1 ? cpuThink(f, o, dt) : f.input;
+    const pressed = k => inp[k] && !f.prev[k];
+    f.stun = Math.max(0, f.stun - dt); f.inv = Math.max(0, f.inv - dt); f.cool = Math.max(0, f.cool - dt);
+    const C = f.ch;
+    if (f.stun <= 0) {
+      let mv = (inp.r ? 1 : 0) - (inp.l ? 1 : 0);
+      if (f.atk && f.onGround) mv *= 0.2;
+      const target = mv * C.speed;
+      const acc = f.onGround ? 2600 : 1400;
+      if (Math.abs(target - f.vx) < acc * dt) f.vx = target; else f.vx += Math.sign(target - f.vx) * acc * dt;
+      if (mv && !f.atk) f.facing = mv;
+      if (pressed('j') && f.jumps > 0 && !f.atk) {
+        f.vy = -(f.onGround ? 760 : 680) * C.jump; f.jumps--; f.onGround = false; Kit.sfx('jump');
+        puff(f.x, f.y, 6);
+      }
+      if (inp.dn && !f.onGround && f.vy > 0) f.vy = Math.max(f.vy, 900);
+      if (inp.dn && f.onGround) f.dropT = 0.2;
+      // こうげき
+      if (!f.atk && f.cool <= 0) {
+        if (pressed('a')) f.atk = { kind: 'a', t: 0, hit: false };
+        else if (pressed('s')) { f.atk = { kind: 's', t: 0, hit: false, charging: true }; f.charge = 0; }
+      }
+    } else {
+      f.vx *= Math.pow(0.4, dt);
+    }
+    if (f.atk) {
+      const a = f.atk;
+      if (a.kind === 's' && a.charging) {
+        f.charge = Math.min(1, f.charge + dt);
+        if (!inp.s || f.stun > 0) { a.charging = false; a.t = 0; Kit.sfx('whoosh'); }
+      } else {
+        a.t += dt;
+        const [on, offT, end] = a.kind === 'a' ? [0.05, 0.16, 0.24] : [0.08, 0.2, 0.42];
+        if (a.t >= on && a.t <= offT && !a.hit) tryHit(f, o, a);
+        if (a.t >= end) { f.atk = null; f.cool = a.kind === 'a' ? 0.08 : 0.2; }
+      }
+    }
+    f.prev = Object.assign({}, inp);
+    // じゅうりょく
+    f.vy += GRAV * dt;
+    f.vy = Math.min(f.vy, 1300);
+    const oldY = f.y;
+    f.x += f.vx * dt; f.y += f.vy * dt;
+    f.dropT = Math.max(0, f.dropT - dt);
+    f.onGround = false;
+    for (const p of st.plats) {
+      if (f.x < p.x - 6 || f.x > p.x + p.w + 6) continue;
+      if (f.vy >= 0 && oldY <= p.y + 1 && f.y >= p.y) {
+        if (!p.solid && f.dropT > 0) continue;
+        f.y = p.y; f.vy = 0; f.onGround = true; f.jumps = 2;
+        if (f.stun > 0.05 && Math.abs(f.vx) > 200) { f.vy = -Math.abs(f.vx) * 0.3; }
+      }
+      // じめんの下からはぶつかる（ソリッドだけ）
+      if (p.solid && f.vy < 0 && oldY - f.h >= p.y + 30 && f.y - f.h < p.y + 30 && f.x > p.x && f.x < p.x + p.w) { f.y = p.y + 30 + f.h; f.vy = 60; }
+    }
+    // ふっとびゾーン
+    if (f.x < -180 || f.x > WW + 180 || f.y > WH + 200 || f.y < -320) ko(f);
+  });
+  S.parts.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 600 * dt; p.life -= dt; });
+  S.parts = S.parts.filter(p => p.life > 0);
+  S.texts.forEach(t => { t.life -= dt; t.y -= 20 * dt; });
+  S.texts = S.texts.filter(t => t.life > 0);
+  S.shake = Math.max(0, S.shake - dt * 40);
+  draw();
+}
+function tryHit(f, o, a) {
+  if (o.dead || o.inv > 0) return;
+  const reach = (a.kind === 'a' ? 58 : 70) * f.ch.reach;
+  const hx = f.x + f.facing * (f.w / 2 + reach / 2), hy = f.y - f.h / 2;
+  if (Math.abs(o.x - hx) < reach / 2 + o.w / 2 && Math.abs((o.y - o.h / 2) - hy) < f.h / 2 + 20) {
+    a.hit = true;
+    const P = f.ch.power;
+    const dmg = (a.kind === 'a' ? 5 : 12 + 9 * f.charge) * P;
+    o.dmg += dmg;
+    const base = a.kind === 'a' ? 140 : 340 + 260 * f.charge;
+    const growth = a.kind === 'a' ? 3.2 : 9;
+    const kb = (base + o.dmg * growth) * P / o.ch.weight;
+    const ang = a.kind === 'a' ? 0.45 : 0.75;
+    o.vx = f.facing * Math.cos(ang) * kb; o.vy = -Math.sin(ang) * kb;
+    o.stun = Math.min(1.4, kb / 1500); o.onGround = false; o.atk = null;
+    S.shake = Math.min(14, kb / 70);
+    spark(hx, hy, a.kind === 's');
+    Kit.sfx(a.kind === 's' && kb > 900 ? 'boom' : 'hit');
+    Kit.vibrate(a.kind === 's' ? 60 : 25);
+    S.texts.push({ x: o.x, y: o.y - o.h - 10, s: `${Math.round(dmg)}%`, life: 0.6, size: 20 });
+  }
+}
+function ko(f) {
+  f.stocks--; f.dead = 1.3; Kit.sfx('boom'); S.shake = 18;
+  const x = Kit.clamp(f.x, 30, WW - 30), y = Kit.clamp(f.y, 30, WH - 30);
+  for (let i = 0; i < 40; i++) { const a = Math.random() * 6.28, s = Kit.rand(100, 600); S.parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, c: f.ch.color, life: Kit.rand(.4, 1) }); }
+  S.texts.push({ x: WW / 2, y: 180, s: 'K.O.!', life: 1, size: 64 });
+  if (f.stocks <= 0) { f.dead = 999; setTimeout(endMatch, 900); }
+}
+function respawn(f) {
+  const main = STAGES[O.stage].plats[0];
+  Object.assign(f, { x: main.x + main.w / 2 + (f.i ? 60 : -60), y: 120, vx: 0, vy: 0, dmg: 0, stun: 0, atk: null, inv: 2, jumps: 2, dead: 0 });
+}
+function spark(x, y, big) { for (let i = 0; i < (big ? 22 : 10); i++) { const a = Math.random() * 6.28, s = Kit.rand(100, big ? 520 : 300); S.parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, c: big ? '#ffc93c' : '#ffffff', life: Kit.rand(.15, .4) }); } }
+function puff(x, y, n) { for (let i = 0; i < n; i++) S.parts.push({ x: x + Kit.rand(-14, 14), y, vx: Kit.rand(-60, 60), vy: Kit.rand(-80, -20), c: 'rgba(255,255,255,.8)', life: .3 }); }
+
+function endMatch() {
+  if (!S || S.over) return;
+  S.over = true;
+  const w = S.f[0].stocks > 0 ? 0 : 1;
+  const name = i => O.mode === 'cpu' ? (i ? 'CPU' : 'あなた') : `${i + 1}P`;
+  if (O.mode === 'cpu' && w === 0) Kit.addWin('brawl');
+  if (O.mode === 'cpu' && w === 1) Kit.sfx('lose'); else { Kit.sfx('win'); Kit.confetti(); }
+  Kit.music.stop();
+  $('endCard').innerHTML = `<h2 style="font-size:2rem">GAME SET</h2><p style="margin:0;font-weight:900;font-size:1.3rem">${S.f[w].ch.name}（${name(w)}）の勝ち！</p>
+    <button class="k-btn is-sun is-big" id="again">もう一回</button><button class="k-btn" id="back">キャラをえらぶ</button>`;
+  $('endOv').hidden = false;
+  $('again').onclick = start; $('back').onclick = backToMenu;
+}
+function backToMenu() { loop.stop(); Kit.music.stop(); S = null; $('game').hidden = true; $('menu').hidden = false; renderMenu(); }
+
+/* ---------- 絵 ---------- */
+function drawMonster(c, f, sc = 1) {
+  const C = f.ch, x = f.x, y = f.y, w = f.w * sc, h = f.h * sc;
+  const squash = f.onGround === false ? 1.05 : 1 + Math.sin(f.t * 8) * 0.02;
+  c.save(); c.translate(x, y); c.scale(f.facing, 1);
+  c.fillStyle = 'rgba(0,0,0,.18)'; c.beginPath(); c.ellipse(0, 0, w * 0.5, 5 * sc, 0, 0, 6.28); c.fill();
+  c.scale(1, squash);
+  const ink = '#2a2238';
+  c.lineWidth = 3 * sc; c.strokeStyle = ink; c.fillStyle = C.color;
+  // つの・みみ
+  c.beginPath();
+  if (C.horns === 'horn') { c.moveTo(-w * .25, -h * .9); c.lineTo(-w * .15, -h * 1.15); c.lineTo(-w * .02, -h * .92); c.moveTo(w * .1, -h * .92); c.lineTo(w * .25, -h * 1.15); c.lineTo(w * .32, -h * .86); }
+  if (C.horns === 'ears') { c.ellipse(-w * .16, -h * 1.05, w * .1, h * .3, -0.15, 0, 6.28); c.ellipse(w * .14, -h * 1.05, w * .1, h * .3, 0.2, 0, 6.28); }
+  if (C.horns === 'rock') { c.rect(-w * .3, -h * 1.02, w * .2, h * .16); c.rect(w * .05, -h * 1.06, w * .22, h * .2); }
+  c.fill(); c.stroke();
+  // からだ
+  c.beginPath(); c.roundRect(-w / 2, -h, w, h, [w * .45, w * .45, w * .2, w * .2]); c.fill(); c.stroke();
+  if (C.horns === 'tako') { for (let k = -1; k <= 1; k++) { c.beginPath(); c.ellipse(k * w * .3, -2, w * .12, 6 * sc, 0, 0, 6.28); c.fill(); c.stroke(); } }
+  // おなか
+  c.fillStyle = 'rgba(255,255,255,.45)'; c.beginPath(); c.ellipse(w * .05, -h * .32, w * .26, h * .22, 0, 0, 6.28); c.fill();
+  // め
+  c.fillStyle = '#fff'; c.beginPath(); c.ellipse(w * .14, -h * .68, w * .12, h * .14, 0, 0, 6.28); c.fill(); c.stroke();
+  c.fillStyle = ink; c.beginPath(); c.arc(w * .18, -h * .66, w * .05, 0, 6.28); c.fill();
+  // うで（こうげき中）
+  const a = f.atk;
+  if (a) {
+    const reach = (a.kind === 'a' ? 58 : 70) * C.reach * sc;
+    const ext = a.charging ? 0.2 : Math.min(1, a.t / 0.08);
+    c.fillStyle = C.color; c.beginPath(); c.roundRect(w * .3, -h * .55, reach * ext + 10, 14 * sc, 7 * sc); c.fill(); c.stroke();
+    if (a.charging) { c.strokeStyle = '#ffc93c'; c.lineWidth = 4; c.beginPath(); c.arc(0, -h / 2, w * .8, -Math.PI / 2, -Math.PI / 2 + f.charge * 6.28); c.stroke(); }
+  }
+  c.restore();
+}
+function draw() {
+  if (!S || !g) return;
+  const st = STAGES[O.stage];
+  g.fillStyle = '#20264a'; g.fillRect(0, 0, CW, CH);
+  g.save();
+  g.translate(ox + (S.shake ? Kit.rand(-S.shake, S.shake) : 0), oy + (S.shake ? Kit.rand(-S.shake, S.shake) : 0)); g.scale(scale, scale);
+  const sky = g.createLinearGradient(0, 0, 0, WH); sky.addColorStop(0, st.sky[0]); sky.addColorStop(1, st.sky[1]);
+  g.fillStyle = sky; g.fillRect(0, 0, WW, WH);
+  // くも
+  g.fillStyle = 'rgba(255,255,255,.6)';
+  for (let i = 0; i < 5; i++) { const x = ((i * 230 + S.t * 12 * (i % 2 ? 1 : 0.6)) % (WW + 200)) - 100; g.beginPath(); g.ellipse(x, 70 + i * 40, 70, 18, 0, 0, 6.28); g.fill(); }
+  const ink = '#2a2238';
+  st.plats.forEach(p => {
+    if (p.solid) {
+      g.fillStyle = '#6b4a2b'; g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(p.x + p.w, p.y); g.lineTo(p.x + p.w - 60, p.y + 110); g.lineTo(p.x + 60, p.y + 110); g.closePath(); g.fill();
+      g.lineWidth = 4; g.strokeStyle = ink; g.stroke();
+      g.fillStyle = '#4fcf7a'; g.beginPath(); g.roundRect(p.x - 6, p.y - 4, p.w + 12, 22, 10); g.fill(); g.stroke();
+    } else {
+      g.fillStyle = '#fff'; g.beginPath(); g.roundRect(p.x, p.y - 4, p.w, 14, 7); g.fill(); g.lineWidth = 3; g.strokeStyle = ink; g.stroke();
+    }
+  });
+  S.f.forEach(f => { if (f.dead > 0) return; if (f.inv > 0 && Math.floor(f.inv * 12) % 2) return; drawMonster(g, f);
+    g.fillStyle = f.i ? '#3d8bff' : '#ff5d8f'; g.font = '900 16px "Zen Maru Gothic", sans-serif'; g.textAlign = 'center';
+    g.fillText(O.mode === 'cpu' && f.i ? 'CPU' : `${f.i + 1}P`, f.x, f.y - f.h - 22);
+    if (f.x < 0 || f.x > WW || f.y < 0) { g.fillStyle = f.i ? '#3d8bff' : '#ff5d8f'; g.beginPath(); const ix = Kit.clamp(f.x, 16, WW - 16), iy = Kit.clamp(f.y - 20, 16, WH - 16); g.arc(ix, iy, 12, 0, 6.28); g.fill(); }
+  });
+  S.parts.forEach(p => { g.globalAlpha = Math.max(0, Math.min(1, p.life * 2)); g.fillStyle = p.c; g.beginPath(); g.arc(p.x, p.y, 4, 0, 6.28); g.fill(); });
+  g.globalAlpha = 1;
+  S.texts.forEach(t => { g.globalAlpha = Math.min(1, t.life * 2); g.font = `${t.size}px "Dela Gothic One", sans-serif`; g.textAlign = 'center'; g.lineWidth = 6; g.strokeStyle = ink; g.strokeText(t.s, t.x, t.y); g.fillStyle = '#ffc93c'; g.fillText(t.s, t.x, t.y); });
+  g.globalAlpha = 1;
+  // ダメージ表示
+  S.f.forEach((f, i) => {
+    const x = i ? WW - 170 : 20, y = WH - 70;
+    g.fillStyle = 'rgba(255,255,255,.88)'; g.beginPath(); g.roundRect(x, y, 150, 56, 14); g.fill(); g.lineWidth = 3; g.strokeStyle = ink; g.stroke();
+    const col = f.dmg < 50 ? ink : f.dmg < 100 ? '#e07b00' : '#e0245e';
+    g.fillStyle = col; g.font = '30px "Dela Gothic One", sans-serif'; g.textAlign = 'left'; g.fillText(`${Math.round(f.dmg)}%`, x + 12, y + 40);
+    g.font = '16px sans-serif'; g.fillStyle = i ? '#3d8bff' : '#ff5d8f'; g.fillText('●'.repeat(Math.max(0, f.stocks)), x + 100 - Math.max(0, f.stocks - 2) * 6, y + 22);
+  });
+  g.restore();
+}
+const loop = Kit.loop(update);
+
+function pause() { if (!S || S.over || !loop.running) return; loop.stop(); Kit.music.stop(); $('pauseOv').hidden = false; }
+$('pauseBtn').onclick = pause;
+$('resume').onclick = () => { $('pauseOv').hidden = true; loop.start(); Kit.music.play(Kit.music.opts); };
+$('quit').onclick = () => { $('pauseOv').hidden = true; backToMenu(); };
+document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+$('go').onclick = start;
+
+Kit.bar({ id: 'brawl', title: '🥊 モンスターバトル', help: `
+  <p>あいてにパンチをあてると、ダメージ（％）がたまります。％が大きいほど遠くまでふっとぶよ。</p>
+  <p><b>スマッシュ</b>はボタンを長おししてためて、はなすと強いこうげき！</p>
+  <p>画面の外までふっとばすと K.O.。ストックが先になくなったほうの負け。空中ではジャンプがもう1回できるので、落ちたら島にもどろう。</p>
+  <p>くものおしろでは、白い足場の上で ↓（キーボード）で下におりられます。</p>` });
+renderMenu();
+</script>
+</body>
+</html>

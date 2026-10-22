@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>スイングヒーロー</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  .stage { flex: 1; position: relative; min-height: 0; touch-action: none; user-select: none; -webkit-user-select: none; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .hud { position: absolute; top: 10px; left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); display: flex; justify-content: space-between; pointer-events: none; font-weight: 900; gap: 8px; }
+  .hud .box { background: var(--card); border: 3px solid var(--line); border-radius: 14px; padding: 2px 12px; }
+  .hud .k-btn { pointer-events: auto; }
+  .over { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(20, 24, 60, .45); }
+  .over .k-card { width: min(440px, 100%); }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <canvas id="cv"></canvas>
+  <div class="hud" id="hud" hidden>
+    <div class="box">⬆ <span class="k-num" id="height">0</span>m　🪙 <span class="k-num" id="coins">0</span></div>
+    <div class="box" id="hearts"></div>
+    <button class="k-btn k-icon" id="pauseBtn" aria-label="一時停止">⏸</button>
+  </div>
+  <div class="over" id="startOv">
+    <div class="k-card k-stack k-center">
+      <h2>🕸️ スイングヒーロー</h2>
+      <p style="margin:0">画面を<b>おすと</b>、おしたところに近いフックへ いとをのばしてぶらさがるよ。<br><b>はなすと</b>ジャンプ！</p>
+      <p class="k-muted" style="margin:0">おしたままだと いとがちぢんで、ぐいっとあがれる。<br>トゲトゲにはさわらないでね。</p>
+      <span class="k-label">むずかしさ</span>
+      <div class="k-chips" id="optLv" style="justify-content:center"></div>
+      <p class="k-muted" id="bestLine" style="margin:0"></p>
+      <button class="k-btn is-sun is-big" id="startBtn">スタート</button>
+    </div>
+  </div>
+  <div class="over" id="pauseOv" hidden>
+    <div class="k-card k-stack k-center"><h2>ひとやすみ</h2><button class="k-btn is-sun is-big" id="resume">つづける</button></div>
+  </div>
+  <div class="over" id="endOv" hidden><div class="k-card k-stack k-center" id="endCard"></div></div>
+</div>
+
+<script src="../../common/kit.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const cv = $('cv');
+let W = 0, H = 0, g = null;
+const LV = {
+  1: { name: 'やさしい', hearts: 5, spikes: 0.12, rise: 0, reach: 460 },
+  2: { name: 'ふつう', hearts: 3, spikes: 0.25, rise: 18, reach: 420 },
+  3: { name: 'むずかしい', hearts: 2, spikes: 0.4, rise: 34, reach: 380 },
+};
+let diff = Kit.store.get('swing:diff', 1);
+let S = null, pointer = null;
+const GRAV = 1500;
+
+function resize() { ({ w: W, h: H, g } = Kit.fitCanvas(cv)); if (!loop.running) draw(); }
+addEventListener('resize', resize);
+function renderStart() {
+  const root = $('optLv'); root.innerHTML = '';
+  Object.entries(LV).forEach(([k, v]) => {
+    const b = Kit.el(`<button class="k-chip" aria-pressed="${+k === diff}">${v.name}</button>`);
+    b.onclick = () => { diff = +k; Kit.store.set('swing:diff', diff); Kit.sfx('select'); renderStart(); };
+    root.appendChild(b);
+  });
+  const best = Kit.store.get(`swing:best${diff}`, 0);
+  $('bestLine').textContent = best ? `ベスト：${best}m` : '';
+}
+
+/* ワールド座標：y は上にいくほどマイナス */
+function newGame() {
+  const L = LV[diff];
+  S = { p: { x: W / 2, y: -120 }, v: { x: 0, y: 0 }, rope: null, hooks: [], spikes: [], coins: [], parts: [],
+    camY: -H + 60, topY: -120, nextRow: -220, hearts: L.hearts, coinCount: 0, inv: 0, t: 0, floorY: 0, rising: 0 };
+  S.hooks.push({ x: W / 2, y: -320 });
+  S.rope = { hook: S.hooks[0], len: 200 };
+  while (S.nextRow > S.camY - H) addRow();
+  ['startOv', 'endOv', 'pauseOv'].forEach(id => $(id).hidden = true);
+  $('hud').hidden = false; paintHud();
+  Kit.music.play({ bpm: 140, lead: [392, 0, 523, 0, 659, 0, 523, 659, 784, 0, 659, 0, 523, 0, 0, 0], bass: [98, 0, 0, 0, 131, 0, 0, 0], vol: 0.03, type: 'square' });
+  loop.start();
+}
+function addRow() {
+  const L = LV[diff];
+  const y = S.nextRow;
+  const n = Math.random() < 0.6 ? 1 : 2;
+  const xs = [];
+  for (let i = 0; i < n; i++) {
+    let x; do { x = Kit.rand(50, W - 50); } while (xs.some(o => Math.abs(o - x) < 120));
+    xs.push(x); S.hooks.push({ x, y: y + Kit.rand(-20, 20) });
+  }
+  if (Math.random() < 0.5) S.coins.push({ x: Kit.rand(40, W - 40), y: y + Kit.rand(40, 90) });
+  const height = -y / 50;
+  if (height > 8 && Math.random() < L.spikes + Math.min(0.2, height / 1000)) {
+    const sx = Kit.rand(40, W - 40);
+    const moving = height > 40 && Math.random() < 0.5;
+    S.spikes.push({ x: sx, y: y + Kit.rand(60, 100), r: 18, ox: sx, amp: moving ? Kit.rand(40, 110) : 0, ph: Math.random() * 6 });
+  }
+  S.nextRow -= Kit.rand(150, 200);
+}
+function findHook(tx, ty) {
+  const L = LV[diff];
+  let best = null, bd = Infinity;
+  for (const h of S.hooks) {
+    const d = Math.hypot(h.x - S.p.x, h.y - S.p.y);
+    if (d > L.reach || h.y > S.p.y + 30) continue;
+    const dt = Math.hypot(h.x - tx, h.y - ty);
+    if (dt < bd) { bd = dt; best = h; }
+  }
+  return best;
+}
+function attach(tx, ty) {
+  const h = findHook(tx, ty);
+  if (!h) { Kit.sfx('bad'); return; }
+  S.rope = { hook: h, len: Math.max(70, Math.hypot(h.x - S.p.x, h.y - S.p.y)) };
+  Kit.sfx('whoosh');
+}
+function release() {
+  if (!S || !S.rope) return;
+  S.rope = null; S.v.y -= 160; Kit.sfx('jump');
+}
+
+function update(dt) {
+  const L = LV[diff];
+  S.t += dt; S.inv = Math.max(0, S.inv - dt);
+  // うごき
+  S.v.y += GRAV * dt;
+  if (S.rope) {
+    S.rope.len = Math.max(60, S.rope.len - 140 * dt);
+    // ふりこを少しおす：うごいている方向に加速
+    const dx = S.p.x - S.rope.hook.x, dy = S.p.y - S.rope.hook.y, d = Math.hypot(dx, dy) || 1;
+    const tx = -dy / d, ty = dx / d;
+    const along = S.v.x * tx + S.v.y * ty;
+    S.v.x += tx * Math.sign(along) * 260 * dt; S.v.y += ty * Math.sign(along) * 260 * dt;
+  }
+  S.v.x *= 0.999;
+  const sp = Math.hypot(S.v.x, S.v.y); if (sp > 1300) { S.v.x *= 1300 / sp; S.v.y *= 1300 / sp; }
+  S.p.x += S.v.x * dt; S.p.y += S.v.y * dt;
+  if (S.rope) {
+    const h = S.rope.hook, dx = S.p.x - h.x, dy = S.p.y - h.y, d = Math.hypot(dx, dy);
+    if (d > S.rope.len) {
+      const nx = dx / d, ny = dy / d;
+      S.p.x = h.x + nx * S.rope.len; S.p.y = h.y + ny * S.rope.len;
+      const vr = S.v.x * nx + S.v.y * ny;
+      if (vr > 0) { S.v.x -= vr * nx; S.v.y -= vr * ny; }
+    }
+  }
+  if (S.p.y > -15) { S.p.y = -15; S.v.y = 0; S.v.x *= 0.85; }
+  if (S.p.x < 16) { S.p.x = 16; S.v.x = Math.abs(S.v.x) * 0.6; }
+  if (S.p.x > W - 16) { S.p.x = W - 16; S.v.x = -Math.abs(S.v.x) * 0.6; }
+  // カメラ：上にだけついていく。むずかしいほど自動で上がる
+  S.rising += L.rise * dt * Math.min(1, S.t / 6);
+  const want = Math.min(S.p.y - H * 0.55, S.camY - L.rise * dt);
+  if (want < S.camY) S.camY += (want - S.camY) * Math.min(1, dt * 4);
+  S.topY = Math.min(S.topY, S.p.y);
+  while (S.nextRow > S.camY - H * 0.6) addRow();
+  S.hooks = S.hooks.filter(h => h.y < S.camY + H + 200 || (S.rope && S.rope.hook === h));
+  S.spikes = S.spikes.filter(s => s.y < S.camY + H + 200);
+  S.coins = S.coins.filter(c => c.y < S.camY + H + 200);
+  // あたりはんてい
+  for (const s of S.spikes) {
+    s.x = s.ox + Math.sin(S.t * 1.6 + s.ph) * s.amp;
+    if (S.inv <= 0 && Math.hypot(s.x - S.p.x, s.y - S.p.y) < s.r + 14) {
+      S.hearts--; S.inv = 1.4; Kit.sfx('hit'); Kit.vibrate(80); burst(S.p.x, S.p.y, '#ff5d8f', 14);
+      const dx = S.p.x - s.x, dy = S.p.y - s.y, d = Math.hypot(dx, dy) || 1;
+      S.v.x = dx / d * 500; S.v.y = dy / d * 500; S.rope = null;
+      if (S.hearts <= 0) return gameOver();
+    }
+  }
+  S.coins = S.coins.filter(c => {
+    if (Math.hypot(c.x - S.p.x, c.y - S.p.y) < 26) { S.coinCount++; Kit.sfx('coin'); burst(c.x, c.y, '#ffc93c', 8); return false; }
+    return true;
+  });
+  S.parts.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; });
+  S.parts = S.parts.filter(p => p.life > 0);
+  if (S.p.y > S.camY + H + 40) return gameOver();
+  paintHud(); draw();
+}
+function burst(x, y, c, n) { for (let i = 0; i < n; i++) { const a = Math.random() * 6.28, s = Kit.rand(60, 240); S.parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, c, life: Kit.rand(.3, .7) }); } }
+const heightM = () => Math.max(0, Math.round((-120 - S.topY) / 50));
+function paintHud() {
+  $('height').textContent = heightM(); $('coins').textContent = S.coinCount;
+  $('hearts').textContent = '❤️'.repeat(Math.max(0, S.hearts));
+}
+
+function draw() {
+  if (!g) return;
+  const cam = S ? S.camY : -H;
+  // 空：高くなるほど夜になる
+  const h = S ? Math.min(1, heightM() / 300) : 0;
+  const top = `hsl(${210 + h * 40}, ${70 - h * 20}%, ${62 - h * 45}%)`, bot = `hsl(${200 + h * 40}, 80%, ${82 - h * 50}%)`;
+  const grd = g.createLinearGradient(0, 0, 0, H); grd.addColorStop(0, top); grd.addColorStop(1, bot);
+  g.fillStyle = grd; g.fillRect(0, 0, W, H);
+  // ビル（とおくの けしき）
+  g.fillStyle = 'rgba(30, 40, 90, .25)';
+  for (let i = 0; i < 8; i++) {
+    const bx = (i * 97 + 20) % (W + 60) - 30, bh = 120 + (i * 53) % 160, by = H - bh + ((cam * 0.2) % 400 + 400) % 400 - 200;
+    g.fillRect(bx, by, 60, bh + 400);
+  }
+  if (!S) return;
+  g.save(); g.translate(0, -cam);
+  if (h > 0.5) { g.fillStyle = 'rgba(255,255,255,.7)'; for (let i = 0; i < 30; i++) g.fillRect((i * 137) % W, cam + (i * 211) % H, 2, 2); }
+  // スタートのやね
+  if (cam + H > 0) { g.fillStyle = '#5a4a7a'; g.fillRect(0, 0, W, 400); g.fillStyle = '#2a2238'; g.fillRect(0, 0, W, 8); }
+  const ink = '#2a2238';
+  // フック
+  const cand = pointer ? findHook(pointer.x, pointer.y + cam) : null;
+  for (const hk of S.hooks) {
+    const near = Math.hypot(hk.x - S.p.x, hk.y - S.p.y) <= LV[diff].reach && hk.y <= S.p.y + 30;
+    g.fillStyle = ink; g.beginPath(); g.arc(hk.x, hk.y + 3, 10, 0, 6.28); g.fill();
+    g.fillStyle = hk === cand ? '#ffc93c' : near ? '#ffffff' : 'rgba(255,255,255,.45)';
+    g.beginPath(); g.arc(hk.x, hk.y, 10, 0, 6.28); g.fill(); g.lineWidth = 3; g.strokeStyle = ink; g.stroke();
+  }
+  // コイン
+  g.font = '24px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  S.coins.forEach(c => g.fillText('🪙', c.x, c.y + Math.sin(S.t * 4 + c.x) * 3));
+  // トゲ
+  S.spikes.forEach(s => {
+    g.save(); g.translate(s.x, s.y); g.rotate(S.t * 2);
+    g.fillStyle = '#ff5d8f'; g.strokeStyle = ink; g.lineWidth = 3; g.beginPath();
+    for (let i = 0; i < 16; i++) { const a = i * Math.PI / 8, r = i % 2 ? s.r * 0.6 : s.r * 1.15; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+    g.closePath(); g.fill(); g.stroke(); g.restore();
+  });
+  // いと
+  if (S.rope) {
+    g.strokeStyle = ink; g.lineWidth = 6; g.beginPath(); g.moveTo(S.rope.hook.x, S.rope.hook.y); g.lineTo(S.p.x, S.p.y); g.stroke();
+    g.strokeStyle = '#ffffff'; g.lineWidth = 3; g.stroke();
+  }
+  // ヒーロー
+  if (!(S.inv > 0 && Math.floor(S.t * 12) % 2)) {
+    const x = S.p.x, y = S.p.y;
+    g.fillStyle = ink; g.beginPath(); g.arc(x, y + 3, 15, 0, 6.28); g.fill();
+    g.fillStyle = '#e8384f'; g.beginPath(); g.arc(x, y, 15, 0, 6.28); g.fill();
+    g.strokeStyle = ink; g.lineWidth = 3; g.stroke();
+    g.fillStyle = '#fff'; const look = Kit.clamp(S.v.x / 400, -3, 3);
+    g.beginPath(); g.ellipse(x - 6 + look, y - 2, 5, 6, -0.3, 0, 6.28); g.ellipse(x + 6 + look, y - 2, 5, 6, 0.3, 0, 6.28); g.fill(); g.stroke();
+  }
+  S.parts.forEach(p => { g.globalAlpha = Math.max(0, p.life * 1.4); g.fillStyle = p.c; g.fillRect(p.x - 3, p.y - 3, 6, 6); });
+  g.globalAlpha = 1;
+  g.restore();
+}
+const loop = Kit.loop(update);
+
+$('stage').addEventListener('pointerdown', e => {
+  if (e.target.closest('button') || e.target.closest('.over') || !S || !loop.running) return;
+  const r = cv.getBoundingClientRect();
+  pointer = { id: e.pointerId, x: e.clientX - r.left, y: e.clientY - r.top };
+  attach(pointer.x, pointer.y + S.camY);
+});
+$('stage').addEventListener('pointermove', e => { if (pointer && e.pointerId === pointer.id) { const r = cv.getBoundingClientRect(); pointer.x = e.clientX - r.left; pointer.y = e.clientY - r.top; } });
+const up = e => { if (pointer && e.pointerId === pointer.id) { pointer = null; release(); } };
+addEventListener('pointerup', up); addEventListener('pointercancel', up);
+addEventListener('keydown', e => {
+  if (e.key === ' ' && !e.repeat) {
+    e.preventDefault();
+    if (!$('startOv').hidden || !$('endOv').hidden) return newGame();
+    if (S && loop.running) attach(S.p.x + S.v.x * 0.3, S.p.y - 260);
+  }
+  if (e.key === 'Escape' || e.key === 'p') pause();
+});
+addEventListener('keyup', e => { if (e.key === ' ') release(); });
+function pause() { if (!S || !loop.running) return; loop.stop(); Kit.music.stop(); $('pauseOv').hidden = false; }
+$('pauseBtn').onclick = pause;
+$('resume').onclick = () => { $('pauseOv').hidden = true; loop.start(); Kit.music.play(Kit.music.opts); };
+document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+$('startBtn').onclick = newGame;
+
+function gameOver() {
+  loop.stop(); Kit.music.stop(); Kit.sfx('lose');
+  const m = heightM(), total = m + S.coinCount * 5;
+  const key = `swing:best${diff}`, prev = Kit.store.get(key, 0), isNew = m > prev;
+  if (isNew) { Kit.store.set(key, m); Kit.confetti(); }
+  Kit.best('swing', m);
+  $('hud').hidden = true;
+  $('endCard').innerHTML = `<h2>おちちゃった！</h2>
+    <div style="font-family:var(--display);font-size:3rem" class="k-num">${m}m</div>
+    <p style="margin:0">🪙 ${S.coinCount}まい　${isNew ? '🏆 じこベスト こうしん！' : `ベスト ${prev}m`}</p>
+    <button class="k-btn is-sun is-big" id="again">もう一回</button>
+    <button class="k-btn" id="toStart">むずかしさをかえる</button>`;
+  $('endOv').hidden = false;
+  $('again').onclick = newGame;
+  $('toStart').onclick = () => { $('endOv').hidden = true; S = null; draw(); renderStart(); $('startOv').hidden = false; };
+}
+
+Kit.bar({ id: 'swing', title: '🕸️ スイングヒーロー', help: `
+  <p>画面をおすと、おした場所にいちばん近いフック（白い丸）に いとをつけて ぶらさがります。黄色いフックがつかまるところ。</p>
+  <p>おしているあいだ いとがちぢんで上にあがり、はなすとジャンプ。いきおいをつけて上へ上へ！</p>
+  <p>トゲトゲにさわるとハートがへります。下におちたらおしまい。</p>` });
+resize(); renderStart();
+</script>
+</body>
+</html>

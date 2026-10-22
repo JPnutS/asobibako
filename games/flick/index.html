@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>フリックれんしゅう</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  .themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+  .theme { min-height: 74px; display: grid; gap: 2px; align-content: center; text-align: center; }
+  .theme small { font-weight: 500; color: var(--muted); font-size: .78rem; }
+  .theme[aria-pressed="true"] { background: var(--sun); color: #2a2238; }
+  .theme[aria-pressed="true"] small { color: #2a2238; }
+
+  #play { display: grid; gap: 10px; }
+  .hud { display: flex; gap: 8px; align-items: center; }
+  .hud .pill { flex: 1; text-align: center; background: var(--card); border: 3px solid var(--line); border-radius: 14px; padding: 4px; font-weight: 900; }
+  .hud .pill small { display: block; font-size: .7rem; color: var(--muted); font-weight: 700; }
+  .timebar { height: 10px; border: 3px solid var(--line); border-radius: 99px; overflow: hidden; background: var(--soft); }
+  .timebar i { display: block; height: 100%; background: var(--grass); transition: width .2s linear; }
+  .target { background: var(--card); border: 3px solid var(--line); border-radius: 20px; padding: 12px; text-align: center; min-height: 140px; display: grid; align-content: center; gap: 4px; }
+  .target .kanji { color: var(--muted); font-weight: 700; min-height: 1.5em; }
+  .target .kana { font-family: var(--display); font-size: clamp(1.8rem, 9vw, 2.8rem); letter-spacing: .06em; word-break: break-all; }
+  .kana .done { color: var(--grass); }
+  .kana .pend { color: var(--orange); }
+  .kana .next { text-decoration: underline 4px var(--sky); text-underline-offset: 6px; }
+  .target .combo { font-weight: 900; color: var(--berry); min-height: 1.5em; }
+
+  .kb { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: min(100%, 420px); margin: 0 auto; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .key { height: clamp(58px, 9.5dvh, 78px); border: 3px solid var(--line); border-radius: 16px; background: var(--card); box-shadow: 0 4px 0 var(--line);
+    font-family: var(--display); font-size: 1.7rem; display: grid; place-items: center; position: relative; cursor: pointer; }
+  .key.fn { background: var(--soft); font-size: 1.1rem; font-family: var(--font); font-weight: 900; }
+  .key.down { transform: translateY(3px); box-shadow: 0 1px 0 var(--line); }
+  .key.guide { background: var(--sun); color: #2a2238; animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 4px 0 var(--line), 0 0 0 5px rgba(255, 201, 60, .5); } }
+  .key .arrow { position: absolute; font-size: 1.2rem; font-family: var(--font); font-weight: 900; color: var(--berry); }
+  .key .arrow.up { top: -2px; } .key .arrow.down { bottom: -2px; } .key .arrow.left { left: 6px; } .key .arrow.right { right: 6px; }
+  .key .mini { position: absolute; font-size: .62rem; font-family: var(--font); color: var(--muted); font-weight: 700; }
+  .key .mini.l { left: 5px; } .key .mini.r { right: 5px; } .key .mini.u { top: 1px; } .key .mini.d { bottom: 1px; }
+  .pop { position: absolute; width: 0; height: 0; pointer-events: none; z-index: 5; }
+  .pop span { position: absolute; width: 62px; height: 62px; margin: -31px 0 0 -31px; display: grid; place-items: center;
+    background: var(--card); border: 3px solid var(--line); border-radius: 14px; font-family: var(--display); font-size: 1.6rem; }
+  .pop span.on { background: var(--sky); color: #fff; transform: scale(1.12); }
+  .result-big { font-family: var(--display); font-size: 3.4rem; line-height: 1.1; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; }
+  .stats div { background: var(--soft); border-radius: 14px; padding: 8px; text-align: center; }
+  .stats b { display: block; font-size: 1.4rem; }
+</style>
+</head>
+<body>
+<main class="k-wrap">
+  <section id="menu" class="k-stack">
+    <div class="k-card k-stack">
+      <h2>テーマをえらぼう</h2>
+      <div class="themes" id="themes"></div>
+      <details id="customBox">
+        <summary style="cursor:pointer;font-weight:700">じぶんのことばを入れる</summary>
+        <div class="k-stack" style="margin-top:8px">
+          <p class="k-muted" style="margin:0">ひらがなで、1行に1つ。れい：おばあちゃん</p>
+          <textarea class="k-input" id="customWords" rows="4"></textarea>
+        </div>
+      </details>
+    </div>
+    <div class="k-card k-stack">
+      <span class="k-label">モード</span>
+      <div class="k-chips" id="optMode"></div>
+      <span class="k-label">ガイド（つぎのキーとむきを光らせる）</span>
+      <div class="k-chips" id="optGuide"></div>
+    </div>
+    <button class="k-btn is-sun is-big" id="go">スタート</button>
+  </section>
+
+  <section id="play" hidden>
+    <div class="hud">
+      <div class="pill"><small>とくてん</small><span class="k-num" id="score">0</span></div>
+      <div class="pill"><small id="leftLabel">のこり</small><span class="k-num" id="left">60</span></div>
+      <div class="pill"><small>ことば</small><span class="k-num" id="words">0</span></div>
+      <button class="k-btn k-icon" id="quit" aria-label="やめる">✕</button>
+    </div>
+    <div class="timebar" id="timebarWrap"><i id="timebar" style="width:100%"></i></div>
+    <div class="target">
+      <div class="kanji" id="kanji"></div>
+      <div class="kana" id="kana"></div>
+      <div class="combo" id="combo"></div>
+    </div>
+    <div class="kb" id="kb"></div>
+  </section>
+
+  <section id="result" class="k-card k-stack k-center" hidden></section>
+</main>
+
+<script src="../../common/kit.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+/* キー：[まんなか, ひだり, うえ, みぎ, した] */
+const KEYS = [
+  ['あ','い','う','え','お'], ['か','き','く','け','こ'], ['さ','し','す','せ','そ'],
+  ['た','ち','つ','て','と'], ['な','に','ぬ','ね','の'], ['は','ひ','ふ','へ','ほ'],
+  ['ま','み','む','め','も'], ['や','「','ゆ','」','よ'], ['ら','り','る','れ','ろ'],
+  'MOD', ['わ','を','ん','ー',''], 'BS',
+];
+const DIRS = ['', 'left', 'up', 'right', 'down'];
+const DIR_ARROW = { left: '←', up: '↑', right: '→', down: '↓' };
+/* 「小゛゜」キーのじゅんばん */
+const CYCLES = ['かが','きぎ','くぐ','けげ','こご','さざ','しじ','すず','せぜ','そぞ','ただ','ちぢ','つっづ','てで','とど',
+  'はばぱ','ひびぴ','ふぶぷ','へべぺ','ほぼぽ','あぁ','いぃ','うぅゔ','えぇ','おぉ','やゃ','ゆゅ','よょ','わゎ'];
+const CYCLE = {}; CYCLES.forEach(s => [...s].forEach((ch, i) => CYCLE[ch] = s[(i + 1) % s.length]));
+const BASE = {}; CYCLES.forEach(s => [...s].forEach(ch => BASE[ch] = s[0]));
+const WHERE = {}; KEYS.forEach((k, i) => Array.isArray(k) && k.forEach((ch, d) => { if (ch) WHERE[ch] = [i, d]; }));
+
+const HIRA1 = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをんがぎぐげござじずぜぞだでどばびぶべぼぱぴぷぺぽ';
+const THEMES = {
+  hira: { name: '1もじ', sub: 'ひらがな1つずつ', words: [...HIRA1].map(c => [c, '']) },
+  aisatsu: { name: 'あいさつ', sub: 'おはよう など', words: ['おはよう','こんにちは','こんばんは','おやすみ','いただきます','ごちそうさま','いってきます','ただいま','おかえり','ありがとう','ごめんね','よろしくね','またあしたね','おめでとう','いってらっしゃい','はじめまして','どういたしまして'].map(w => [w, '']) },
+  animal: { name: 'どうぶつ', sub: 'いぬ・ぞう…', words: [['いぬ','犬'],['ねこ','猫'],['うさぎ','兎'],['ぞう','象'],['きりん',''],['らいおん','ライオン'],['ぱんだ','パンダ'],['こあら','コアラ'],['ぺんぎん','ペンギン'],['いるか','イルカ'],['かめ','亀'],['かえる','カエル'],['りす','リス'],['はむすたー','ハムスター'],['ごりら','ゴリラ'],['しまうま','シマウマ'],['ひつじ','羊'],['にわとり','鶏'],['ふくろう','フクロウ'],['かぶとむし','カブトムシ']] },
+  food: { name: 'たべもの', sub: 'りんご・らーめん…', words: [['りんご',''],['みかん',''],['いちご',''],['ばなな','バナナ'],['ぶどう',''],['すいか','スイカ'],['めろん','メロン'],['おにぎり',''],['からあげ','唐揚げ'],['かれーらいす','カレーライス'],['らーめん','ラーメン'],['うどん',''],['おすし','お寿司'],['けーき','ケーキ'],['ぷりん','プリン'],['ぎょうざ','餃子'],['たまごやき','卵焼き'],['はんばーぐ','ハンバーグ'],['ちょこれーと','チョコレート']] },
+  school: { name: 'がっこう', sub: 'きょうか・どうぐ', words: [['がっこう','学校'],['せんせい','先生'],['きょうしつ','教室'],['こくばん','黒板'],['えんぴつ','鉛筆'],['けしごむ','消しゴム'],['らんどせる','ランドセル'],['きゅうしょく','給食'],['たいいく','体育'],['さんすう','算数'],['こくご','国語'],['おんがく','音楽'],['ずこう','図工'],['としょしつ','図書室'],['うんどうかい','運動会'],['しゅくだい','宿題'],['なつやすみ','夏休み'],['ともだち','友達'],['こうてい','校庭']] },
+  praise: { name: 'ほめことば', sub: 'すごいね！', words: ['すごいね','ありがとう','がんばったね','さすが','かっこいい','かわいい','やさしいね','てんさい','だいすき','えらいね','すてき','おもしろい','たのしいね','さいこう','ばっちり','じょうずだね'].map(w => [w, '']) },
+  sgt: { name: '超特急', sub: 'メンバーのなまえ', words: [['かい','カイ'],['りょうが','リョウガ'],['たくや','タクヤ'],['ゆーき','ユーキ'],['たかし','タカシ'],['しゅーや','シューヤ'],['まさひろ','マサヒロ'],['あろは','アロハ'],['はる','ハル'],['ちょうとっきゅう','超特急'],['はちごうしゃ','8号車']] },
+  custom: { name: 'じぶんで', sub: '下で入力', words: [] },
+};
+const O = Object.assign({ theme: 'animal', mode: 60, guide: true, custom: 'おとうさん\nおかあさん' }, Kit.store.get('flick:opts', {}));
+
+/* ---------- メニュー ---------- */
+function renderMenu() {
+  const t = $('themes'); t.innerHTML = '';
+  Object.entries(THEMES).forEach(([k, th]) => {
+    const best = Kit.getBest(`flick-${k}`);
+    const b = Kit.el(`<button class="k-btn theme" aria-pressed="${O.theme === k}">${th.name}<small>${best != null ? `🏆 ${best}点` : th.sub}</small></button>`);
+    b.onclick = () => { O.theme = k; Kit.sfx('select'); renderMenu(); if (k === 'custom') $('customBox').open = true; };
+    t.appendChild(b);
+  });
+  const chips = (root, list, get, set) => { root.innerHTML = ''; list.forEach(([v, l]) => { const b = Kit.el(`<button class="k-chip" aria-pressed="${get() === v}">${l}</button>`); b.onclick = () => { set(v); Kit.sfx('select'); renderMenu(); }; root.appendChild(b); }); };
+  chips($('optMode'), [[0, 'れんしゅう（時間なし）'], [30, '30びょう'], [60, '60びょう'], [90, '90びょう']], () => O.mode, v => O.mode = v);
+  chips($('optGuide'), [[true, 'あり'], [false, 'なし']], () => O.guide, v => O.guide = v);
+  $('customWords').value = O.custom;
+}
+
+/* ---------- キーボード ---------- */
+function buildKB() {
+  const kb = $('kb'); kb.innerHTML = '';
+  KEYS.forEach((k, i) => {
+    let html;
+    if (k === 'MOD') html = `<div class="key fn" data-i="${i}">小゛゜</div>`;
+    else if (k === 'BS') html = `<div class="key fn" data-i="${i}">⌫</div>`;
+    else html = `<div class="key" data-i="${i}">${k[0]}<span class="mini l">${k[1]}</span><span class="mini u">${k[2]}</span><span class="mini r">${k[3]}</span><span class="mini d">${k[4]}</span></div>`;
+    kb.appendChild(Kit.el(html));
+  });
+  kb.appendChild(Kit.el('<div class="pop" id="pop" hidden></div>'));
+}
+let touch = null;
+const TH = 22;
+function dirOf(dx, dy) {
+  if (Math.hypot(dx, dy) < TH) return 0;
+  return Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 1 : 3) : (dy < 0 ? 2 : 4);
+}
+function showPop(keyEl, d) {
+  const k = KEYS[+keyEl.dataset.i]; const pop = $('pop');
+  const kb = $('kb').getBoundingClientRect(), r = keyEl.getBoundingClientRect();
+  pop.style.left = Kit.clamp(r.left - kb.left + r.width / 2, 95, kb.width - 95) + 'px'; pop.style.top = (r.top - kb.top + r.height / 2) + 'px';
+  const off = [[0, 0], [-62, 0], [0, -62], [62, 0], [0, 62]];
+  pop.innerHTML = k.map((ch, j) => ch ? `<span class="${j === d ? 'on' : ''}" style="left:${off[j][0]}px;top:${off[j][1]}px">${ch}</span>` : '').join('');
+  pop.hidden = false;
+}
+function bindKB() {
+  const kb = $('kb');
+  kb.addEventListener('pointerdown', e => {
+    const key = e.target.closest('.key'); if (!key || touch) return;
+    e.preventDefault();
+    kb.setPointerCapture(e.pointerId);
+    key.classList.add('down');
+    touch = { id: e.pointerId, key, x: e.clientX, y: e.clientY, d: 0 };
+    const k = KEYS[+key.dataset.i];
+    if (Array.isArray(k)) { showPop(key, 0); Kit.sfx('tick'); }
+  });
+  kb.addEventListener('pointermove', e => {
+    if (!touch || e.pointerId !== touch.id) return;
+    const k = KEYS[+touch.key.dataset.i]; if (!Array.isArray(k)) return;
+    let d = dirOf(e.clientX - touch.x, e.clientY - touch.y);
+    if (d && !k[d]) d = 0;
+    if (d !== touch.d) { touch.d = d; showPop(touch.key, d); }
+  });
+  const up = e => {
+    if (!touch || e.pointerId !== touch.id) return;
+    const { key, d } = touch; touch = null;
+    key.classList.remove('down'); $('pop').hidden = true;
+    if (e.type === 'pointercancel') return;
+    const k = KEYS[+key.dataset.i];
+    if (k === 'BS') return backspace();
+    if (k === 'MOD') return modify();
+    input(k[d] || k[0]);
+  };
+  kb.addEventListener('pointerup', up);
+  kb.addEventListener('pointercancel', up);
+}
+
+/* ---------- ゲーム ---------- */
+let G = null;
+function wordsFor(theme) {
+  if (theme === 'custom') {
+    return O.custom.split(/\n/).map(s => s.trim()).filter(s => /^[ぁ-ゖー]+$/.test(s)).map(w => [w, '']);
+  }
+  return THEMES[theme].words;
+}
+function start() {
+  O.custom = $('customWords').value;
+  const words = wordsFor(O.theme);
+  if (!words.length) { Kit.toast('ひらがなのことばを1つ以上入れてね'); return; }
+  Kit.store.set('flick:opts', O);
+  G = { words, bag: [], word: null, buf: '', score: 0, count: 0, chars: 0, miss: 0, combo: 0, maxCombo: 0, left: O.mode, start: performance.now(), timer: null };
+  $('menu').hidden = true; $('result').hidden = true; $('play').hidden = false;
+  $('timebarWrap').hidden = !O.mode; $('leftLabel').textContent = O.mode ? 'のこり' : 'じかん';
+  nextWord(); paintHud();
+  clearInterval(G.timer);
+  G.timer = setInterval(tick, 200);
+  Kit.keepAwake(true);
+}
+function tick() {
+  const el = (performance.now() - G.start) / 1000;
+  if (O.mode) {
+    G.left = Math.max(0, O.mode - el);
+    $('timebar').style.width = (G.left / O.mode * 100) + '%';
+    $('timebar').style.background = G.left < 10 ? 'var(--berry)' : 'var(--grass)';
+    if (G.left <= 0) return finish();
+  } else G.left = el;
+  $('left').textContent = Math.ceil(O.mode ? G.left : G.left);
+}
+function nextWord() {
+  if (!G.bag.length) G.bag = Kit.shuffle(G.words);
+  let w = G.bag.pop();
+  if (G.word && w[0] === G.word[0] && G.words.length > 1) { if (!G.bag.length) G.bag = Kit.shuffle(G.words); w = G.bag.pop(); }
+  G.word = w; G.buf = '';
+  paintTarget();
+}
+/* buf がお題の先頭とどう合っているか：'ok' | 'pending'（あと小゛゜で合う）| 'ng' */
+function check(buf) {
+  const t = G.word[0];
+  if (t.startsWith(buf)) return 'ok';
+  const head = buf.slice(0, -1), last = buf.slice(-1), want = t[buf.length - 1];
+  if (t.startsWith(head) && want && BASE[want] && BASE[want] === BASE[last]) return 'pending';
+  return 'ng';
+}
+function input(ch) {
+  if (!G || !ch) return;
+  const next = G.buf + ch;
+  if (check(next) === 'ng') return miss();
+  G.buf = next; Kit.sfx('tap');
+  afterChange();
+}
+function modify() {
+  if (!G || !G.buf) return;
+  const last = G.buf.slice(-1);
+  if (!CYCLE[last]) { Kit.sfx('bad'); return; }
+  let cand = G.buf.slice(0, -1) + CYCLE[last];
+  // まちがった形はとばして、合う形をさがす
+  for (let i = 0; i < 3 && check(cand) === 'ng'; i++) cand = cand.slice(0, -1) + CYCLE[cand.slice(-1)];
+  if (check(cand) === 'ng') return miss();
+  G.buf = cand; Kit.sfx('tap'); afterChange();
+}
+function backspace() { if (!G || !G.buf) return; G.buf = G.buf.slice(0, -1); Kit.sfx('tick'); paintTarget(); }
+function miss() {
+  G.miss++; G.combo = 0; Kit.sfx('bad'); Kit.vibrate(40);
+  const t = document.querySelector('.target'); t.classList.remove('k-shake'); void t.offsetWidth; t.classList.add('k-shake');
+  paintHud(); paintTarget();
+}
+function afterChange() {
+  if (check(G.buf) === 'ok') {
+    G.chars++; G.combo++; G.maxCombo = Math.max(G.maxCombo, G.combo);
+    G.score += 10 + Math.floor(G.combo / 10) * 2;
+  }
+  if (G.buf === G.word[0]) {
+    G.count++; G.score += 20 + G.word[0].length * 2;
+    Kit.sfx('good');
+    $('kana').innerHTML = `<span class="done">${G.buf}</span>`;
+    paintHud();
+    setTimeout(() => { if (G) nextWord(); }, 220);
+    return;
+  }
+  paintHud(); paintTarget();
+}
+function paintHud() {
+  $('score').textContent = G.score; $('words').textContent = G.count;
+  $('combo').textContent = G.combo >= 5 ? `${G.combo} コンボ！` : '';
+}
+function paintTarget() {
+  const t = G.word[0], st = check(G.buf);
+  const okLen = st === 'pending' ? G.buf.length - 1 : G.buf.length;
+  $('kanji').textContent = G.word[1] || '';
+  $('kana').innerHTML = `<span class="done">${t.slice(0, okLen)}</span>${st === 'pending' ? `<span class="pend">${G.buf.slice(-1)}</span>` : ''}` +
+    `<span class="next">${st === 'pending' ? '' : t.charAt(okLen)}</span>${t.slice(okLen + (st === 'pending' ? 1 : 1))}`;
+  paintGuide(st, okLen);
+}
+function paintGuide(st, okLen) {
+  document.querySelectorAll('.key.guide').forEach(k => { k.classList.remove('guide'); k.querySelector('.arrow')?.remove(); });
+  if (!O.guide) return;
+  const want = G.word[0].charAt(okLen);
+  const keys = $('kb').querySelectorAll('.key');
+  if (st === 'pending' || !want) { if (st === 'pending') keys[9].classList.add('guide'); return; }
+  const pos = WHERE[want] || WHERE[BASE[want]];
+  if (!pos) return;
+  const key = keys[pos[0]]; key.classList.add('guide');
+  if (pos[1]) key.appendChild(Kit.el(`<span class="arrow ${DIRS[pos[1]]}">${DIR_ARROW[DIRS[pos[1]]]}</span>`));
+}
+function finish() {
+  if (!G) return;
+  clearInterval(G.timer); Kit.keepAwake(false);
+  const g = G; G = null;
+  const secs = O.mode || Math.max(1, (performance.now() - g.start) / 1000);
+  const cpm = Math.round(g.chars / secs * 60);
+  const acc = g.chars + g.miss ? Math.round(g.chars / (g.chars + g.miss) * 100) : 100;
+  let rec = null;
+  if (O.mode) rec = Kit.best(`flick-${O.theme}`, g.score);
+  if (O.mode && (O.theme !== 'custom')) Kit.best('flick', g.score);
+  const rank = g.score >= 900 ? 'フリックの神さま' : g.score >= 600 ? 'フリックマスター' : g.score >= 350 ? 'フリック上級' : g.score >= 150 ? 'フリック中級' : 'フリック入門';
+  $('play').hidden = true; const r = $('result'); r.hidden = false;
+  Kit.sfx('win'); if (rec && rec.isNew) Kit.confetti();
+  r.innerHTML = `
+    <p class="k-label">${THEMES[O.theme].name}${O.mode ? `・${O.mode}びょう` : '・れんしゅう'}</p>
+    <div class="result-big k-num">${g.score}<small style="font-size:1.2rem"> 点</small></div>
+    ${O.mode ? `<p style="margin:0;font-weight:900">${rank}${rec && rec.isNew ? ' 🏆 じこベスト！' : rec ? `（ベスト ${rec.best}点）` : ''}</p>` : ''}
+    <div class="stats">
+      <div><span class="k-label">ことば</span><b class="k-num">${g.count}</b></div>
+      <div><span class="k-label">1分で</span><b class="k-num">${cpm}もじ</b></div>
+      <div><span class="k-label">せいかくさ</span><b class="k-num">${acc}%</b></div>
+    </div>
+    <p class="k-muted" style="margin:0">さいだいコンボ ${g.maxCombo}</p>
+    <div class="k-row" style="justify-content:center">
+      <button class="k-btn is-sun is-big" id="again">もう一回</button>
+      <button class="k-btn" id="back">テーマをえらぶ</button>
+    </div>`;
+  $('again').onclick = start;
+  $('back').onclick = () => { r.hidden = true; $('menu').hidden = false; renderMenu(); };
+}
+$('quit').onclick = () => { if (!G) return; if (!O.mode) return finish(); clearInterval(G.timer); G = null; Kit.keepAwake(false); $('play').hidden = true; $('menu').hidden = false; renderMenu(); };
+$('go').onclick = () => { Kit.sfx('select'); start(); };
+
+Kit.bar({ id: 'flick', title: '📱 フリックれんしゅう', help: `
+  <p>画面のキーボードで、お題のことばを入力します。</p>
+  <p>キーをおして、<b>そのままゆびをすべらせる</b>と ←い ↑う →え ↓お が出ます（「あ」キーのばあい）。</p>
+  <p>「が」「っ」「ゃ」などは、もとの字（か・つ・や）を入れてから <b>小゛゜</b> キーをおします。</p>
+  <p>ガイドありだと、つぎにおすキーが黄色く光り、すべらせる向きが矢印で出ます。</p>` });
+buildKB(); bindKB(); renderMenu();
+</script>
+</body>
+</html>

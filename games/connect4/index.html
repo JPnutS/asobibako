@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>よんもくならべ</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  :root { --p1: var(--berry); --p2: var(--sun); --board: #3d6bff; --hole: var(--paper); }
+  .status { display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 900; font-size: 1.15rem; min-height: 44px; }
+  .chip { width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--line); display: inline-block; }
+  .chip.p1 { background: var(--p1); } .chip.p2 { background: var(--p2); }
+  .board {
+    width: min(100%, 560px, calc((100dvh - 250px) * 7 / 6)); margin: 0 auto; aspect-ratio: 7 / 6;
+    background: var(--board); border: 4px solid var(--line); border-radius: 20px; box-shadow: 0 7px 0 var(--line);
+    display: grid; grid-template-columns: repeat(7, 1fr); padding: 2%; gap: 0; touch-action: manipulation; cursor: pointer;
+    position: relative; overflow: hidden;
+  }
+  .col { display: grid; grid-template-rows: repeat(6, 1fr); border-radius: 12px; }
+  .col.hover { background: rgba(255, 255, 255, .18); }
+  .cell { display: grid; place-items: center; }
+  .hole { width: 84%; aspect-ratio: 1; border-radius: 50%; background: var(--hole); border: 3px solid var(--line); position: relative; overflow: visible; }
+  .disc { position: absolute; inset: -3px; border-radius: 50%; border: 3px solid var(--line); box-shadow: inset 0 -5px 0 rgba(0,0,0,.18); }
+  .disc.p1 { background: var(--p1); } .disc.p2 { background: var(--p2); }
+  .disc.fall { animation: fall var(--t, .35s) cubic-bezier(.5, 0, 1, 1); }
+  @keyframes fall { from { transform: translateY(var(--from)); } }
+  .disc.win { animation: glow .6s ease-in-out infinite alternate; }
+  @keyframes glow { to { transform: scale(1.12); box-shadow: 0 0 0 5px #fff, inset 0 -5px 0 rgba(0,0,0,.18); } }
+  .tally { display: flex; justify-content: center; gap: 18px; font-weight: 900; }
+  .tally span { display: flex; align-items: center; gap: 6px; }
+  .modes { display: grid; gap: 12px; }
+</style>
+</head>
+<body>
+<main class="k-wrap">
+  <section id="menu" class="k-card k-stack">
+    <h2>だれとあそぶ？</h2>
+    <div class="k-chips" id="optMode"></div>
+    <div id="cpuOpts" class="k-stack">
+      <span class="k-label">CPUのつよさ</span>
+      <div class="k-chips" id="optLevel"></div>
+      <span class="k-label">さきに入れるのは</span>
+      <div class="k-chips" id="optFirst"></div>
+    </div>
+    <button class="k-btn is-sun is-big" id="go">スタート</button>
+  </section>
+
+  <section id="game" class="k-stack" hidden>
+    <div class="status" id="status" aria-live="polite"></div>
+    <div class="board" id="board" role="grid" aria-label="ばん"></div>
+    <div class="tally" id="tally"></div>
+    <div class="k-row" style="justify-content:center">
+      <button class="k-btn is-small" id="undo">↩ まった</button>
+      <button class="k-btn is-small is-sky" id="again">もう一回</button>
+      <button class="k-btn is-small" id="toMenu">モードをかえる</button>
+    </div>
+  </section>
+</main>
+
+<script src="../../common/kit.js"></script>
+<script>
+'use strict';
+const W = 7, H = 6;
+const $ = id => document.getElementById(id);
+const O = Object.assign({ mode: 'cpu', level: 2, first: 1 }, Kit.store.get('connect4:opts', {}));
+let board, turn, over, history, gen = 0, busy = false, wins = { 1: 0, 2: 0 }, hoverCol = -1;
+
+function chips(root, list, get, set) {
+  root.innerHTML = '';
+  list.forEach(([v, l]) => {
+    const b = Kit.el(`<button class="k-chip" aria-pressed="${get() === v}">${l}</button>`);
+    b.onclick = () => { set(v); Kit.sfx('select'); renderMenu(); };
+    root.appendChild(b);
+  });
+}
+function renderMenu() {
+  chips($('optMode'), [['cpu', '🤖 CPUとたいせん'], ['2p', '👫 ふたりで']], () => O.mode, v => O.mode = v);
+  chips($('optLevel'), [[1, 'よわい'], [2, 'ふつう'], [3, 'つよい'], [4, 'さいきょう']], () => O.level, v => O.level = v);
+  chips($('optFirst'), [[1, 'じぶん'], [2, 'CPU']], () => O.first, v => O.first = v);
+  $('cpuOpts').hidden = O.mode !== 'cpu';
+}
+
+/* ---------- 盤面 ---------- */
+function buildBoard() {
+  const b = $('board'); b.innerHTML = '';
+  for (let c = 0; c < W; c++) {
+    const col = Kit.el(`<div class="col" data-c="${c}" role="button" aria-label="${c + 1}列目"></div>`);
+    for (let r = 0; r < H; r++) col.appendChild(Kit.el(`<div class="cell"><div class="hole" id="h${r}${c}"></div></div>`));
+    b.appendChild(col);
+  }
+}
+function start() {
+  gen++; busy = false;
+  board = Array.from({ length: H }, () => new Array(W).fill(0));
+  turn = 1; over = false; history = [];
+  buildBoard();
+  $('menu').hidden = true; $('game').hidden = false;
+  $('undo').hidden = O.mode !== 'cpu';
+  paintStatus(); paintTally();
+  if (O.mode === 'cpu' && O.first === 2) cpuTurn();
+}
+const name = p => O.mode === 'cpu' ? (p === cpuP() ? 'CPU' : 'あなた') : (p === 1 ? 'あか' : 'きいろ');
+const cpuP = () => O.first === 2 ? 1 : 2;
+function paintStatus(msg) {
+  $('status').innerHTML = msg || `<span class="chip p${turn}"></span>${name(turn)}のばん`;
+}
+function paintTally() {
+  $('tally').innerHTML = `<span><i class="chip p1"></i>${name(1)} <b class="k-num">${wins[1]}</b></span><span><i class="chip p2"></i>${name(2)} <b class="k-num">${wins[2]}</b></span>`;
+}
+function dropRow(b, c) { for (let r = H - 1; r >= 0; r--) if (!b[r][c]) return r; return -1; }
+
+function place(c) {
+  const r = dropRow(board, c);
+  if (r < 0 || over) return false;
+  board[r][c] = turn;
+  history.push([r, c]);
+  const disc = Kit.el(`<div class="disc p${turn} fall"></div>`);
+  disc.style.setProperty('--from', `-${(r + 1) * 118}%`);
+  disc.style.setProperty('--t', `${0.18 + r * 0.05}s`);
+  $(`h${r}${c}`).appendChild(disc);
+  setTimeout(() => Kit.sfx('drop'), (0.18 + r * 0.05) * 900);
+  const line = winLine(board, r, c);
+  if (line) {
+    over = true;
+    setTimeout(() => {
+      line.forEach(([rr, cc]) => $(`h${rr}${cc}`).firstChild.classList.add('win'));
+      wins[turn]++; paintTally();
+      const humanWon = O.mode === 'cpu' && turn !== cpuP();
+      if (O.mode === 'cpu' && !humanWon) { Kit.sfx('lose'); paintStatus('CPUの勝ち！もう一回やってみよう'); }
+      else { Kit.sfx('win'); Kit.confetti(); paintStatus(`<span class="chip p${turn}"></span>${name(turn)}の勝ち！`); }
+      if (humanWon) Kit.addWin('connect4');
+    }, 400);
+  } else if (history.length === W * H) {
+    over = true; setTimeout(() => { Kit.sfx('select'); paintStatus('ひきわけ！'); }, 400);
+  } else {
+    turn = 3 - turn; paintStatus();
+  }
+  return true;
+}
+function winLine(b, r, c) {
+  const p = b[r][c];
+  for (const [dr, dc] of [[0, 1], [1, 0], [1, 1], [1, -1]]) {
+    const cells = [[r, c]];
+    for (const s of [1, -1]) {
+      let rr = r + dr * s, cc = c + dc * s;
+      while (rr >= 0 && rr < H && cc >= 0 && cc < W && b[rr][cc] === p) { cells.push([rr, cc]); rr += dr * s; cc += dc * s; }
+    }
+    if (cells.length >= 4) {
+      // おいた石をふくむ、ちょうど4つをひかせる
+      cells.sort((a, z) => (a[0] - z[0]) || (a[1] - z[1]));
+      const i = cells.findIndex(([rr, cc]) => rr === r && cc === c);
+      const s = Kit.clamp(i - 1, 0, cells.length - 4);
+      return cells.slice(s, s + 4);
+    }
+  }
+  return null;
+}
+
+/* ---------- CPU：アルファベータ法 ---------- */
+const ORDER = [3, 2, 4, 1, 5, 0, 6];
+function scoreWindow(w, p) {
+  const o = 3 - p; let mine = 0, theirs = 0, empty = 0;
+  w.forEach(v => v === p ? mine++ : v === o ? theirs++ : empty++);
+  if (mine === 4) return 1000;
+  if (mine === 3 && empty === 1) return 6;
+  if (mine === 2 && empty === 2) return 2;
+  if (theirs === 3 && empty === 1) return -5;
+  return 0;
+}
+function evaluate(b, p) {
+  let s = 0;
+  for (let r = 0; r < H; r++) if (b[r][3] === p) s += 3;
+  for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) {
+    if (c + 3 < W) s += scoreWindow([b[r][c], b[r][c + 1], b[r][c + 2], b[r][c + 3]], p);
+    if (r + 3 < H) s += scoreWindow([b[r][c], b[r + 1][c], b[r + 2][c], b[r + 3][c]], p);
+    if (r + 3 < H && c + 3 < W) s += scoreWindow([b[r][c], b[r + 1][c + 1], b[r + 2][c + 2], b[r + 3][c + 3]], p);
+    if (r + 3 < H && c - 3 >= 0) s += scoreWindow([b[r][c], b[r + 1][c - 1], b[r + 2][c - 2], b[r + 3][c - 3]], p);
+  }
+  return s;
+}
+function negamax(b, depth, alpha, beta, p, filled) {
+  if (filled === W * H) return 0;
+  if (depth === 0) return evaluate(b, p) - evaluate(b, 3 - p);
+  for (const c of ORDER) {
+    const r = dropRow(b, c); if (r < 0) continue;
+    b[r][c] = p; const w = winLine(b, r, c); b[r][c] = 0;
+    if (w) return 100000 + depth;
+  }
+  let best = -Infinity;
+  for (const c of ORDER) {
+    const r = dropRow(b, c); if (r < 0) continue;
+    b[r][c] = p;
+    const v = -negamax(b, depth - 1, -beta, -alpha, 3 - p, filled + 1);
+    b[r][c] = 0;
+    if (v > best) best = v;
+    if (best > alpha) alpha = best;
+    if (alpha >= beta) break;
+  }
+  return best;
+}
+function cpuMove() {
+  const b = board.map(r => r.slice()), p = turn;
+  const legal = ORDER.filter(c => dropRow(b, c) >= 0);
+  if (O.level === 1 && Math.random() < 0.55) return Kit.pick(legal);
+  const depth = [0, 2, 4, 6, 8][O.level];
+  let best = -Infinity, choices = [];
+  for (const c of legal) {
+    const r = dropRow(b, c);
+    b[r][c] = p;
+    const v = winLine(b, r, c) ? 1e6 : -negamax(b, depth - 1, -Infinity, Infinity, 3 - p, history.length + 1);
+    b[r][c] = 0;
+    if (v > best + 0.5) { best = v; choices = [c]; } else if (Math.abs(v - best) <= 0.5) choices.push(c);
+  }
+  return O.level <= 2 ? Kit.pick(choices) : choices[0];
+}
+function cpuTurn() {
+  busy = true; paintStatus('<span class="chip p' + turn + '"></span>CPUがかんがえ中…');
+  const my = gen;
+  setTimeout(() => {
+    if (my !== gen || over) return;
+    const c = cpuMove();
+    place(c); busy = false;
+  }, 550);
+}
+
+/* ---------- そうさ ---------- */
+function humanPlay(c) {
+  if (over || busy) return;
+  if (O.mode === 'cpu' && turn === cpuP()) return;
+  if (!place(c)) { Kit.sfx('bad'); return; }
+  if (O.mode === 'cpu' && !over) cpuTurn();
+}
+$('board').addEventListener('click', e => {
+  const col = e.target.closest('.col'); if (col) humanPlay(+col.dataset.c);
+});
+$('board').addEventListener('pointermove', e => {
+  const col = e.target.closest('.col'); const c = col ? +col.dataset.c : -1;
+  if (c !== hoverCol) { document.querySelectorAll('.col.hover').forEach(x => x.classList.remove('hover')); if (col) col.classList.add('hover'); hoverCol = c; }
+});
+$('board').addEventListener('pointerleave', () => { document.querySelectorAll('.col.hover').forEach(x => x.classList.remove('hover')); hoverCol = -1; });
+document.addEventListener('keydown', e => {
+  if ($('game').hidden) return;
+  if (e.key >= '1' && e.key <= '7') humanPlay(+e.key - 1);
+});
+$('undo').onclick = () => {
+  if (busy || !history.length) return;
+  gen++;
+  if (over) {
+    const [r, c] = history[history.length - 1];
+    if (winLine(board, r, c)) { wins[board[r][c]]--; paintTally(); }
+  }
+  // じぶんのばんにもどるまで、CPUの手と自分の手をもどす
+  const human = 3 - cpuP();
+  do { const [r, c] = history.pop(); board[r][c] = 0; $(`h${r}${c}`).innerHTML = ''; }
+  while (history.length && (history.length % 2 === 0 ? 1 : 2) !== human);
+  document.querySelectorAll('.disc.win').forEach(d => d.classList.remove('win'));
+  over = false;
+  turn = history.length % 2 === 0 ? 1 : 2;
+  Kit.sfx('whoosh'); paintStatus();
+  if (turn === cpuP()) cpuTurn();
+};
+$('again').onclick = () => { Kit.sfx('select'); start(); };
+$('toMenu').onclick = () => { gen++; $('game').hidden = true; $('menu').hidden = false; renderMenu(); };
+$('go').onclick = () => {
+  Kit.store.set('connect4:opts', O); wins = { 1: 0, 2: 0 }; Kit.sfx('select'); start();
+};
+
+Kit.bar({ id: 'connect4', title: '🔴 よんもくならべ', help: `
+  <p>じゅんばんに、上から石を入れていきます。石は下におちます。</p>
+  <p><b>たて・よこ・ななめ</b>に、じぶんの色を<b>4つ</b>ならべたら勝ち！</p>
+  <p>CPUとたいせんするときは「まった」で1手もどせます。キーボードの1〜7でも入れられます。</p>` });
+renderMenu();
+</script>
+</body>
+</html>

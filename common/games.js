@@ -1,0 +1,17 @@
+/* ゲームの一覧。ポータルとオフライン保存の両方がここを見る */
+self.ASOBI_GAMES = [
+  { id: 'wordwolf', name: 'ワードウルフ', icon: '🐺', color: 'grape', tag: 'みんなで', who: '3〜8人', desc: 'ひとりだけちがうお題。だれがウルフかな？' },
+  { id: 'babanuki', name: 'ババぬき', icon: '🃏', color: 'berry', tag: 'みんなで', who: '1人＋CPU', desc: 'CPUと対戦。ジジぬきもできるよ' },
+  { id: 'connect4', name: 'よんもくならべ', icon: '🔴', color: 'sun', tag: 'たいせん', who: '1〜2人', desc: 'たて・よこ・ななめに4つそろえよう' },
+  { id: 'dots', name: 'ドット＆ボックス', icon: '✏️', color: 'sky', tag: 'たいせん', who: '2〜4人', desc: '線をひいて、はこをたくさん取ろう' },
+  { id: 'sandpile', name: 'やまくずし', icon: '⛰️', color: 'orange', tag: 'たいせん', who: '1〜4人', desc: '砂をけずって、はたをたおしたら負け' },
+  { id: 'snowball', name: 'ゆきがっせん', icon: '⛄', color: 'sky', tag: 'たいせん', who: '1〜2人', desc: 'かべにかくれて、雪玉をなげあおう' },
+  { id: 'brawl', name: 'モンスターバトル', icon: '🥊', color: 'berry', tag: 'たいせん', who: '1〜2人', desc: 'ステージの外にふっとばせ！' },
+  { id: 'flick', name: 'フリックれんしゅう', icon: '📱', color: 'grass', tag: 'ひとりで', who: '1人', desc: 'ほんもののフリックでタイピング' },
+  { id: 'colors', name: 'いろあわせ', icon: '🌈', color: 'grape', tag: 'ひとりで', who: '1人', desc: 'まわして、同じ色でキャッチ' },
+  { id: 'thread', name: 'いととおし', icon: '🧵', color: 'sky', tag: 'ひとりで', who: '1人', desc: 'おしてのぼる、はなしておりる' },
+  { id: 'swing', name: 'スイングヒーロー', icon: '🕸️', color: 'orange', tag: 'ひとりで', who: '1人', desc: 'いとをつけて、どこまでのぼれる？' },
+  { id: 'beads', name: 'アイロンビーズ', icon: '🎨', color: 'sun', tag: 'つくる', who: '', desc: '写真から図案。ぬりなおしもできる' },
+  { id: 'mirror', name: 'どうがはんてん', icon: '🪞', color: 'grass', tag: 'つくる', who: '', desc: 'ダンスれんしゅうに。反転・スロー・くりかえし' },
+  { id: 'oshi', name: '推し活ノート', icon: '💖', color: 'berry', tag: 'つくる', who: '', desc: 'カウントダウン・推し貯金・きろく' },
+];

@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>どうがはんてん</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  .k-wrap { max-width: 900px; }
+  .drop { border: 4px dashed var(--line); border-radius: 22px; padding: 36px 18px; text-align: center; cursor: pointer; background: var(--card); display: grid; gap: 10px; justify-items: center; }
+  .drop b { font-size: 1.3rem; }
+  .screen { position: relative; background: #111; border: 3px solid var(--line); border-radius: 18px; overflow: hidden; display: grid; place-items: center; max-height: 62dvh; }
+  .screen video.main { width: 100%; max-height: 62dvh; display: block; transition: transform .2s; }
+  .screen .pip { position: absolute; right: 10px; bottom: 10px; width: 30%; max-width: 220px; border: 3px solid #fff; border-radius: 12px; transform: scaleX(-1); background: #000; }
+  .badge { position: absolute; left: 10px; top: 10px; background: rgba(0,0,0,.6); color: #fff; font-weight: 900; padding: 2px 10px; border-radius: 999px; font-size: .85rem; }
+  .count { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--display); font-size: 7rem; color: #fff; text-shadow: 0 4px 0 #000; pointer-events: none; }
+  .tl { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; }
+  .tl input { width: 100%; accent-color: var(--berry); }
+  .tlwrap { position: relative; }
+  .ab { position: absolute; top: -4px; height: 6px; background: var(--sun); border-radius: 3px; pointer-events: none; }
+  .ctrl { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; }
+  .group { display: grid; gap: 6px; }
+  .rec { display: grid; gap: 8px; }
+  .prog { height: 14px; border: 3px solid var(--line); border-radius: 99px; background: var(--soft); overflow: hidden; }
+  .prog i { display: block; height: 100%; width: 0; background: var(--berry); }
+</style>
+</head>
+<body>
+<main class="k-wrap">
+  <label class="drop" id="drop">
+    <span style="font-size:3rem">🪞</span>
+    <b>どうがをえらぶ</b>
+    <span class="k-muted">ダンスの先生のどうがを左右はんてんすると、むかいあって同じ向きでおどれます。<br>どうがはこのたんまつの中だけでつかい、どこにも送りません。</span>
+    <input type="file" id="file" accept="video/*" hidden>
+  </label>
+
+  <section id="player" class="k-stack" hidden>
+    <div class="screen" id="screen">
+      <video class="main" id="v" playsinline></video>
+      <video class="pip" id="cam" playsinline muted hidden></video>
+      <span class="badge" id="badge"></span>
+      <div class="count" id="count" hidden></div>
+    </div>
+    <div class="tl">
+      <span class="k-num" id="tNow">0:00</span>
+      <div class="tlwrap"><input type="range" id="seek" min="0" max="1000" value="0" aria-label="さいせい位置"><div class="ab" id="abBar" hidden></div></div>
+      <span class="k-num" id="tAll">0:00</span>
+    </div>
+    <div class="ctrl">
+      <button class="k-btn is-small" id="back5">⏪ 5秒</button>
+      <button class="k-btn is-small" id="stepB" title="1コマもどる">◀︎ コマ</button>
+      <button class="k-btn is-sun is-big" id="play">▶ さいせい</button>
+      <button class="k-btn is-small" id="stepF" title="1コマすすむ">コマ ▶︎</button>
+      <button class="k-btn is-small" id="fwd5">5秒 ⏩</button>
+    </div>
+    <div class="k-card k-stack">
+      <div class="group"><span class="k-label">むき</span><div class="k-chips" id="optFlip"></div></div>
+      <div class="group"><span class="k-label">はやさ</span><div class="k-chips" id="optSpeed"></div></div>
+      <div class="group"><span class="k-label">くりかえし（AからBまで）</span>
+        <div class="k-chips"><button class="k-chip" id="setA">A をここに</button><button class="k-chip" id="setB">B をここに</button><button class="k-chip" id="loopOn">くりかえす</button><button class="k-chip" id="clearAB">けす</button></div>
+        <span class="k-muted k-num" id="abInfo"></span></div>
+      <div class="group"><span class="k-label">れんしゅうモード</span>
+        <div class="k-chips"><button class="k-chip" id="countOn">3・2・1 カウントしてからスタート</button><button class="k-chip" id="camOn">📷 じぶんもうつす（かがみ）</button></div></div>
+    </div>
+    <div class="k-card rec">
+      <h2 style="font-size:1.15rem">はんてんしたどうがを保存</h2>
+      <p class="k-muted" style="margin:0" id="recNote">いまのむきで、音もいっしょに保存します。A・B をきめていると、そのあいだだけ保存します。保存には、どうがと同じくらいの時間がかかります。</p>
+      <div class="prog" id="prog" hidden><i id="progBar"></i></div>
+      <div class="k-row"><button class="k-btn is-grass" id="save">💾 保存する</button><button class="k-btn" id="cancel" hidden>やめる</button><button class="k-btn is-small" id="other">べつのどうが</button></div>
+    </div>
+  </section>
+</main>
+
+<script src="../../common/kit.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const v = $('v');
+const st = Object.assign({ h: true, vflip: false, speed: 1, count: false }, Kit.store.get('mirror:opts', {}));
+let A = null, B = null, loop = false, url = null, recording = null, camStream = null, mediaSrc = null, fileName = 'video';
+
+function fmt(t) { if (!isFinite(t)) return '0:00'; const m = Math.floor(t / 60), s = Math.floor(t % 60); return `${m}:${String(s).padStart(2, '0')}`; }
+function chips(root, list, get, set) { root.innerHTML = ''; list.forEach(([val, l]) => { const b = Kit.el(`<button class="k-chip" aria-pressed="${get() === val}">${l}</button>`); b.onclick = () => { set(val); Kit.store.set('mirror:opts', st); render(); }; root.appendChild(b); }); }
+function render() {
+  chips($('optFlip'), [['h', '↔ 左右はんてん'], ['n', 'そのまま'], ['hv', '↔↕ 左右＋上下']], () => st.h && st.vflip ? 'hv' : st.h ? 'h' : 'n', x => { st.h = x !== 'n'; st.vflip = x === 'hv'; });
+  chips($('optSpeed'), [[0.25, '0.25'], [0.5, '0.5'], [0.75, '0.75'], [1, '1ばい'], [1.25, '1.25'], [1.5, '1.5']], () => st.speed, x => st.speed = x);
+  v.style.transform = `scale(${st.h ? -1 : 1}, ${st.vflip ? -1 : 1})`;
+  v.playbackRate = st.speed;
+  $('badge').textContent = `${st.h ? '左右はんてん' : 'そのまま'}${st.vflip ? '・上下' : ''}・${st.speed}ばい`;
+  $('loopOn').setAttribute('aria-pressed', loop); $('countOn').setAttribute('aria-pressed', st.count); $('camOn').setAttribute('aria-pressed', !!camStream);
+  $('abInfo').textContent = A != null || B != null ? `A ${A != null ? fmt(A) : '−'} 〜 B ${B != null ? fmt(B) : '−'}` : '';
+  const d = v.duration || 1;
+  if (A != null && B != null) { $('abBar').hidden = false; Object.assign($('abBar').style, { left: (A / d * 100) + '%', width: ((B - A) / d * 100) + '%' }); } else $('abBar').hidden = true;
+}
+
+/* ---------- 読みこみ ---------- */
+function load(f) {
+  if (!f || !f.type.startsWith('video/')) { Kit.toast('どうがファイルをえらんでね'); return; }
+  if (url) URL.revokeObjectURL(url);
+  url = URL.createObjectURL(f); fileName = f.name.replace(/\.[^.]+$/, '');
+  v.src = url; A = B = null; loop = false;
+  $('drop').hidden = true; $('player').hidden = false;
+  render();
+}
+$('file').addEventListener('change', e => load(e.target.files[0]));
+$('drop').addEventListener('dragover', e => e.preventDefault());
+$('drop').addEventListener('drop', e => { e.preventDefault(); load(e.dataTransfer.files[0]); });
+$('other').onclick = () => { if (recording) return; v.pause(); $('player').hidden = true; $('drop').hidden = false; $('file').value = ''; };
+v.addEventListener('loadedmetadata', () => { $('tAll').textContent = fmt(v.duration); render(); });
+v.addEventListener('error', () => Kit.toast('このどうがはひらけませんでした（ファイル形式をかくにんしてね）', 3000));
+
+/* ---------- さいせい ---------- */
+function paintPlay() { $('play').textContent = v.paused ? '▶ さいせい' : '⏸ とめる'; }
+v.addEventListener('play', paintPlay); v.addEventListener('pause', paintPlay);
+v.addEventListener('timeupdate', () => {
+  $('tNow').textContent = fmt(v.currentTime);
+  if (!seeking) $('seek').value = v.duration ? v.currentTime / v.duration * 1000 : 0;
+  if (!recording && loop && B != null && v.currentTime >= B) { v.currentTime = A || 0; }
+});
+v.addEventListener('ended', () => { if (loop && !recording) { v.currentTime = A || 0; v.play(); } });
+let seeking = false;
+$('seek').addEventListener('input', e => { seeking = true; if (v.duration) v.currentTime = e.target.value / 1000 * v.duration; });
+$('seek').addEventListener('change', () => { seeking = false; });
+async function countdown() {
+  const c = $('count'); c.hidden = false;
+  for (const n of [3, 2, 1]) { c.textContent = n; Kit.sfx('tick'); Kit.tone(660, 0.12, { type: 'square', vol: 0.1 }); await new Promise(r => setTimeout(r, 800)); }
+  c.textContent = 'スタート！'; c.style.fontSize = '3rem'; Kit.tone(990, 0.3, { type: 'square', vol: 0.1 });
+  await new Promise(r => setTimeout(r, 400)); c.hidden = true; c.style.fontSize = '';
+}
+$('play').onclick = async () => {
+  if (recording) return;
+  if (!v.paused) { v.pause(); return; }
+  if (loop && A != null && (v.currentTime < A || (B != null && v.currentTime >= B))) v.currentTime = A;
+  if (st.count) await countdown();
+  v.playbackRate = st.speed;
+  v.play().catch(() => Kit.toast('さいせいできませんでした'));
+};
+$('back5').onclick = () => { v.currentTime = Math.max(0, v.currentTime - 5); };
+$('fwd5').onclick = () => { v.currentTime = Math.min(v.duration || 0, v.currentTime + 5); };
+$('stepB').onclick = () => { v.pause(); v.currentTime = Math.max(0, v.currentTime - 1 / 30); };
+$('stepF').onclick = () => { v.pause(); v.currentTime = Math.min(v.duration || 0, v.currentTime + 1 / 30); };
+$('setA').onclick = () => { A = v.currentTime; if (B != null && B <= A) B = null; Kit.sfx('select'); render(); };
+$('setB').onclick = () => { if (A == null) A = 0; if (v.currentTime <= A) { Kit.toast('B は A よりあとにしてね'); return; } B = v.currentTime; loop = true; Kit.sfx('select'); render(); };
+$('loopOn').onclick = () => { loop = !loop; render(); };
+$('clearAB').onclick = () => { A = B = null; loop = false; render(); };
+$('countOn').onclick = () => { st.count = !st.count; Kit.store.set('mirror:opts', st); render(); };
+$('camOn').onclick = async () => {
+  const cam = $('cam');
+  if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; cam.hidden = true; render(); return; }
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+    cam.srcObject = camStream; cam.hidden = false; await cam.play();
+  } catch (e) { camStream = null; Kit.toast('カメラがつかえませんでした（ブラウザのきょかを確認してね）', 3000); }
+  render();
+};
+addEventListener('keydown', e => {
+  if ($('player').hidden || e.target.matches('input')) return;
+  if (e.key === ' ') { e.preventDefault(); $('play').click(); }
+  if (e.key === 'ArrowLeft') $('back5').click();
+  if (e.key === 'ArrowRight') $('fwd5').click();
+});
+
+/* ---------- 保存 ---------- */
+function pickMime() {
+  const list = ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+  if (!window.MediaRecorder) return null;
+  return list.find(m => MediaRecorder.isTypeSupported(m)) || '';
+}
+$('save').onclick = async () => {
+  if (recording || !v.duration) return;
+  const mime = pickMime();
+  if (mime === null) { Kit.toast('このブラウザでは保存できません（パソコンのChromeがおすすめ）', 3500); return; }
+  const c = document.createElement('canvas');
+  const scale = Math.min(1, 1280 / Math.max(v.videoWidth, v.videoHeight));
+  c.width = Math.round(v.videoWidth * scale / 2) * 2; c.height = Math.round(v.videoHeight * scale / 2) * 2;
+  const g = c.getContext('2d');
+  const stream = c.captureStream(30);
+  try {
+    const ac = Kit.audio();
+    if (ac) {
+      if (!mediaSrc) { mediaSrc = ac.createMediaElementSource(v); mediaSrc.connect(ac.destination); }
+      const dest = ac.createMediaStreamDestination(); mediaSrc.connect(dest);
+      dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+      stream._dest = dest;
+    }
+  } catch (e) { /* 音なしで保存 */ }
+  let rec;
+  try { rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 5e6 } : undefined); }
+  catch (e) { Kit.toast('保存をはじめられませんでした', 3000); return; }
+  const chunks = [];
+  rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  const from = A || 0, to = B != null ? B : v.duration;
+  recording = { rec, cancel: false };
+  $('prog').hidden = false; $('cancel').hidden = false; $('save').disabled = true; $('play').disabled = true;
+  v.pause(); v.currentTime = from; v.playbackRate = 1;
+  await new Promise(r => v.addEventListener('seeked', r, { once: true }));
+  const drawFrame = () => {
+    if (!recording) return;
+    g.save(); g.translate(st.h ? c.width : 0, st.vflip ? c.height : 0); g.scale(st.h ? -1 : 1, st.vflip ? -1 : 1);
+    g.drawImage(v, 0, 0, c.width, c.height); g.restore();
+    $('progBar').style.width = Math.min(100, (v.currentTime - from) / (to - from) * 100) + '%';
+    if (v.currentTime >= to || v.ended) return finish();
+    if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(drawFrame); else requestAnimationFrame(drawFrame);
+  };
+  const finish = () => { if (rec.state !== 'inactive') rec.stop(); };
+  const onTime = () => { if (recording && v.currentTime >= to) finish(); };
+  v.addEventListener('ended', finish, { once: true });
+  v.addEventListener('timeupdate', onTime);
+  rec.onstop = () => {
+    const ok = !recording.cancel;
+    recording = null; v.pause(); v.playbackRate = st.speed;
+    v.removeEventListener('ended', finish); v.removeEventListener('timeupdate', onTime);
+    if (stream._dest) { try { mediaSrc.disconnect(stream._dest); } catch (e) { /* なし */ } }
+    stream.getVideoTracks().forEach(t => t.stop());
+    $('prog').hidden = true; $('cancel').hidden = true; $('save').disabled = false; $('play').disabled = false; $('progBar').style.width = '0';
+    if (!ok || !chunks.length) { Kit.toast('保存をやめました'); return; }
+    const type = rec.mimeType || mime || 'video/webm';
+    const blob = new Blob(chunks, { type });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `${fileName}-${st.h ? 'mirror' : 'copy'}.${type.includes('mp4') ? 'mp4' : 'webm'}`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    Kit.sfx('win'); Kit.toast('保存しました！');
+  };
+  v.addEventListener('pause', function onP() { if (recording && !v.ended && v.currentTime < to) v.play(); else v.removeEventListener('pause', onP); });
+  rec.start(500);
+  await v.play().catch(() => { recording.cancel = true; finish(); });
+  drawFrame();
+};
+$('cancel').onclick = () => { if (!recording) return; recording.cancel = true; recording.rec.stop(); };
+document.addEventListener('visibilitychange', () => { if (document.hidden && recording) Kit.toast('保存中は、このページをひらいたままにしてね', 3000); });
+
+Kit.bar({ id: 'mirror', title: '🪞 どうがはんてん', help: `
+  <p>どうがをえらぶと、左右はんてんしてさいせいします。ダンスのお手本を「かがみ」のように見られます。</p>
+  <p><b>はやさ</b>：0.25ばいまでゆっくりにできます。<b>A・B</b>：むずかしいところだけをくりかえし。<b>コマ</b>：1コマずつうごかせます。</p>
+  <p><b>3・2・1</b>：カウントしてからスタート。<b>じぶんもうつす</b>：カメラで自分をうつして、お手本とくらべられます。</p>
+  <p>保存は、パソコンやAndroidのChromeがおすすめです（iPhoneでは保存できないことがあります）。</p>` });
+render();
+</script>
+</body>
+</html>

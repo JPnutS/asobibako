@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>アイロンビーズ図案</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  .wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 16px; grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+    padding-block: 16px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); align-items: start; }
+  @media (max-width: 820px) { .wrap { grid-template-columns: minmax(0, 1fr); } }
+  .side { display: grid; gap: 14px; }
+  .k-card h2 { font-size: 1.15rem; }
+  .drop { border: 3px dashed var(--line); border-radius: 16px; padding: 16px; text-align: center; cursor: pointer; background: var(--soft); font-weight: 700; }
+  .cropbox { position: relative; touch-action: none; user-select: none; border-radius: 10px; overflow: hidden; border: 3px solid var(--line); }
+  .cropbox img { display: block; width: 100%; }
+  .cropbox .sel { position: absolute; border: 3px dashed #fff; box-shadow: 0 0 0 9999px rgba(0,0,0,.45); pointer-events: none; }
+  .range { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; }
+  .range input[type=range] { width: 100%; grid-column: 1 / -1; accent-color: var(--berry); }
+  .range b { font-variant-numeric: tabular-nums; }
+  .pal { display: grid; grid-template-columns: repeat(auto-fill, minmax(34px, 1fr)); gap: 6px; }
+  .sw { aspect-ratio: 1; border-radius: 50%; border: 3px solid var(--line); cursor: pointer; position: relative; padding: 0; }
+  .sw.off { opacity: .25; }
+  .sw.cur { outline: 4px solid var(--sun); outline-offset: 2px; }
+  .sw .no { position: absolute; inset: 0; display: grid; place-items: center; font-size: .65rem; font-weight: 900; color: #fff; text-shadow: 0 0 2px #000, 0 0 2px #000; }
+  .tools { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tools .k-chip { min-height: 42px; padding: 4px 12px; }
+  .board { overflow: auto; max-height: 72vh; border: 3px solid var(--line); border-radius: 16px; background: var(--card); touch-action: none; }
+  .board canvas { display: block; margin: 0 auto; cursor: crosshair; touch-action: none; }
+  .list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 12px; }
+  .list div { display: flex; align-items: center; gap: 8px; font-size: .9rem; }
+  .list i { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line); flex: none; }
+  .list b { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .curbar { display: flex; align-items: center; gap: 10px; font-weight: 900; }
+  .curbar i { width: 30px; height: 30px; border-radius: 50%; border: 3px solid var(--line); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <aside class="side">
+    <div class="k-card k-stack">
+      <h2>はじめかた</h2>
+      <div class="k-chips" id="srcTabs"></div>
+      <div id="photoBox" class="k-stack">
+        <label class="drop" id="drop">📷 写真をえらぶ（またはここにドロップ）<input type="file" id="file" accept="image/*" hidden></label>
+        <div id="cropWrap" hidden class="k-stack">
+          <p class="k-muted" style="margin:0;font-size:.85rem">ゆびでなぞって、つかうところをかこもう</p>
+          <div class="cropbox" id="cropbox"><img id="img" alt="えらんだ写真"><div class="sel" id="sel" hidden></div></div>
+          <div class="range"><span>よこのつぶの数</span><b id="gwV"></b><input type="range" id="gw" min="10" max="58" step="1"></div>
+          <div class="range"><span>色の数（さいだい）</span><b id="ncV"></b><input type="range" id="nc" min="2" max="24" step="1"></div>
+          <div class="k-chips">
+            <button class="k-chip" id="optBg">背景をけす</button>
+            <button class="k-chip" id="optClean">こまかい点をへらす</button>
+            <button class="k-chip" id="optPop">くっきり</button>
+          </div>
+          <button class="k-btn is-sun" id="convert">図案にする</button>
+        </div>
+      </div>
+      <div id="blankBox" class="k-stack" hidden>
+        <span class="k-label">プレートの大きさ</span>
+        <div class="k-chips" id="blankSize"></div>
+        <button class="k-btn is-sun" id="makeBlank">まっさらにする</button>
+      </div>
+    </div>
+    <div class="k-card k-stack">
+      <h2>つかう色</h2>
+      <p class="k-muted" style="margin:0;font-size:.85rem">タップでぬる色をえらぶ。えらんだ色をもう一度タップすると、写真から作るときにつかわない色（うすい表示）になります。</p>
+      <div class="pal" id="pal"></div>
+      <div class="k-row"><button class="k-btn is-small" id="palAll">ぜんぶ</button><button class="k-btn is-small" id="palNone">なし</button></div>
+    </div>
+  </aside>
+
+  <section class="k-stack" style="min-width:0">
+    <div class="k-card k-stack">
+      <div class="k-row" style="justify-content:space-between">
+        <div class="curbar"><i id="curSw"></i><span id="curName"></span></div>
+        <div class="k-row">
+          <button class="k-btn is-small" id="undo" aria-label="もどす">↩</button>
+          <button class="k-btn is-small" id="redo" aria-label="やりなおす">↪</button>
+        </div>
+      </div>
+      <div class="tools" id="tools"></div>
+      <div class="range"><span>大きさ</span><b id="zoomV"></b><input type="range" id="zoom" min="6" max="34" step="1"></div>
+      <div class="board" id="board"><canvas id="cv"></canvas></div>
+      <div class="k-row">
+        <button class="k-btn is-small is-grass" id="save">🖼 PNGで保存</button>
+        <span class="k-muted" id="sizeInfo"></span>
+      </div>
+    </div>
+    <div class="k-card k-stack">
+      <h2>ひつようなビーズ <span class="k-muted k-num" id="total"></span></h2>
+      <div class="list" id="list"></div>
+    </div>
+  </section>
+</div>
+
+<script src="../../common/kit.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const PALETTE = [
+  ['しろ','#F7F7F2'],['くろ','#1F1F1F'],['はいいろ','#9A9A9A'],['うすはいいろ','#C9C9C9'],['ぎんいろ','#B8BCC2'],
+  ['あか','#D7262E'],['ワインレッド','#7E1E2E'],['サーモン','#F49A80'],['ピンク','#F58BB0'],['うすピンク','#F8C8D8'],['ももいろ','#E9548E'],['あかむらさき','#A23A6E'],
+  ['オレンジ','#F28A2E'],['うすオレンジ','#F8B878'],['きいろ','#F6D22A'],['れもん','#F2EA6A'],['クリーム','#F6E6B0'],['きんいろ','#C9A23A'],
+  ['きみどり','#9ACD3A'],['みどり','#2E9E4A'],['こいみどり','#1E6B3A'],['オリーブ','#7D7B2E'],['ミント','#A8E0C8'],['エメラルド','#2FB39A'],
+  ['ターコイズ','#39C1C9'],['みずいろ','#7CCBEA'],['そらいろ','#4AA3DF'],['あお','#2156B8'],['こん','#1E2E6B'],
+  ['むらさき','#7B4FA8'],['うすむらさき','#BFA2D9'],['ラベンダー','#C8B8E8'],
+  ['はだいろ','#F2C9A0'],['ベージュ','#D9B98C'],['ちゃいろ','#8A5A35'],['こげちゃ','#5A3A22'],
+];
+const LAB = PALETTE.map(([, hex]) => rgb2lab(...hex2rgb(hex)));
+const st = Object.assign({ src: 'blank', gw: 29, nc: 12, bg: true, clean: true, pop: false, blank: 29, zoom: 16, on: PALETTE.map(() => true) }, Kit.store.get('beads:opts', {}));
+let grid = null, GW = 0, GH = 0, cur = 5, tool = 'pen', undo = [], redo = [], symbols = false, imgEl = null, crop = null;
+
+function hex2rgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
+function rgb2lab(r, g, b) {
+  [r, g, b] = [r, g, b].map(v => { v /= 255; return v > 0.04045 ? Math.pow((v + 0.055) / 1.055, 2.4) : v / 12.92; });
+  let x = (r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047, y = r * 0.2126 + g * 0.7152 + b * 0.0722, z = (r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883;
+  [x, y, z] = [x, y, z].map(v => v > 0.008856 ? Math.cbrt(v) : 7.787 * v + 16 / 116);
+  return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+}
+function nearest(lab, allowed) {
+  let best = -1, bd = Infinity;
+  for (const i of allowed) { const L = LAB[i]; const d = (L[0] - lab[0]) ** 2 + (L[1] - lab[1]) ** 2 + (L[2] - lab[2]) ** 2; if (d < bd) { bd = d; best = i; } }
+  return best;
+}
+const saveOpts = () => Kit.store.set('beads:opts', st);
+const saveWork = () => Kit.store.set('beads:work', { GW, GH, g: Array.from(grid) });
+
+/* ---------- はじめかた ---------- */
+function renderSide() {
+  const tabs = $('srcTabs'); tabs.innerHTML = '';
+  [['photo', '📷 写真から'], ['blank', '✏️ まっさらから']].forEach(([v, l]) => {
+    const b = Kit.el(`<button class="k-chip" aria-pressed="${st.src === v}">${l}</button>`);
+    b.onclick = () => { st.src = v; saveOpts(); Kit.sfx('select'); renderSide(); }; tabs.appendChild(b);
+  });
+  $('photoBox').hidden = st.src !== 'photo'; $('blankBox').hidden = st.src !== 'blank';
+  $('gw').value = st.gw; $('gwV').textContent = `${st.gw}つぶ`;
+  $('nc').value = st.nc; $('ncV').textContent = `${st.nc}色`;
+  [['optBg', 'bg'], ['optClean', 'clean'], ['optPop', 'pop']].forEach(([id, k]) => $(id).setAttribute('aria-pressed', st[k]));
+  const bs = $('blankSize'); bs.innerHTML = '';
+  [[15, '15×15'], [29, '29×29（ふつう）'], [40, '40×40'], [58, '58×58（4まい）']].forEach(([v, l]) => {
+    const b = Kit.el(`<button class="k-chip" aria-pressed="${st.blank === v}">${l}</button>`);
+    b.onclick = () => { st.blank = v; saveOpts(); renderSide(); }; bs.appendChild(b);
+  });
+  renderPal();
+}
+function renderPal() {
+  const pal = $('pal'); pal.innerHTML = '';
+  PALETTE.forEach(([name, hex], i) => {
+    const b = Kit.el(`<button class="sw ${st.on[i] ? '' : 'off'} ${i === cur ? 'cur' : ''}" style="background:${hex}" title="${name}" aria-label="${name}">${symbols ? `<span class="no">${i + 1}</span>` : ''}</button>`);
+    b.onclick = () => {
+      if (i === cur) { st.on[i] = !st.on[i]; saveOpts(); }
+      else { cur = i; if (tool === 'erase' || tool === 'pick') setTool('pen'); }
+      Kit.sfx('tap'); renderPal(); paintCur();
+    };
+    pal.appendChild(b);
+  });
+}
+['gw', 'nc'].forEach(id => $(id).addEventListener('input', e => { st[id] = +e.target.value; saveOpts(); renderSide(); }));
+[['optBg', 'bg'], ['optClean', 'clean'], ['optPop', 'pop']].forEach(([id, k]) => $(id).onclick = () => { st[k] = !st[k]; saveOpts(); renderSide(); });
+$('palAll').onclick = () => { st.on = st.on.map(() => true); saveOpts(); renderPal(); };
+$('palNone').onclick = () => { st.on = st.on.map(() => false); saveOpts(); renderPal(); };
+$('makeBlank').onclick = async () => {
+  if (grid && grid.some(v => v >= 0) && !(await Kit.ask('いまの図案をけして、まっさらにする？', 'まっさらにする', 'やめる'))) return;
+  setGrid(st.blank, st.blank, new Int16Array(st.blank * st.blank).fill(-1), true);
+};
+
+/* ---------- 写真 ---------- */
+function loadFile(f) {
+  if (!f || !f.type.startsWith('image/')) { Kit.toast('画像ファイルをえらんでね'); return; }
+  const url = URL.createObjectURL(f);
+  const img = $('img');
+  img.onload = () => { imgEl = img; crop = null; $('sel').hidden = true; $('cropWrap').hidden = false; };
+  img.src = url;
+}
+$('file').addEventListener('change', e => loadFile(e.target.files[0]));
+$('drop').addEventListener('dragover', e => e.preventDefault());
+$('drop').addEventListener('drop', e => { e.preventDefault(); loadFile(e.dataTransfer.files[0]); });
+(() => {
+  const box = $('cropbox'); let start = null;
+  const rel = e => { const r = box.getBoundingClientRect(); return { x: Kit.clamp((e.clientX - r.left) / r.width, 0, 1), y: Kit.clamp((e.clientY - r.top) / r.height, 0, 1) }; };
+  box.addEventListener('pointerdown', e => { box.setPointerCapture(e.pointerId); start = rel(e); crop = null; });
+  box.addEventListener('pointermove', e => {
+    if (!start) return; const p = rel(e);
+    crop = { x: Math.min(start.x, p.x), y: Math.min(start.y, p.y), w: Math.abs(p.x - start.x), h: Math.abs(p.y - start.y) };
+    const s = $('sel'); s.hidden = false;
+    Object.assign(s.style, { left: crop.x * 100 + '%', top: crop.y * 100 + '%', width: crop.w * 100 + '%', height: crop.h * 100 + '%' });
+  });
+  const end = () => { start = null; if (crop && (crop.w < 0.04 || crop.h < 0.04)) { crop = null; $('sel').hidden = true; } };
+  box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);
+})();
+$('convert').onclick = async () => {
+  if (!imgEl) return;
+  const allowed = st.on.map((v, i) => v ? i : -1).filter(i => i >= 0);
+  if (allowed.length < 2) { Kit.toast('つかう色を2つ以上えらんでね'); return; }
+  if (grid && grid.some(v => v >= 0) && !(await Kit.ask('いまの図案をおきかえる？', 'おきかえる', 'やめる'))) return;
+  const iw = imgEl.naturalWidth, ih = imgEl.naturalHeight;
+  const c = crop || { x: 0, y: 0, w: 1, h: 1 };
+  const sx = Math.round(c.x * iw), sy = Math.round(c.y * ih), sw = Math.max(1, Math.round(c.w * iw)), sh = Math.max(1, Math.round(c.h * ih));
+  const gw = st.gw, gh = Math.max(1, Math.round(gw * sh / sw));
+  // 4ばいの大きさで色をきめてから、ますごとに多数決する（細い線や目がきえにくいように、こい色をすこし優先）
+  const K = 4, cv = document.createElement('canvas'); cv.width = gw * K; cv.height = gh * K;
+  const cx = cv.getContext('2d', { willReadFrequently: true }); cx.imageSmoothingQuality = 'high';
+  if (st.pop) cx.filter = 'contrast(1.35) saturate(1.35)';
+  cx.drawImage(imgEl, sx, sy, sw, sh, 0, 0, gw * K, gh * K);
+  const data = cx.getImageData(0, 0, gw * K, gh * K).data;
+  const memo = new Map();
+  const labs = [];
+  let g = new Int16Array(gw * gh);
+  for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) {
+    const cnt = {}; let alpha = 0, sum = [0, 0, 0], n = 0;
+    for (let dy = 0; dy < K; dy++) for (let dx = 0; dx < K; dx++) {
+      const o = ((y * K + dy) * gw * K + (x * K + dx)) * 4;
+      if (data[o + 3] < 40) { alpha++; continue; }
+      const key = (data[o] >> 2) << 12 | (data[o + 1] >> 2) << 6 | (data[o + 2] >> 2);
+      let v = memo.get(key);
+      if (v == null) { const lab = rgb2lab(data[o], data[o + 1], data[o + 2]); v = nearest(lab, allowed); memo.set(key, v); }
+      cnt[v] = (cnt[v] || 0) + 1; n++;
+      sum[0] += data[o]; sum[1] += data[o + 1]; sum[2] += data[o + 2];
+    }
+    const i = y * gw + x;
+    if (alpha > K * K / 2 || !n) { g[i] = -1; labs.push(null); continue; }
+    labs.push(rgb2lab(sum[0] / n, sum[1] / n, sum[2] / n));
+    const order = Object.keys(cnt).sort((p, q) => cnt[q] - cnt[p]).map(Number);
+    let pickC = order[0];
+    for (const c of order.slice(1)) if (cnt[c] >= K * K * 0.3 && LAB[pickC][0] - LAB[c][0] > 35) { pickC = c; break; }
+    g[i] = pickC;
+  }
+  // いちばん多い色から st.nc 色にしぼる
+  const count = {}; g.forEach(v => { if (v >= 0) count[v] = (count[v] || 0) + 1; });
+  const keep = Object.keys(count).sort((a, b) => count[b] - count[a]).slice(0, st.nc).map(Number);
+  g = g.map((v, i) => v < 0 || keep.includes(v) ? v : nearest(labs[i], keep));
+  if (st.bg) {
+    const corners = [0, gw - 1, (gh - 1) * gw, gh * gw - 1].map(i => g[i]);
+    const cc = {}; corners.forEach(v => cc[v] = (cc[v] || 0) + 1);
+    const bgc = +Object.keys(cc).sort((a, b) => cc[b] - cc[a])[0];
+    if (cc[bgc] >= 2) floodClear(g, gw, gh, bgc);
+  }
+  if (st.clean) g = majority(g, gw, gh);
+  setGrid(gw, gh, g, true);
+  Kit.sfx('good');
+  document.querySelector('.board').scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+function floodClear(g, w, h, col) {
+  const q = [];
+  for (let x = 0; x < w; x++) { q.push(x, (h - 1) * w + x); }
+  for (let y = 0; y < h; y++) { q.push(y * w, y * w + w - 1); }
+  while (q.length) {
+    const i = q.pop(); if (g[i] !== col) continue;
+    g[i] = -1; const x = i % w, y = (i / w) | 0;
+    if (x > 0) q.push(i - 1); if (x < w - 1) q.push(i + 1); if (y > 0) q.push(i - w); if (y < h - 1) q.push(i + w);
+  }
+}
+function majority(g, w, h) {
+  const out = g.slice();
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x, cnt = {}; let same = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue; const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;
+      const v = g[yy * w + xx]; cnt[v] = (cnt[v] || 0) + 1; if (v === g[i]) same++;
+    }
+    if (same === 0) { const m = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0]; if (cnt[m] >= 5) out[i] = +m; }
+  }
+  return out;
+}
+
+/* ---------- ぬる ---------- */
+const TOOLS = [['pen', '✏️ ぬる'], ['erase', '🧽 けす'], ['fill', '🪣 ぬりつぶし'], ['pick', '💧 スポイト'], ['sym', '🔢 番号']];
+function setTool(t) { tool = t; renderTools(); }
+function renderTools() {
+  const root = $('tools'); root.innerHTML = '';
+  TOOLS.forEach(([v, l]) => {
+    const on = v === 'sym' ? symbols : tool === v;
+    const b = Kit.el(`<button class="k-chip" aria-pressed="${on}">${l}</button>`);
+    b.onclick = () => { if (v === 'sym') { symbols = !symbols; draw(); renderPal(); } else setTool(v); Kit.sfx('tap'); renderTools(); };
+    root.appendChild(b);
+  });
+}
+function paintCur() { $('curSw').style.background = PALETTE[cur][1]; $('curName').textContent = `${cur + 1}. ${PALETTE[cur][0]}`; }
+function setGrid(w, h, g, pushUndo) {
+  if (pushUndo && grid) { undo.push({ GW, GH, g: grid.slice() }); if (undo.length > 40) undo.shift(); redo = []; }
+  GW = w; GH = h; grid = g;
+  draw(); saveWork();
+}
+function snapshot() { undo.push({ GW, GH, g: grid.slice() }); if (undo.length > 40) undo.shift(); redo = []; }
+$('undo').onclick = () => { if (!undo.length) return; redo.push({ GW, GH, g: grid.slice() }); const s = undo.pop(); GW = s.GW; GH = s.GH; grid = s.g; draw(); saveWork(); Kit.sfx('whoosh'); };
+$('redo').onclick = () => { if (!redo.length) return; undo.push({ GW, GH, g: grid.slice() }); const s = redo.pop(); GW = s.GW; GH = s.GH; grid = s.g; draw(); saveWork(); Kit.sfx('whoosh'); };
+$('zoom').addEventListener('input', e => { st.zoom = +e.target.value; saveOpts(); draw(); });
+
+const cv = $('cv'), g2 = cv.getContext('2d');
+function draw() {
+  const Z = st.zoom, dpr = Math.min(2, devicePixelRatio || 1);
+  cv.width = GW * Z * dpr; cv.height = GH * Z * dpr; cv.style.width = GW * Z + 'px'; cv.style.height = GH * Z + 'px';
+  g2.setTransform(dpr, 0, 0, dpr, 0, 0);
+  renderTo(g2, Z, symbols);
+  $('zoom').value = Z; $('zoomV').textContent = Z;
+  $('sizeInfo').textContent = `${GW}×${GH}つぶ（${(GW * 0.5).toFixed(1)}×${(GH * 0.5).toFixed(1)}cmくらい）`;
+  renderList();
+}
+function renderTo(c, Z, sym) {
+  c.fillStyle = '#ffffff'; c.fillRect(0, 0, GW * Z, GH * Z);
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+    const v = grid[y * GW + x], cx = x * Z + Z / 2, cy = y * Z + Z / 2;
+    if (v < 0) { c.fillStyle = '#e4e4ea'; c.beginPath(); c.arc(cx, cy, Z * 0.12, 0, 6.28); c.fill(); continue; }
+    c.fillStyle = PALETTE[v][1]; c.beginPath(); c.arc(cx, cy, Z * 0.46, 0, 6.28); c.fill();
+    if (Z >= 10) { c.strokeStyle = 'rgba(0,0,0,.25)'; c.lineWidth = 1; c.stroke(); }
+    if (sym && Z >= 12) {
+      const [r, gg, b] = hex2rgb(PALETTE[v][1]); c.fillStyle = r * 0.3 + gg * 0.59 + b * 0.11 > 140 ? '#222' : '#fff';
+      c.font = `900 ${Math.floor(Z * 0.48)}px sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(v + 1, cx, cy + 1);
+    } else if (Z >= 10) { c.fillStyle = 'rgba(255,255,255,.55)'; c.beginPath(); c.arc(cx, cy, Z * 0.14, 0, 6.28); c.fill(); }
+  }
+  for (let x = 0; x <= GW; x++) { if (x % 5) continue; c.strokeStyle = x % 29 === 0 && x ? 'rgba(220,40,80,.8)' : 'rgba(0,0,0,.18)'; c.lineWidth = x % 29 === 0 && x ? 2 : 1; c.beginPath(); c.moveTo(x * Z, 0); c.lineTo(x * Z, GH * Z); c.stroke(); }
+  for (let y = 0; y <= GH; y++) { if (y % 5) continue; c.strokeStyle = y % 29 === 0 && y ? 'rgba(220,40,80,.8)' : 'rgba(0,0,0,.18)'; c.lineWidth = y % 29 === 0 && y ? 2 : 1; c.beginPath(); c.moveTo(0, y * Z); c.lineTo(GW * Z, y * Z); c.stroke(); }
+}
+function renderList() {
+  const cnt = {}; let total = 0;
+  grid.forEach(v => { if (v >= 0) { cnt[v] = (cnt[v] || 0) + 1; total++; } });
+  $('total').textContent = `ぜんぶで ${total}こ・${Object.keys(cnt).length}色`;
+  $('list').innerHTML = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a]).map(v => `<div><i style="background:${PALETTE[v][1]}"></i>${+v + 1}. ${PALETTE[v][0]}<b>${cnt[v]}</b></div>`).join('') || '<p class="k-muted" style="margin:0">まだビーズがありません</p>';
+}
+let painting = false, lastCell = -1;
+function cellAt(e) { const r = cv.getBoundingClientRect(); const x = Math.floor((e.clientX - r.left) / st.zoom), y = Math.floor((e.clientY - r.top) / st.zoom); return x >= 0 && y >= 0 && x < GW && y < GH ? y * GW + x : -1; }
+function applyAt(i) {
+  if (i < 0 || i === lastCell) return; lastCell = i;
+  if (tool === 'pen') grid[i] = cur;
+  else if (tool === 'erase') grid[i] = -1;
+  drawCell(i);
+}
+function drawCell() { draw(); }
+cv.addEventListener('pointerdown', e => {
+  const i = cellAt(e); if (i < 0) return;
+  if (tool === 'pick') { if (grid[i] >= 0) { cur = grid[i]; paintCur(); renderPal(); setTool('pen'); Kit.sfx('pop'); } return; }
+  snapshot();
+  if (tool === 'fill') { fill(i, grid[i], cur); draw(); saveWork(); Kit.sfx('pop'); return; }
+  painting = true; lastCell = -1; cv.setPointerCapture(e.pointerId); applyAt(i);
+});
+cv.addEventListener('pointermove', e => { if (painting) applyAt(cellAt(e)); });
+const stop = () => { if (painting) { painting = false; saveWork(); } };
+cv.addEventListener('pointerup', stop); cv.addEventListener('pointercancel', stop);
+function fill(i, from, to) {
+  if (from === to) return;
+  const q = [i];
+  while (q.length) {
+    const k = q.pop(); if (grid[k] !== from) continue; grid[k] = to;
+    const x = k % GW, y = (k / GW) | 0;
+    if (x > 0) q.push(k - 1); if (x < GW - 1) q.push(k + 1); if (y > 0) q.push(k - GW); if (y < GH - 1) q.push(k + GW);
+  }
+}
+$('save').onclick = () => {
+  const Z = 24, pad = 20, cnt = {};
+  grid.forEach(v => { if (v >= 0) cnt[v] = (cnt[v] || 0) + 1; });
+  const keys = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a]);
+  const rows = Math.ceil(keys.length / 3);
+  const W = Math.max(GW * Z + pad * 2, 600), H = GH * Z + pad * 3 + rows * 30 + 30;
+  const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
+  x.save(); x.translate((W - GW * Z) / 2, pad); renderTo(x, Z, true); x.restore();
+  x.font = '900 18px sans-serif'; x.fillStyle = '#222'; x.textBaseline = 'middle';
+  let y0 = GH * Z + pad * 2 + 10;
+  x.fillText(`${GW}×${GH}つぶ　ぜんぶで ${grid.filter(v => v >= 0).length}こ`, pad, y0); y0 += 30;
+  keys.forEach((k, j) => {
+    const cx = pad + (j % 3) * ((W - pad * 2) / 3), cy = y0 + Math.floor(j / 3) * 30;
+    x.fillStyle = PALETTE[k][1]; x.beginPath(); x.arc(cx + 10, cy, 10, 0, 6.28); x.fill(); x.strokeStyle = '#222'; x.lineWidth = 2; x.stroke();
+    x.fillStyle = '#222'; x.font = '16px sans-serif'; x.fillText(`${+k + 1}. ${PALETTE[k][0]}  ${cnt[k]}こ`, cx + 28, cy);
+  });
+  c.toBlob(b => {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `beads-${GW}x${GH}.png`;
+    document.body.appendChild(a); a.click(); a.remove();
+    Kit.toast('PNGを保存しました');
+  });
+};
+
+/* ---------- はじめの見本：いちご ---------- */
+function sample() {
+  const art = [
+    '......GG.......',
+    '.....GGGG......',
+    '...GGGGGGGG....',
+    '..RRGGGGGRRR...',
+    '.RRRRRGRRRRRR..',
+    '.RRWRRRRRRWRRR.',
+    '.RRRRRRWRRRRRR.',
+    '.RRRRRRRRRRWRR.',
+    '..RWRRRRWRRRR..',
+    '..RRRRRRRRRRR..',
+    '...RRRWRRRRR...',
+    '....RRRRRWR....',
+    '.....RRRRR.....',
+    '......RRR......',
+    '.......R.......',
+  ];
+  const map = { G: 19, R: 5, W: 15 };
+  const g = new Int16Array(15 * 15);
+  art.forEach((row, y) => [...row].forEach((ch, x) => g[y * 15 + x] = map[ch] != null ? map[ch] : -1));
+  return g;
+}
+const saved = Kit.store.get('beads:work', null);
+if (saved && saved.GW) { GW = saved.GW; GH = saved.GH; grid = Int16Array.from(saved.g); } else { GW = GH = 15; grid = sample(); }
+
+Kit.bar({ id: 'beads', title: '🎨 アイロンビーズ', help: `
+  <p><b>写真から</b>：写真をえらんで、つかう場所をなぞってかこみ、「図案にする」。色の数やつぶの数をかえられます。</p>
+  <p><b>まっさらから</b>：プレートの大きさをえらんで、ぬって作ります。</p>
+  <p>ぬる・けす・ぬりつぶし・スポイトで、図案を手なおしできます。「番号」をオンにすると、色の番号が見えて作りやすいよ。</p>
+  <p>赤い線は 29×29 のプレート1まいの区切り。作った図案は自動でこのたんまつに保存されます。</p>` });
+renderSide(); renderTools(); paintCur(); draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ババぬき</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  :root { --felt: #2f9e6a; --felt-ink: #ffffff; --back: #3d6bff; }
+  .table { background: var(--felt); border: 4px solid var(--line); border-radius: 24px; box-shadow: 0 7px 0 var(--line); padding: 14px; display: grid; gap: 14px; color: var(--felt-ink); }
+  .opps { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
+  .opp { background: rgba(0,0,0,.18); border-radius: 16px; padding: 8px 10px; display: grid; gap: 4px; justify-items: center; border: 3px solid transparent; }
+  .opp.turn { border-color: var(--sun); }
+  .opp.target { border-color: #fff; border-style: dashed; }
+  .opp.done { opacity: .55; }
+  .opp .nm { font-weight: 900; font-size: .95rem; }
+  .face { font-size: 1.8rem; line-height: 1; }
+  .mini { display: flex; height: 30px; }
+  .mini i { width: 16px; height: 26px; margin-left: -9px; border-radius: 4px; background: var(--back); border: 2px solid #fff; display: block; }
+  .mini i:first-child { margin-left: 0; }
+  .rank { background: var(--sun); color: #2a2238; border-radius: 999px; padding: 0 10px; font-weight: 900; font-size: .85rem; }
+  .zone { display: grid; gap: 8px; justify-items: center; min-height: 150px; align-content: center; }
+  .zone .say { font-weight: 900; font-size: 1.1rem; text-align: center; }
+  .fan { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; padding: 6px; }
+  .card {
+    width: clamp(52px, 13vw, 76px); aspect-ratio: 5 / 7; border-radius: 10px; border: 3px solid var(--line);
+    background: #fff; color: #2a2238; display: grid; place-items: center; position: relative; font-weight: 900;
+    font-size: clamp(1.1rem, 4.6vw, 1.6rem); box-shadow: 0 4px 0 var(--line); user-select: none; flex: none;
+    transition: transform .15s;
+  }
+  .card .s { position: absolute; top: 4px; left: 6px; font-size: .7em; }
+  .card.red { color: #e0245e; }
+  .card.joker { background: linear-gradient(135deg, #ffe066, #ff9ec4); font-size: clamp(1.6rem, 7vw, 2.4rem); }
+  .card.back { background: repeating-linear-gradient(45deg, var(--back) 0 8px, #5b84ff 8px 16px); }
+  button.card { cursor: pointer; padding: 0; }
+  button.card:hover { transform: translateY(-8px); }
+  .card.picked { transform: translateY(-14px) scale(1.08); box-shadow: 0 0 0 4px var(--sun), 0 4px 0 var(--line); }
+  .card.new { animation: glowc 1s 2; }
+  @keyframes glowc { 50% { box-shadow: 0 0 0 5px var(--sun), 0 4px 0 var(--line); } }
+  .card.gone { animation: gone .5s forwards; }
+  @keyframes gone { to { transform: translateY(-30px) scale(.6); opacity: 0; } }
+  .mine { background: var(--card); border: 3px solid var(--line); border-radius: 20px; padding: 10px; display: grid; gap: 8px; }
+  .mine .k-row { justify-content: space-between; }
+</style>
+</head>
+<body>
+<main class="k-wrap">
+  <section id="menu" class="k-card k-stack">
+    <h2>あそびかた</h2>
+    <div class="k-chips" id="optRule"></div>
+    <span class="k-label">あいて（CPU）の人数</span>
+    <div class="k-chips" id="optCpu"></div>
+    <span class="k-label">CPUのはやさ</span>
+    <div class="k-chips" id="optSpeed"></div>
+    <span class="k-label">あなたのなまえ</span>
+    <input class="k-input" id="myName" maxlength="10">
+    <button class="k-btn is-sun is-big" id="go">くばる</button>
+  </section>
+
+  <section id="game" class="k-stack" hidden>
+    <div class="table">
+      <div class="opps" id="opps"></div>
+      <div class="zone" id="zone"></div>
+    </div>
+    <div class="mine">
+      <div class="k-row"><b id="meName"></b><span><span class="k-num" id="myCount"></span>まい</span>
+        <button class="k-btn is-small" id="shuffle">🔀 シャッフル</button></div>
+      <div class="fan" id="hand"></div>
+    </div>
+  </section>
+</main>
+
+<script src="../../common/kit.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const CPU = [
+  { name: 'クマさん', face: '🐻' }, { name: 'ウサギさん', face: '🐰' }, { name: 'ネコさん', face: '🐱' },
+  { name: 'パンダさん', face: '🐼' }, { name: 'カエルさん', face: '🐸' },
+];
+const O = Object.assign({ rule: 'baba', cpus: 3, speed: 2, name: 'あなた' }, Kit.store.get('baba:opts', {}));
+const SUITS = [['♠', 0], ['♥', 1], ['♦', 1], ['♣', 0]];
+const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+let P = [], turn = 0, gen = 0, finishOrder = [], lastDrawn = null, selected = null, hidden = null, over = false;
+
+function chips(root, list, get, set) {
+  root.innerHTML = '';
+  list.forEach(([v, l]) => {
+    const b = Kit.el(`<button class="k-chip" aria-pressed="${get() === v}">${l}</button>`);
+    b.onclick = () => { set(v); Kit.sfx('select'); renderMenu(); }; root.appendChild(b);
+  });
+}
+function renderMenu() {
+  chips($('optRule'), [['baba', '🃏 ババぬき'], ['jiji', '👴 ジジぬき']], () => O.rule, v => O.rule = v);
+  chips($('optCpu'), [1, 2, 3, 4, 5].map(n => [n, `${n}人`]), () => O.cpus, v => O.cpus = v);
+  chips($('optSpeed'), [[1, 'ゆっくり'], [2, 'ふつう'], [3, 'はやい']], () => O.speed, v => O.speed = v);
+  $('myName').value = O.name;
+}
+const wait = () => [0, 1300, 850, 450][O.speed];
+
+/* ---------- カード ---------- */
+function deck() {
+  const d = [];
+  SUITS.forEach(([s, red]) => RANKS.forEach(r => d.push({ r, s, red, id: `${s}${r}` })));
+  if (O.rule === 'baba') d.push({ r: 'JOKER', s: '', red: 0, id: 'joker', joker: true });
+  return Kit.shuffle(d);
+}
+function cardHTML(c, tag = 'div', extra = '') {
+  if (c.joker) return `<${tag} class="card joker ${extra}" data-id="${c.id}" aria-label="ジョーカー">🤡</${tag}>`;
+  return `<${tag} class="card ${c.red ? 'red' : ''} ${extra}" data-id="${c.id}" aria-label="${c.s}${c.r}"><span class="s">${c.s}</span>${c.r}</${tag}>`;
+}
+function removePairs(hand) {
+  const by = {};
+  hand.forEach(c => { if (!c.joker) (by[c.r] = by[c.r] || []).push(c); });
+  const out = [];
+  Object.values(by).forEach(list => { for (let i = 0; i + 1 < list.length; i += 2) out.push(list[i], list[i + 1]); });
+  return { keep: hand.filter(c => !out.includes(c)), out };
+}
+
+function start() {
+  gen++; over = false; finishOrder = []; lastDrawn = null; selected = null;
+  O.name = $('myName').value.trim() || 'あなた';
+  Kit.store.set('baba:opts', O);
+  P = [{ name: O.name, face: '😀', me: true, hand: [] }]
+    .concat(Kit.shuffle(CPU).slice(0, O.cpus).map(c => ({ ...c, hand: [] })));
+  let d = deck();
+  if (O.rule === 'jiji') { hidden = d.pop(); } else hidden = null;
+  d.forEach((c, i) => P[i % P.length].hand.push(c));
+  P.forEach(p => { p.hand = removePairs(p.hand).keep; p.done = false; if (!p.me) p.hand = Kit.shuffle(p.hand); });
+  sortMine();
+  $('menu').hidden = true; $('game').hidden = false;
+  $('meName').textContent = O.name;
+  turn = Kit.randInt(0, P.length - 1);
+  P.forEach(checkDone);
+  render();
+  Kit.sfx('whoosh');
+  setTimeout(() => nextTurn(true), 600);
+}
+function sortMine() {
+  const order = r => r === 'JOKER' ? 99 : RANKS.indexOf(r);
+  P[0].hand.sort((a, b) => order(a.r) - order(b.r));
+}
+function active() { return P.filter(p => !p.done); }
+function nextActive(i) { for (let k = 1; k <= P.length; k++) { const j = (i + k) % P.length; if (!P[j].done) return j; } return -1; }
+function checkDone(p) {
+  if (!p.done && p.hand.length === 0) { p.done = true; finishOrder.push(p); }
+}
+
+/* ---------- 画面 ---------- */
+function render(sayHTML) {
+  const target = P[turn] && !P[turn].done ? nextActive(turn) : -1;
+  $('opps').innerHTML = P.slice(1).map((p, k) => {
+    const i = k + 1, rank = finishOrder.indexOf(p);
+    return `<div class="opp ${i === turn && !over ? 'turn' : ''} ${i === target && turn === 0 && !over ? 'target' : ''} ${p.done ? 'done' : ''}">
+      <div class="face">${p.face}</div><div class="nm">${Kit.esc(p.name)}</div>
+      ${rank >= 0 ? `<span class="rank">${rank + 1}ばん</span>` : `<div class="mini">${'<i></i>'.repeat(Math.min(p.hand.length, 8))}</div><span class="k-num">${p.hand.length}まい</span>`}
+    </div>`;
+  }).join('');
+  const mine = P[0];
+  $('myCount').textContent = mine.hand.length;
+  $('hand').innerHTML = mine.hand.map(c => cardHTML(c, 'div', c === lastDrawn ? 'new' : '')).join('') ||
+    `<p style="margin:0">${finishOrder.indexOf(mine) >= 0 ? `🎉 ${finishOrder.indexOf(mine) + 1}ばんであがり！` : ''}</p>`;
+  if (sayHTML !== undefined) $('zone').innerHTML = sayHTML;
+}
+
+function nextTurn(first) {
+  if (over) return;
+  if (active().length <= 1) return endGame();
+  if (!first) turn = nextActive(turn);
+  else if (P[turn].done) turn = nextActive(turn);
+  const from = nextActive(turn);
+  if (P[turn].me) myTurn(from); else cpuTurn(from);
+}
+
+function myTurn(from) {
+  const src = P[from];
+  render(`<div class="say">⭐ あなたのばん：${Kit.esc(src.name)}から1まい引いてね</div>
+    <div class="fan" id="pickFan">${src.hand.map((c, i) => `<button class="card back" data-i="${i}" aria-label="${i + 1}まいめ"></button>`).join('')}</div>`);
+  const my = gen;
+  $('pickFan').onclick = e => {
+    const b = e.target.closest('button.card'); if (!b || my !== gen) return;
+    $('pickFan').onclick = null;
+    b.classList.add('picked'); Kit.sfx('pop');
+    const card = src.hand.splice(+b.dataset.i, 1)[0];
+    setTimeout(() => { if (my === gen) receive(0, card, from); }, 350);
+  };
+}
+function cpuTurn(from) {
+  const src = P[from], me = P[turn], my = gen;
+  const fromMe = src.me;
+  render(`<div class="say">${me.face} ${Kit.esc(me.name)}が ${fromMe ? 'あなた' : Kit.esc(src.name)} から引くよ…</div>
+    ${fromMe ? '' : `<div class="fan">${src.hand.map(() => '<div class="card back" style="width:40px"></div>').join('')}</div>`}`);
+  const i = Kit.randInt(0, src.hand.length - 1);
+  if (fromMe) {
+    const el = $('hand').children[i]; if (el) el.classList.add('picked');
+  }
+  setTimeout(() => {
+    if (my !== gen) return;
+    const card = src.hand.splice(i, 1)[0];
+    if (fromMe) { Kit.sfx(card.joker ? 'good' : 'bad'); Kit.toast(card.joker ? `${me.name}がジョーカーを引いた！` : `${me.name}に ${card.s}${card.r} を取られた`); }
+    receive(turn, card, from);
+  }, wait());
+}
+function receive(i, card, from) {
+  const p = P[i];
+  const pair = card.joker ? null : p.hand.find(c => c.r === card.r);
+  if (pair) p.hand = p.hand.filter(c => c !== pair); else p.hand.push(card);
+  if (p.me) {
+    lastDrawn = pair ? null : card;
+    sortMine();
+    render(pair
+      ? `<div class="say">${cardHTML(card)}</div><div class="say">ペアができた！ 2まいすてたよ</div>`
+      : `<div class="say">${cardHTML(card)}</div><div class="say">${card.joker ? 'ジョーカーを引いちゃった…' : 'ペアはなかった'}</div>`);
+    Kit.sfx(pair ? 'good' : card.joker ? 'bad' : 'tap');
+  } else {
+    if (!pair) p.hand = Kit.shuffle(p.hand);
+    if (pair) Kit.sfx('select');
+    render();
+  }
+  checkDone(P[from]); checkDone(p);
+  if (P[from].done && P[from].me || p.done && p.me) { Kit.sfx('win'); Kit.confetti(1600); }
+  const my = gen;
+  setTimeout(() => { if (my === gen) nextTurn(false); }, p.me ? 1100 : 300);
+}
+$('shuffle').onclick = () => { P[0].hand = Kit.shuffle(P[0].hand); lastDrawn = null; Kit.sfx('whoosh'); render(); };
+
+function endGame() {
+  over = true; gen++;
+  const loser = active()[0];
+  if (loser) finishOrder.push(loser);
+  render('');
+  const myRank = finishOrder.indexOf(P[0]) + 1;
+  const iLost = loser && loser.me;
+  if (myRank === 1) Kit.addWin('babanuki');
+  iLost ? Kit.sfx('lose') : (Kit.sfx('win'), Kit.confetti());
+  const last = loser ? loser.hand[0] : null;
+  Kit.modal({
+    title: iLost ? 'ざんねん…さいごまでのこっちゃった' : myRank === 1 ? '1ばんであがり！🎉' : `${myRank}ばんであがり！`,
+    body: `<ol>${finishOrder.map(p => `<li>${p.face} ${Kit.esc(p.name)}</li>`).join('')}</ol>
+      ${O.rule === 'jiji' && hidden ? `<p>かくれていたカード：</p><div style="display:flex;gap:8px">${cardHTML(hidden)}${last ? cardHTML(last) : ''}</div><p>この${hidden.r}がジジでした！</p>` : ''}`,
+    actions: [{ label: 'せってい', onClick: () => { $('game').hidden = true; $('menu').hidden = false; renderMenu(); } }, { label: 'もう一回', primary: true, onClick: start }],
+    dismissable: false,
+  });
+}
+$('go').onclick = start;
+
+Kit.bar({ id: 'babanuki', title: '🃏 ババぬき', help: `
+  <p>となりの人から1まいずつカードを引きます。同じ数字が2まいそろったら、すてられます。</p>
+  <p>はやく手札がなくなった人からあがり。<b>ババぬき</b>はジョーカーをさいごまで持っていた人の負け。</p>
+  <p><b>ジジぬき</b>はジョーカーなし。はじめに1まいだけ、だれにも見えないようにかくします。そのペアのカード（ジジ）がどれかは、さいごまでわかりません。</p>` });
+renderMenu();
+</script>
+</body>
+</html>

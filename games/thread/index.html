@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>いととおし</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  .stage { flex: 1; position: relative; min-height: 0; touch-action: none; user-select: none; -webkit-user-select: none; cursor: pointer; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .hud { position: absolute; top: 10px; left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); display: flex; justify-content: space-between; pointer-events: none; font-weight: 900; }
+  .hud .box { background: var(--card); border: 3px solid var(--line); border-radius: 14px; padding: 2px 12px; }
+  .hud .k-btn { pointer-events: auto; }
+  .over { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; background: color-mix(in srgb, var(--paper) 70%, transparent); cursor: default; }
+  .over .k-card { width: min(440px, 100%); }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <canvas id="cv"></canvas>
+  <div class="hud" id="hud" hidden>
+    <div class="box">🧵 <span class="k-num" id="score">0</span>　⭐ <span class="k-num" id="stars">0</span></div>
+    <button class="k-btn k-icon" id="pauseBtn" aria-label="一時停止">⏸</button>
+  </div>
+  <div class="over" id="startOv">
+    <div class="k-card k-stack k-center">
+      <h2>🧵 いととおし</h2>
+      <p style="margin:0">画面を<b>おしているあいだ</b> はりが上へ、<b>はなすと</b> 下へ。<br>すきまに いとを とおしていこう！</p>
+      <span class="k-label">むずかしさ</span>
+      <div class="k-chips" id="optLv" style="justify-content:center"></div>
+      <p class="k-muted" id="bestLine" style="margin:0"></p>
+      <button class="k-btn is-sun is-big" id="startBtn">スタート</button>
+    </div>
+  </div>
+  <div class="over" id="pauseOv" hidden>
+    <div class="k-card k-stack k-center">
+      <h2>ひとやすみ</h2>
+      <button class="k-btn is-sun is-big" id="resume">つづける</button>
+    </div>
+  </div>
+  <div class="over" id="endOv" hidden><div class="k-card k-stack k-center" id="endCard"></div></div>
+</div>
+
+<script src="../../common/kit.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const cv = $('cv');
+let W = 0, H = 0, g = null;
+const LV = {
+  1: { name: 'やさしい', speed: 150, max: 230, gap: 0.42, space: 300, shield: 1 },
+  2: { name: 'ふつう', speed: 190, max: 300, gap: 0.33, space: 260, shield: 0 },
+  3: { name: 'むずかしい', speed: 230, max: 380, gap: 0.27, space: 230, shield: 0 },
+};
+let diff = Kit.store.get('thread:diff', 1);
+let S = null, holding = false;
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const YARN = ['#ff5d8f', '#ff8a3d', '#ffc93c', '#2fb862', '#3d8bff', '#9b6bff'];
+
+function resize() { ({ w: W, h: H, g } = Kit.fitCanvas(cv)); if (!loop.running) draw(); }
+addEventListener('resize', resize);
+
+function renderStart() {
+  const root = $('optLv'); root.innerHTML = '';
+  Object.entries(LV).forEach(([k, v]) => {
+    const b = Kit.el(`<button class="k-chip" aria-pressed="${+k === diff}">${v.name}</button>`);
+    b.onclick = () => { diff = +k; Kit.store.set('thread:diff', diff); Kit.sfx('select'); renderStart(); };
+    root.appendChild(b);
+  });
+  const best = Kit.store.get(`thread:best${diff}`, 0);
+  $('bestLine').textContent = best ? `ベスト：${best}` : (LV[diff].shield ? 'やさしいは、1回だけぶつかってもだいじょうぶ' : '');
+}
+
+function newGame() {
+  const L = LV[diff];
+  S = { x: W * 0.28, y: H / 2, vy: 0, dist: 0, speed: L.speed, gates: [], trail: [], parts: [], score: 0, stars: 0,
+    shield: L.shield, inv: 0, nextGate: W * 0.9, lastCenter: H / 2, t: 0 };
+  ['startOv', 'endOv', 'pauseOv'].forEach(id => $(id).hidden = true);
+  $('hud').hidden = false; paintHud();
+  Kit.music.play({ bpm: 120, lead: [659, 0, 784, 0, 880, 784, 659, 0, 587, 0, 659, 0, 523, 0, 0, 0], bass: [131, 0, 196, 0, 175, 0, 196, 0], vol: 0.03 });
+  loop.start();
+}
+function addGate() {
+  const L = LV[diff];
+  const gap = Math.max(110, H * L.gap) * (1 - Math.min(0.2, S.score * 0.004));
+  const margin = 30 + gap / 2;
+  const maxShift = H * 0.32;
+  const c = Kit.clamp(S.lastCenter + Kit.rand(-maxShift, maxShift), margin, H - margin);
+  S.lastCenter = c;
+  S.gates.push({ x: S.nextGate, top: c - gap / 2, bot: c + gap / 2, passed: false, star: Math.random() < 0.45 });
+  S.nextGate += L.space + Kit.rand(-30, 40);
+}
+function update(dt) {
+  const L = LV[diff];
+  S.t += dt;
+  S.speed = Math.min(L.max, L.speed + S.score * 3);
+  const dx = S.speed * dt;
+  S.dist += dx;
+  S.vy += (holding ? -1500 : 1100) * dt;
+  S.vy = Kit.clamp(S.vy, -430, 470);
+  S.y += S.vy * dt;
+  S.inv = Math.max(0, S.inv - dt);
+  while (S.nextGate - S.dist < W + 60) addGate();
+  // しっぽ（いと）
+  S.trail.push({ x: S.dist + S.x, y: S.y });
+  while (S.trail.length && S.trail[0].x < S.dist - 20) S.trail.shift();
+  const px = S.dist + S.x, R = 9;
+  let crash = S.y < R || S.y > H - R;
+  for (const gt of S.gates) {
+    if (px + R > gt.x - 18 && px - R < gt.x + 18 && (S.y - R < gt.top || S.y + R > gt.bot)) crash = true;
+    if (!gt.passed && px > gt.x + 18) {
+      gt.passed = true; S.score++; Kit.sfx('pop');
+      if (S.score % 10 === 0) { Kit.sfx('win'); burst(S.x, S.y, 18); }
+    }
+    if (gt.star && Math.abs(px - gt.x) < 22 && Math.abs(S.y - (gt.top + gt.bot) / 2) < 26) { gt.star = false; S.stars++; Kit.sfx('coin'); burst(S.x, S.y, 10); }
+  }
+  S.gates = S.gates.filter(gt => gt.x > S.dist - 60);
+  S.parts.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; });
+  S.parts = S.parts.filter(p => p.life > 0);
+  if (crash && S.inv <= 0) {
+    if (S.shield > 0) { S.shield--; S.inv = 1.5; S.vy = S.y > H / 2 ? -300 : 300; Kit.sfx('hit'); Kit.vibrate(60); S.y = Kit.clamp(S.y, 20, H - 20); }
+    else return gameOver();
+  }
+  paintHud(); draw();
+}
+function burst(x, y, n) { for (let i = 0; i < n; i++) { const a = Math.random() * 6.28, s = Kit.rand(60, 200); S.parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, c: Kit.pick(YARN), life: Kit.rand(.3, .8) }); } }
+function paintHud() { $('score').textContent = S.score; $('stars').textContent = S.stars; }
+
+function draw() {
+  if (!g) return;
+  const ink = css('--line'), paper = css('--paper'), soft = css('--soft');
+  g.fillStyle = paper; g.fillRect(0, 0, W, H);
+  // ぬのの目
+  const off = S ? S.dist % 28 : 0;
+  g.strokeStyle = soft; g.lineWidth = 2;
+  for (let x = -off; x < W; x += 28) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
+  for (let y = 0; y < H; y += 28) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+  if (!S) { drawNeedle(W * 0.28, H / 2, 0); return; }
+  // はりのあな（ゲート）
+  for (const gt of S.gates) {
+    const x = gt.x - S.dist;
+    g.fillStyle = ink;
+    g.beginPath(); g.roundRect(x - 18 + 3, -10, 36, gt.top + 10 + 4, 12); g.roundRect(x - 18 + 3, gt.bot, 36, H - gt.bot + 20, 12); g.fill();
+    g.fillStyle = gt.passed ? '#9be7b4' : '#cfd6e6';
+    g.beginPath(); g.roundRect(x - 18, -10, 36, gt.top + 10, 12); g.roundRect(x - 18, gt.bot, 36, H - gt.bot + 20, 12); g.fill();
+    g.strokeStyle = ink; g.lineWidth = 3; g.stroke();
+    if (gt.star) { g.font = '26px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('⭐', x, (gt.top + gt.bot) / 2); }
+  }
+  // いと
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  const tr = S.trail;
+  for (let i = 1; i < tr.length; i++) {
+    g.strokeStyle = YARN[Math.floor((tr[i].x / 40)) % YARN.length];
+    g.lineWidth = 6;
+    g.beginPath(); g.moveTo(tr[i - 1].x - S.dist, tr[i - 1].y); g.lineTo(tr[i].x - S.dist, tr[i].y); g.stroke();
+  }
+  S.parts.forEach(p => { g.globalAlpha = Math.max(0, p.life); g.fillStyle = p.c; g.beginPath(); g.arc(p.x, p.y, 4, 0, 6.28); g.fill(); });
+  g.globalAlpha = 1;
+  if (!(S.inv > 0 && Math.floor(S.t * 10) % 2)) drawNeedle(S.x, S.y, Kit.clamp(S.vy / 700, -0.6, 0.6));
+  if (S.shield > 0) { g.strokeStyle = '#3d8bff'; g.lineWidth = 3; g.setLineDash([6, 6]); g.beginPath(); g.arc(S.x, S.y, 20, 0, 6.28); g.stroke(); g.setLineDash([]); }
+}
+function drawNeedle(x, y, a) {
+  const ink = css('--line');
+  g.save(); g.translate(x, y); g.rotate(a);
+  g.fillStyle = '#e8ecf5'; g.strokeStyle = ink; g.lineWidth = 3;
+  g.beginPath(); g.moveTo(18, 0); g.lineTo(-14, -6); g.lineTo(-18, 0); g.lineTo(-14, 6); g.closePath(); g.fill(); g.stroke();
+  g.fillStyle = ink; g.beginPath(); g.ellipse(-11, 0, 3, 1.6, 0, 0, 6.28); g.fill();
+  g.restore();
+}
+const loop = Kit.loop(update);
+
+const press = on => e => {
+  if (e.target.closest('button') || e.target.closest('.over')) return;
+  holding = on;
+};
+$('stage').addEventListener('pointerdown', press(true));
+addEventListener('pointerup', () => holding = false);
+addEventListener('pointercancel', () => holding = false);
+addEventListener('keydown', e => {
+  if (e.key === ' ' || e.key === 'ArrowUp') { e.preventDefault(); if (!$('startOv').hidden || !$('endOv').hidden) { if (!e.repeat) newGame(); } else holding = true; }
+  if (e.key === 'Escape' || e.key === 'p') pause();
+});
+addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'ArrowUp') holding = false; });
+function pause() { if (!S || !loop.running) return; loop.stop(); Kit.music.stop(); holding = false; $('pauseOv').hidden = false; }
+$('pauseBtn').onclick = pause;
+$('resume').onclick = () => { $('pauseOv').hidden = true; loop.start(); Kit.music.play(Kit.music.opts); };
+document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+$('startBtn').onclick = newGame;
+
+function gameOver() {
+  loop.stop(); Kit.music.stop(); Kit.sfx('boom'); Kit.vibrate([100, 50, 100]);
+  burst(S.x, S.y, 30); draw();
+  const total = S.score + S.stars * 2;
+  const key = `thread:best${diff}`, prev = Kit.store.get(key, 0), isNew = total > prev;
+  if (isNew) { Kit.store.set(key, total); setTimeout(Kit.confetti, 300); }
+  Kit.best('thread', total);
+  $('hud').hidden = true;
+  $('endCard').innerHTML = `<h2>ぷつん！</h2>
+    <div style="font-family:var(--display);font-size:3rem" class="k-num">${total}</div>
+    <p style="margin:0">とおした あな ${S.score} ＋ ⭐${S.stars}×2</p>
+    <p style="margin:0;font-weight:900">${isNew ? '🏆 じこベスト こうしん！' : `ベスト ${prev}`}</p>
+    <button class="k-btn is-sun is-big" id="again">もう一回</button>
+    <button class="k-btn" id="toStart">むずかしさをかえる</button>`;
+  setTimeout(() => { $('endOv').hidden = false; $('again').onclick = newGame; $('toStart').onclick = () => { $('endOv').hidden = true; S = null; draw(); renderStart(); $('startOv').hidden = false; }; }, 500);
+}
+
+Kit.bar({ id: 'thread', title: '🧵 いととおし', help: `
+  <p>画面をおしているあいだ、はりが上にあがります。はなすと下におちます。</p>
+  <p>はしらのすきまを、ぶつからないように通りぬけよう。⭐をとるとボーナス！</p>
+  <p>だんだんはやくなるよ。キーボードならスペースキーでもあそべます。</p>` });
+resize(); renderStart();
+</script>
+</body>
+</html>
