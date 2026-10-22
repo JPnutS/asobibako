@@ -72,7 +72,7 @@
   <div class="dots"></div>
   <div class="lid-in">
     <h1>あそびばこ</h1>
-    <p>みんなで、ひとりで、つくって遊ぶ 14のゲーム</p>
+    <p>みんなで、ひとりで、つくって遊ぶ <span id="gameCount">16</span>のゲームとツール</p>
   </div>
 </header>
 
@@ -110,7 +110,8 @@
 <script>
 'use strict';
 const games = self.ASOBI_GAMES;
-const FILTERS = ['ぜんぶ', 'みんなで', 'たいせん', 'ひとりで', 'つくる'];
+document.getElementById('gameCount').textContent = games.length;
+const FILTERS = ['ぜんぶ', 'みんなで', 'たいせん', 'ひとりで', 'つくる', 'べんり'];
 let filter = Kit.store.get('portal:filter', 'ぜんぶ');
 const $ = id => document.getElementById(id);
 

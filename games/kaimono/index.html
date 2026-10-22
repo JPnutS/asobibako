@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>おかいもの算数</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .tabs .k-btn { padding-left: 8px; padding-right: 8px; white-space: nowrap; font-size: clamp(.85rem, 3.6vw, 1.05rem); }
+  .tabs .k-btn[aria-pressed="true"] { background: var(--sun); color: var(--on-color); }
+  .field { display: grid; gap: 4px; }
+  .field .k-input { font-size: 1.4rem; font-weight: 900; text-align: right; }
+  .yen { position: relative; }
+  .yen::after { content: attr(data-u); position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-weight: 900; color: var(--muted); pointer-events: none; }
+  .yen .k-input { padding-right: 2.6em; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .items { display: grid; gap: 10px; }
+  .item { border: 3px solid var(--line); border-radius: 16px; padding: 12px; display: grid; gap: 8px; background: var(--card); }
+  .item h3 { margin: 0; display: flex; align-items: center; gap: 8px; }
+  .tagA, .tagB, .tagC { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: #fff; border: 3px solid var(--line); font-weight: 900; font-size: .95rem; }
+  .tagA { background: var(--sky); } .tagB { background: var(--berry); } .tagC { background: var(--grass); }
+
+  /* てじゅん */
+  .steps { display: grid; gap: 14px; }
+  .step { border: 3px solid var(--line); border-radius: 18px; padding: 14px 16px; background: var(--card); box-shadow: 0 5px 0 var(--line); display: grid; gap: 10px; animation: pop .35s ease-out; }
+  .step h3 { margin: 0; font-size: 1.1rem; display: flex; gap: 8px; align-items: center; }
+  .step h3 .n { width: 28px; height: 28px; border-radius: 50%; background: var(--orange); color: var(--on-color); display: grid; place-items: center; border: 3px solid var(--line); font-size: .9rem; flex: none; }
+  .step.rough h3 .n { background: var(--sky); }
+  .step.final { background: var(--soft); }
+  .step p { margin: 0; line-height: 1.7; }
+  .eq { font-family: var(--display); font-size: clamp(1.2rem, 5vw, 1.7rem); line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
+  .eq .hl { color: var(--berry); }
+  .eq .ok { color: var(--grass); }
+  .eq small { font-family: var(--font); font-size: .9rem; color: var(--muted); }
+  @keyframes pop { from { transform: translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  /* 10マスのぼう */
+  .bar { display: grid; grid-template-columns: repeat(10, 1fr); border: 3px solid var(--line); border-radius: 12px; overflow: hidden; height: 54px; background: #fff; }
+  .bar .c { border-right: 2px dashed rgba(42,34,56,.35); display: grid; place-items: center; font-weight: 900; font-size: clamp(.55rem, 2.2vw, .85rem); position: relative; color: #2a2238; }
+  .bar .c:last-child { border-right: 0; }
+  .bar .c.keep { background: #bfe9d4; }
+  .bar .c.cut { background: repeating-linear-gradient(135deg, #ffd0dd 0 8px, #ffe7ee 8px 16px); color: var(--berry); }
+  .bar .c.one { background: #ffe08a; }
+  .bar .c .part { position: absolute; inset: 0 auto 0 0; background: repeating-linear-gradient(135deg, #ffd0dd 0 8px, #ffe7ee 8px 16px); }
+  .bar .c span { position: relative; }
+  .barlbl { display: flex; justify-content: space-between; font-size: .8rem; font-weight: 700; color: var(--muted); }
+  .shift { display: inline-flex; align-items: baseline; gap: 2px; font-family: var(--display); font-size: 1.5rem; }
+  .shift .gone { color: var(--muted); text-decoration: line-through; }
+
+  /* りょうのぼう */
+  .qbar { display: flex; height: 46px; border: 3px solid var(--line); border-radius: 10px; overflow: hidden; background: #fff; }
+  .qbar .q { border-right: 2px dashed rgba(42,34,56,.4); display: grid; place-items: center; font-weight: 900; font-size: clamp(.55rem, 2.3vw, .85rem); white-space: nowrap; overflow: hidden; }
+  .qbar .q:last-child { border-right: 0; }
+  .qrow { display: grid; grid-template-columns: 34px 1fr; gap: 8px; align-items: center; }
+  .winner { outline: 4px solid var(--sun); outline-offset: 3px; border-radius: 12px; }
+  .big { font-family: var(--display); font-size: clamp(2rem, 9vw, 3rem); line-height: 1.2; }
+  .tip { background: #fff; border: 2px dashed var(--line); border-radius: 12px; padding: 8px 12px; font-size: .92rem; }
+  .guess { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .guess .k-input { width: 9em; text-align: right; font-weight: 900; }
+</style>
+</head>
+<body>
+<main class="k-wrap k-stack">
+  <div class="tabs">
+    <button class="k-btn" id="tabOff" aria-pressed="true">🏷️ わりびき</button>
+    <button class="k-btn" id="tabCmp" aria-pressed="false">⚖️ どっちがおトク？</button>
+  </div>
+
+  <!-- わりびき -->
+  <section id="off" class="k-stack">
+    <div class="k-card k-stack">
+      <div class="field"><span class="k-label">もとの値段</span><div class="yen" data-u="円"><input class="k-input" id="price" inputmode="numeric" placeholder="1980"></div></div>
+      <div class="field"><span class="k-label">わりびきのシール</span><div class="k-chips" id="kind"></div></div>
+      <div id="amtBox"></div>
+      <div class="field"><span class="k-label">消費税</span><div class="k-chips" id="tax"></div></div>
+      <div class="k-row">
+        <button class="k-btn is-orange is-big" id="goOff" style="flex:1">けいさんの しかた を見る</button>
+        <button class="k-btn" id="quizOff">🎲 もんだい</button>
+      </div>
+    </div>
+    <div id="offOut" class="steps"></div>
+  </section>
+
+  <!-- どっちがおトク -->
+  <section id="cmp" class="k-stack" hidden>
+    <div class="k-card k-stack">
+      <div class="field"><span class="k-label">たんい</span><div class="k-chips" id="unit"></div></div>
+      <div class="items" id="items"></div>
+      <div class="k-row">
+        <button class="k-btn is-small" id="addC">＋ もう1つくらべる</button>
+      </div>
+      <div class="k-row">
+        <button class="k-btn is-orange is-big" id="goCmp" style="flex:1">くらべかた を見る</button>
+        <button class="k-btn" id="quizCmp">🎲 もんだい</button>
+      </div>
+    </div>
+    <div id="cmpOut" class="steps"></div>
+  </section>
+</main>
+
+<script src="../../common/kit.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const E = Kit.esc;
+const yen = n => `${Math.round(n).toLocaleString()}円`;
+/* 小数は1けたまで（ぴったりならそのまま） */
+const num = n => { const r = Math.round(n * 10) / 10; return r.toLocaleString(undefined, { maximumFractionDigits: 1 }); };
+const toNum = s => { const v = parseFloat(String(s).replace(/[,，円\s]/g, '').replace(/[０-９．]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))); return isFinite(v) ? v : NaN; };
+/* ざっくり：上から2けたに丸める（1980→2000, 398→400, 1234→1200） */
+function rough(n) {
+  if (n < 10) return Math.round(n);
+  const m = Math.pow(10, Math.floor(Math.log10(n)) - 1);
+  return Math.round(n / m) * m;
+}
+const S = Object.assign({ tab: 'off', kind: 'wari', wari: 2, pct: 15, minus: 100, tax: 0, unit: 'g' }, Kit.store.get('kaimono:opt', {}));
+const save = () => Kit.store.set('kaimono:opt', S);
+
+/* ---------- タブ ---------- */
+function setTab(t) {
+  S.tab = t; save();
+  $('tabOff').setAttribute('aria-pressed', t === 'off'); $('tabCmp').setAttribute('aria-pressed', t === 'cmp');
+  $('off').hidden = t !== 'off'; $('cmp').hidden = t !== 'cmp';
+}
+$('tabOff').onclick = () => { Kit.sfx('select'); setTab('off'); };
+$('tabCmp').onclick = () => { Kit.sfx('select'); setTab('cmp'); };
+
+function chips(root, items, cur, on) {
+  root.innerHTML = '';
+  items.forEach(([v, l]) => {
+    const b = Kit.el(`<button class="k-chip" aria-pressed="${v === cur}">${l}</button>`);
+    b.onclick = () => { Kit.sfx('select'); on(v); };
+    root.appendChild(b);
+  });
+}
+
+/* =========================================================
+   わりびき
+   ========================================================= */
+function renderOffForm() {
+  chips($('kind'), [['wari', '◯割引'], ['pct', '◯%オフ'], ['half', '半額'], ['minus', '◯円引き']], S.kind, v => { S.kind = v; save(); renderOffForm(); });
+  chips($('tax'), [[0, 'このまま'], [10, '税込にする（10%）'], [8, '税込にする（8%・食べもの）']], S.tax, v => { S.tax = v; save(); renderOffForm(); });
+  const box = $('amtBox');
+  if (S.kind === 'wari') {
+    box.innerHTML = `<div class="field"><span class="k-label">なん割引？</span><div class="k-chips" id="wari"></div></div>`;
+    chips($('wari'), [1, 2, 3, 4, 5, 6, 7, 8, 9].map(k => [k, `${k}割`]), S.wari, v => { S.wari = v; save(); renderOffForm(); });
+  } else if (S.kind === 'pct') {
+    box.innerHTML = `<div class="field"><span class="k-label">なん%オフ？</span><div class="yen" data-u="%"><input class="k-input" id="pct" inputmode="numeric" value="${S.pct}"></div></div>`;
+    $('pct').oninput = e => { S.pct = toNum(e.target.value); save(); };
+  } else if (S.kind === 'minus') {
+    box.innerHTML = `<div class="field"><span class="k-label">なん円引き？</span><div class="yen" data-u="円"><input class="k-input" id="minus" inputmode="numeric" value="${S.minus}"></div></div>`;
+    $('minus').oninput = e => { S.minus = toNum(e.target.value); save(); };
+  } else box.innerHTML = '';
+}
+
+/* 10マスのぼう。cut は 0〜10（小数OK）マスぶんをななめ線に */
+function bar10(price, cut, { one = false, labels = true } = {}) {
+  const cells = [];
+  for (let i = 0; i < 10; i++) {
+    const c = Math.max(0, Math.min(1, cut - i));
+    let cls = 'c', inner = '';
+    if (one && i === 0) cls += ' one';
+    else if (c >= 1) cls += ' cut';
+    else if (c > 0) { cls += ' keep'; inner = `<i class="part" style="width:${c * 100}%"></i>`; }
+    else if (cut > 0 || !one) cls += ' keep';
+    cells.push(`<div class="${cls}">${inner}<span>${labels ? num(price / 10) : ''}</span></div>`);
+  }
+  return `<div class="bar">${cells.join('')}</div>`;
+}
+function stepCard(n, title, body, cls = '') {
+  return `<div class="step ${cls}"><h3><span class="n">${n}</span>${title}</h3>${body}</div>`;
+}
+/* ÷10 を「0をとる／小数点を1つ左へ」で見せる */
+function shiftView(p) {
+  const s = String(p);
+  if (Number.isInteger(p) && s.endsWith('0')) return `<span class="shift">${s.slice(0, -1)}<span class="gone">0</span></span> → <b>${num(p / 10)}</b>`;
+  return `<span class="shift">${s.slice(0, -1)}<span class="hl">.</span>${s.slice(-1)}</span> <small>（小数点を1つ左へ）</small>`;
+}
+
+function offSteps(price, guess) {
+  const out = [];
+  let n = 1;
+  let rate = 0, label = '', after = price;
+  if (S.kind === 'wari') { rate = S.wari / 10; label = `${S.wari}割引`; }
+  if (S.kind === 'pct') { rate = S.pct / 100; label = `${S.pct}%オフ`; }
+  if (S.kind === 'half') { rate = 0.5; label = '半額'; }
+  const one = price / 10;
+
+  if (S.kind === 'minus') {
+    after = price - S.minus;
+    out.push(stepCard(n++, 'ひくだけ！', `<p class="eq">${yen(price)} − ${yen(S.minus)} = <span class="ok">${yen(after)}</span></p>
+      <p class="tip">◯円引きは、そのままひけばOK。${price ? `これは <b>${Math.round(S.minus / price * 100)}%オフ</b> と同じくらい。` : ''}</p>`));
+  } else {
+    // 0. ざっくり
+    const r = rough(price), rOne = r / 10;
+    const rOff = S.kind === 'pct' ? r * rate : rOne * (rate * 10);
+    if (r !== price) {
+      out.push(stepCard('≈', 'まず ざっくり', `<p>${yen(price)} は だいたい <b>${yen(r)}</b>。きりのいい数にすると、あたまで計算しやすいよ。</p>
+        <p class="eq">${yen(r)} の1割 = <span class="hl">${num(rOne)}円</span><br>${label}で ひくのは だいたい <span class="hl">${num(rOff)}円</span><br>→ だいたい <span class="ok">${num(r - rOff)}円</span></p>`, 'rough'));
+    }
+    if (S.kind === 'half') {
+      after = price / 2;
+      out.push(stepCard(n++, '半額 ＝ 2つに分けた1つ', `${bar10(price, 5, { labels: false })}<p class="eq">${yen(price)} ÷ 2 = <span class="ok">${num(after)}円</span></p>
+        <p class="tip">半額は「5割引」「50%オフ」と同じだよ。</p>`));
+    } else {
+      // 1. 1割
+      out.push(stepCard(n++, '1割は いくら？', `${bar10(price, 0, { one: true })}
+        <div class="barlbl"><span>0円</span><span>${yen(price)}</span></div>
+        <p>1割 ＝ 10こに分けた<b>1こぶん</b>（黄色）。<br>10で わるには、さいごの0をとる（または小数点を1つ左へ）。</p>
+        <p class="eq">${shiftView(price)} <small>…1割は</small> <span class="hl">${num(one)}円</span></p>`));
+      // 2. ひく分
+      const tens = Math.floor(rate * 10 + 1e-9);
+      const restPct = Math.round((rate * 100 - tens * 10) * 10) / 10;
+      let lines = [], off = 0;
+      if (tens) {
+        off += one * tens;
+        lines.push(tens === 1 ? `1割 = <span class="hl">${num(one)}円</span>` : `1割 × ${tens} = ${num(one)} × ${tens} = <span class="hl">${num(one * tens)}円</span>`);
+      }
+      if (restPct) {
+        if (restPct === 5) { off += one / 2; lines.push(`5% は 1割の半分 = ${num(one)} ÷ 2 = <span class="hl">${num(one / 2)}円</span>`); }
+        else { const p1 = price / 100; off += p1 * restPct; lines.push(`1% は さらに ÷10 = ${num(p1)}円 → ${restPct}% = ${num(p1)} × ${restPct} = <span class="hl">${num(p1 * restPct)}円</span>`); }
+      }
+      const parts = lines.length > 1 ? `<br>あわせて <span class="hl">${num(off)}円</span>` : '';
+      const tenTimes = tens >= 2 && tens <= 4 ? `<p class="tip">たし算でもOK：${Array(tens).fill(num(one)).join(' ＋ ')}</p>` : '';
+      out.push(stepCard(n++, `${label}で ひくのは いくら？`, `${bar10(price, rate * 10)}
+        <p>ななめ線のマスが、ひいてもらえる分。</p><p class="eq">${lines.join('<br>')}${parts}</p>${tenTimes}`));
+      // 3. ひく
+      after = price - off;
+      out.push(stepCard(n++, 'もとの値段から ひく', `<p class="eq">${yen(price)} − ${num(off)}円 = <span class="ok">${num(after)}円</span></p>`));
+      // 4. べつのやり方
+      const keep = Math.round((10 - rate * 10) * 10) / 10;
+      if (Number.isInteger(keep)) {
+        out.push(stepCard(n++, 'べつのやり方：のこりを見る', `${bar10(price, rate * 10)}
+          <p>みどりのマスが はらう分。${label}なら のこりは <b>${keep}割</b>。</p>
+          <p class="eq">${num(one)} × ${keep} = <span class="ok">${num(one * keep)}円</span></p>
+          <p class="tip">「${label} ＝ ${keep}割の値段」。おぼえておくと1回の計算ですむよ。</p>`));
+      }
+    }
+  }
+  let final = after;
+  if (S.tax) {
+    out.push(stepCard(n++, `税込にする（${S.tax}%）`, S.tax === 10
+      ? `<p>10% は 1割！ さっきと同じく ÷10 して たす。</p><p class="eq">${num(final)} ÷ 10 = <span class="hl">${num(final / 10)}円</span><br>${num(final)} ＋ ${num(final / 10)} = <span class="ok">${num(final + final / 10)}円</span></p>`
+      : `<p>8% は「1割より少し少ない」。1% を出して 8こぶん。</p><p class="eq">${num(final)} ÷ 100 = ${num(final / 100)}円<br>${num(final / 100)} × 8 = <span class="hl">${num(final * 0.08)}円</span><br>${num(final)} ＋ ${num(final * 0.08)} = <span class="ok">${num(final * 1.08)}円</span></p>
+         <p class="tip">ざっくりなら「1割たして、ちょっともどす」</p>`));
+    final = final + final * S.tax / 100;
+  }
+  const pay = Math.floor(final + 1e-9);
+  const saved = (S.tax ? price * (1 + S.tax / 100) : price) - final;
+  let g = '';
+  if (isFinite(guess)) {
+    const d = Math.abs(guess - pay);
+    g = `<p>あなたのよそう：<b>${yen(guess)}</b>（${d === 0 ? 'ぴったり！🎉' : d <= pay * 0.05 ? `ちがいは${yen(d)}。おしい！` : `ちがいは${yen(d)}`}）</p>`;
+    if (d <= pay * 0.05) setTimeout(() => Kit.confetti(1600), 300);
+  }
+  out.push(stepCard('★', 'こたえ', `<div class="big">${yen(pay)}</div>
+    <p><b>${yen(saved)}</b> おトク！</p>${g}
+    ${final !== pay ? '<p class="tip">1円より下は ふつう切りすて（お店によってちがうこともあるよ）</p>' : ''}`, 'final'));
+  return out;
+}
+
+function showSteps(root, cards) {
+  root.innerHTML = '';
+  let i = 0;
+  const nextBtn = Kit.el(`<div class="k-row" style="justify-content:center"><button class="k-btn is-sun is-big">つぎ ▶</button><button class="k-btn">ぜんぶ見る</button></div>`);
+  const [b1, b2] = nextBtn.querySelectorAll('button');
+  const add = () => {
+    root.insertBefore(Kit.el(cards[i]), nextBtn); i++;
+    Kit.sfx(i === cards.length ? 'good' : 'pop');
+    if (i >= cards.length) nextBtn.remove();
+    const last = root.querySelectorAll('.step'); last[last.length - 1].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  };
+  b1.onclick = add;
+  b2.onclick = () => { while (i < cards.length) { root.insertBefore(Kit.el(cards[i]), nextBtn); i++; } nextBtn.remove(); Kit.sfx('good'); };
+  root.appendChild(nextBtn);
+  add();
+}
+
+function askGuess(root, onGo) {
+  root.innerHTML = `<div class="step"><h3><span class="n">?</span>よそうしてみよう（しなくてもOK）</h3>
+    <div class="guess"><div class="yen" data-u="円"><input class="k-input" id="guessIn" inputmode="numeric" placeholder="だいたい"></div>
+    <button class="k-btn is-sun" id="guessGo">こたえあわせ</button><button class="k-btn is-small" id="guessSkip">よそうしない</button></div></div>`;
+  $('guessGo').onclick = () => onGo(toNum($('guessIn').value));
+  $('guessSkip').onclick = () => onGo(NaN);
+  $('guessIn').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) onGo(toNum($('guessIn').value)); });
+  root.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function runOff(quiz = false) {
+  const price = toNum($('price').value);
+  if (!(price > 0)) { Kit.toast('もとの値段を入れてね'); $('price').focus(); return; }
+  if (S.kind === 'pct' && !(S.pct > 0 && S.pct < 100)) { Kit.toast('1〜99%で入れてね'); return; }
+  if (S.kind === 'minus' && !(S.minus > 0 && S.minus < price)) { Kit.toast('ひく金額をたしかめてね'); return; }
+  Kit.store.set('kaimono:price', price);
+  const go = g => { Kit.sfx('tap'); showSteps($('offOut'), offSteps(price, g)); };
+  if (quiz) askGuess($('offOut'), go); else go(NaN);
+}
+$('goOff').onclick = () => runOff(false);
+$('quizOff').onclick = () => {
+  const base = Kit.pick([100, 200, 300, 500, 800, 1000, 1500, 2000, 3000]);
+  const p = Kit.pick([base, base - 2, base - 20, base + 80].filter(v => v > 50));
+  $('price').value = p;
+  S.kind = Kit.pick(['wari', 'wari', 'wari', 'pct', 'half']);
+  if (S.kind === 'wari') S.wari = Kit.randInt(1, 5);
+  if (S.kind === 'pct') S.pct = Kit.pick([10, 15, 20, 25, 30, 40, 50]);
+  S.tax = 0; renderOffForm();
+  runOff(true);
+};
+
+/* =========================================================
+   どっちがおトク
+   ========================================================= */
+const UNITS = { g: 'g', ml: 'mL', ko: 'こ', mai: 'まい', m: 'm', kai: '回' };
+let items = Kit.store.get('kaimono:items', [{ price: '', amt: '' }, { price: '', amt: '' }]);
+function renderCmpForm() {
+  chips($('unit'), Object.entries(UNITS).map(([k, v]) => [k, v]), S.unit, v => { S.unit = v; save(); renderCmpForm(); });
+  const tags = ['A', 'B', 'C'];
+  $('items').innerHTML = items.map((it, i) => `<div class="item"><h3><span class="tag${tags[i]}">${tags[i]}</span>${i === 2 ? '<button class="k-btn is-small" data-rm style="margin-left:auto">けす</button>' : ''}</h3>
+    <div class="grid2"><div class="field"><span class="k-label">値段</span><div class="yen" data-u="円"><input class="k-input" data-i="${i}" data-f="price" inputmode="decimal" value="${E(String(it.price))}"></div></div>
+    <div class="field"><span class="k-label">量</span><div class="yen" data-u="${UNITS[S.unit]}"><input class="k-input" data-i="${i}" data-f="amt" inputmode="decimal" value="${E(String(it.amt))}"></div></div></div></div>`).join('');
+  $('items').querySelectorAll('input').forEach(inp => inp.oninput = () => { items[+inp.dataset.i][inp.dataset.f] = inp.value; Kit.store.set('kaimono:items', items); });
+  const rm = $('items').querySelector('[data-rm]'); if (rm) rm.onclick = () => { items.pop(); Kit.store.set('kaimono:items', items); renderCmpForm(); };
+  $('addC').hidden = items.length >= 3;
+}
+$('addC').onclick = () => { items.push({ price: '', amt: '' }); renderCmpForm(); };
+
+const gcd = (a, b) => { a = Math.round(a); b = Math.round(b); while (b) [a, b] = [b, a % b]; return a; };
+const lcmAll = arr => arr.reduce((l, x) => l * x / gcd(l, x));
+/* 100gあたり、などのものさしをきめる */
+function pickBase(amts, unit) {
+  const mn = Math.min(...amts);
+  if (unit === 'g' || unit === 'ml') return mn >= 100 ? 100 : mn >= 10 ? 10 : 1;
+  return mn >= 100 ? 100 : mn >= 10 ? 10 : 1;
+}
+function qbar(it, scale, chunk, color, label) {
+  const n = it.amt / chunk;
+  const full = Math.floor(n + 1e-9), rest = n - full;
+  let cells = '';
+  const per = it.price / n;
+  const showLbl = n <= 12;
+  for (let i = 0; i < full; i++) cells += `<div class="q" style="flex:1 1 0;background:${color}">${showLbl ? label(per) : ''}</div>`;
+  if (rest > 0.01) cells += `<div class="q" style="flex:${rest} 1 0;background:${color};opacity:.6"></div>`;
+  return `<div class="qbar" style="width:${Math.max(8, it.amt / scale * 100)}%">${cells}</div>`;
+}
+function cmpSteps(list, guessIdx) {
+  const u = UNITS[S.unit], tags = ['A', 'B', 'C'], colors = ['#9ad3ff', '#ffb3c7', '#a8ebc9'];
+  const out = [];
+  let n = 1;
+  const maxAmt = Math.max(...list.map(x => x.amt));
+  // 1. 見くらべる
+  out.push(stepCard(n++, '量と値段を ならべてみる', list.map((it, i) => `<div class="qrow"><span class="tag${tags[i]}">${tags[i]}</span><div>${qbar(it, maxAmt, it.amt, colors[i], () => `${num(it.amt)}${u}・${yen(it.price)}`)}</div></div>`).join('')
+    + `<p class="tip">量がちがうと、値段だけでは くらべられない。<b>同じ量にそろえて</b> くらべよう。</p>`));
+
+  // 2. そろえかたを えらぶ
+  const amts = list.map(x => x.amt);
+  const ints = amts.every(a => Number.isInteger(a));
+  const L = ints ? lcmAll(amts) : Infinity;
+  const mult = amts.map(a => L / a);
+  const easy = ints && mult.every(m => m <= 3) && Math.max(...mult) > 1;
+  let per;
+  if (easy) {
+    out.push(stepCard(n++, `${num(L)}${u} に そろえる`, list.map((it, i) => `<div class="qrow"><span class="tag${tags[i]}">${tags[i]}</span><div>${qbar({ amt: L, price: it.price * mult[i] }, L, it.amt, colors[i], p => yen(p))}</div></div>`).join('')
+      + `<p class="eq">${list.map((it, i) => mult[i] === 1 ? `${tags[i]}：そのまま <span class="hl">${yen(it.price)}</span>` : `${tags[i]}：${mult[i]}こ買うと ${yen(it.price)} × ${mult[i]} = <span class="hl">${yen(it.price * mult[i])}</span>`).join('<br>')}</p>
+      <p class="tip">${num(L)}${u}ぶん買うとしたら いくら？ と考えると、かけ算だけで くらべられる。</p>`));
+    per = list.map((it, i) => it.price * mult[i]);
+    var unitLabel = `${num(L)}${u}あたり`, baseAmt = L;
+  } else {
+    const base = pickBase(amts, S.unit);
+    const raw = list.map(it => it.price / (it.amt / base));
+    // ざっくり
+    const rough1 = list.map(it => { const rp = rough(it.price), ra = it.amt / base; return { rp, ra, v: rp / ra }; });
+    out.push(stepCard('≈', `まず ざっくり：${base}${u}あたり`, `<p>値段を きりのいい数にして、${base}${u}が いくつ分あるかで わる。</p>
+      <p class="eq">${list.map((it, i) => `${tags[i]}：${yen(it.price)}≈${yen(rough1[i].rp)} ÷ ${num(rough1[i].ra)} ≈ <span class="hl">${Math.round(rough1[i].v)}円</span>`).join('<br>')}</p>`, 'rough'));
+    out.push(stepCard(n++, `${base}${u}あたりに そろえる`, list.map((it, i) => `<div class="qrow"><span class="tag${tags[i]}">${tags[i]}</span><div>${qbar(it, maxAmt, base, colors[i], p => yen(p))}</div></div>`).join('')
+      + `<p>1マス＝${base}${u}。マスの中の数が「${base}${u}あたり」の値段。</p>
+      <p class="eq">${list.map((it, i) => `${tags[i]}：${yen(it.price)} ÷ ${num(it.amt / base)} = <span class="hl">${num(raw[i])}円</span>`).join('<br>')}</p>`));
+    per = raw;
+    var unitLabel = `${base}${u}あたり`, baseAmt = base;
+  }
+  // 3. けっか
+  const best = per.indexOf(Math.min(...per));
+  const sorted = per.slice().sort((a, b) => a - b);
+  const same = Math.abs(sorted[0] - sorted[1]) < 0.05;
+  const diffPer = sorted[1] - sorted[0];
+  const bigAmt = list[best].amt;
+  const diffAtBig = diffPer * bigAmt / baseAmt;
+  let g = '';
+  if (guessIdx != null) g = `<p>あなたのよそう：<b>${tags[guessIdx]}</b>（${guessIdx === best || same ? 'せいかい！🎉' : 'ざんねん…でも、くらべかたがわかればOK！'}）</p>`;
+  if (guessIdx === best) setTimeout(() => Kit.confetti(1600), 300);
+  out.push(stepCard('★', 'こたえ', same ? `<div class="big">どちらも同じ</div><p>${unitLabel}の値段は ほぼ同じ。使いきれる方をえらぼう。</p>${g}`
+    : `<div class="big"><span class="tag${tags[best]}" style="display:inline-grid;width:46px;height:46px;font-size:1.4rem;vertical-align:middle">${tags[best]}</span> がおトク</div>
+      <p>${unitLabel}で <b>${num(diffPer)}円</b> やすい。${tags[best]}の量（${num(bigAmt)}${u}）ぶんでくらべると、だいたい <b>${yen(diffAtBig)}</b> のちがい。</p>${g}
+      <p class="tip">でも、たくさん入っている方が おトクでも、使いきれずに すてたら そん！ 食べきれる・使いきれる量かも 考えよう。</p>`, 'final'));
+  return out;
+}
+function runCmp(quiz = false) {
+  const list = items.map(it => ({ price: toNum(it.price), amt: toNum(it.amt) }));
+  if (list.some(x => !(x.price > 0 && x.amt > 0))) { Kit.toast('値段と量を ぜんぶ入れてね'); return; }
+  const go = gi => { Kit.sfx('tap'); showSteps($('cmpOut'), cmpSteps(list, gi)); };
+  if (quiz) {
+    const tags = ['A', 'B', 'C'];
+    $('cmpOut').innerHTML = `<div class="step"><h3><span class="n">?</span>どれがおトクだと思う？</h3><div class="k-row">${list.map((_, i) => `<button class="k-btn is-big" data-g="${i}"><span class="tag${tags[i]}">${tags[i]}</span></button>`).join('')}<button class="k-btn is-small" data-g="-1">よそうしない</button></div></div>`;
+    $('cmpOut').querySelectorAll('[data-g]').forEach(b => b.onclick = () => go(+b.dataset.g < 0 ? null : +b.dataset.g));
+    $('cmpOut').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else go(null);
+}
+$('goCmp').onclick = () => runCmp(false);
+$('quizCmp').onclick = () => {
+  const sets = {
+    g: [[100, 200, 300, 500], [98, 148, 198, 298, 398, 498]],
+    ml: [[350, 500, 1000, 1500, 2000], [98, 128, 158, 198, 248]],
+    ko: [[3, 4, 6, 10, 12], [98, 158, 198, 248, 298, 398]],
+  };
+  const u = Kit.pick(['g', 'ml', 'ko']); S.unit = u; save();
+  const [as, ps] = sets[u];
+  const a1 = Kit.pick(as); let a2; do a2 = Kit.pick(as); while (a2 === a1);
+  const p1 = Kit.pick(ps), unit1 = p1 / a1;
+  const p2 = Math.max(48, Math.round(unit1 * a2 * Kit.rand(0.8, 1.15) / 10) * 10 - 2);
+  items = [{ price: p1, amt: a1 }, { price: p2, amt: a2 }];
+  Kit.store.set('kaimono:items', items);
+  renderCmpForm(); runCmp(true);
+};
+
+/* ---------- はじめ ---------- */
+const lastPrice = Kit.store.get('kaimono:price', ''); if (lastPrice) $('price').value = lastPrice;
+$('price').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) runOff(false); });
+renderOffForm(); renderCmpForm(); setTab(S.tab);
+
+Kit.bar({ id: 'kaimono', title: '🛒 おかいもの算数', help: `
+  <p><b>わりびき</b>：もとの値段とシールをえらぶと、「1割を出す → ひく分を出す → ひく」のじゅんに、10マスの図で見せます。まず「ざっくり（きりのいい数）」で見当をつけてから、ぴったりを計算します。</p>
+  <p><b>どっちがおトク</b>：量と値段を入れると、同じ量にそろえて（「AとBを何こずつ買えば同じ量か」や「100gあたり」）くらべます。</p>
+  <p><b>🎲 もんだい</b>：れんしゅう問題が出ます。先によそうしてから、こたえあわせ！</p>` });
+</script>
+</body>
+</html>
