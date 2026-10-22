@@ -82,6 +82,7 @@
     <input class="k-input" id="writeIn" maxlength="24" autocomplete="off" style="max-width:420px;width:100%;text-align:center;font-size:1.3rem">
     <div class="k-row" style="justify-content:center">
       <button class="k-btn is-small" id="writeRand" hidden>🎲 おまかせ</button>
+      <span id="micSlot"></span>
       <button class="k-btn is-sun is-big" id="writeOk">けってい</button>
     </div>
   </section>
@@ -173,7 +174,7 @@ function renderSetup() {
   }
   chips($('optTopic'), [['random', '🎲 おまかせ'], ['animal', 'どうぶつ'], ['food', 'たべもの'], ['thing', 'もの'], ['vehicle', 'のりもの'], ['scene', 'ふしぎ・ひと'], ['action', 'うごき（むずかしい）'], ['self', '✏️ 1番の人が書く']], O.topic, v => { O.topic = v; saveSetup(); renderSetup(); });
   chips($('optTime'), [[0, 'じかんなし'], [30, '30びょう'], [60, '60びょう'], [90, '90びょう']], O.time, v => { O.time = v; saveSetup(); renderSetup(); });
-  chips($('optGuess'), [['write', '✏️ 字で書く'], ['say', '🗣️ 口で言って、だれかが入力']], O.guess, v => { O.guess = v; saveSetup(); renderSetup(); });
+  chips($('optGuess'), [['write', '✏️ 字で書く'], ['say', '🗣️ 口で言う（🎤やだれかが入力）']], O.guess, v => { O.guess = v; saveSetup(); renderSetup(); });
 }
 function saveSetup() { Kit.store.set('oekaki:setup', O); }
 $('minus').onclick = () => { if (O.count > 3) { O.count--; Kit.sfx('tap'); saveSetup(); renderSetup(); } };
@@ -229,7 +230,7 @@ function startWrite(t) {
     $('writeShow').innerHTML = '';
     inp.placeholder = 'れい：ゆきだるま';
   } else {
-    $('writeLabel').textContent = O.guess === 'say' ? 'この絵はなに？口で言って、だれかに入力してもらおう' : 'この絵はなに？';
+    $('writeLabel').textContent = O.guess === 'say' ? (window.SpeechRecognition || window.webkitSpeechRecognition) ? 'この絵はなに？🎤をおして言ってね' : 'この絵はなに？口で言って、だれかに入力してもらおう' : 'この絵はなに？';
     $('writeShow').innerHTML = '';
     const c = document.createElement('canvas'); c.width = 800; c.height = 600; c.className = 'board';
     c.style.cursor = 'default';
@@ -249,6 +250,7 @@ function submitWrite() {
   G.turn++; $('writeIn').blur(); Kit.sfx('good'); nextTurn();
 }
 $('writeOk').onclick = submitWrite;
+{ const m = Kit.micButton($('writeIn'), { cls: 'k-btn is-big' }); if (m) $('micSlot').replaceWith(m); }
 $('writeIn').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) submitWrite(); });
 
 /* ---------- おえかき ---------- */
@@ -447,7 +449,7 @@ Kit.bar({ id: 'oekaki', title: '🖍️ おえかきでんごん', help: `
     <li>つぎの人は、絵だけを見て「なにの絵か」を書きます。そのつぎの人は、その<b>ことばだけ</b>を見て絵をかきます。</li>
     <li>絵 → ことば → 絵 → … と、みんな1回ずつ回します。前の人の画面は見ないでね。</li>
     <li>さいごに、お題がどう変わっていったかを、絵をかいたじゅんに再生してはっぴょう！</li>
-    <li>字が書けない子は「口で言って、だれかが入力」にしてね。</li>
+    <li>字が書けない子は🎤ボタンで声で入力できます（インターネットが必要。使えない機器では、だれかが入力してね）。</li>
   </ol>` });
 renderSetup();
 </script>

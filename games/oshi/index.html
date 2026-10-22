@@ -302,6 +302,7 @@ function viewChat(v, o) {
     setTimeout(() => { o.chat.push({ me: 0, t: reply(t, o) }); o.chat = o.chat.slice(-100); save(); if (D.tab === 'chat') { renderView(); $('say').focus(); } Kit.sfx('select'); }, 700 + Math.random() * 600);
   };
   $('send').onclick = send;
+  { const m = Kit.micButton($('say'), { cls: 'k-btn' }); if (m) $('send').before(m); }
   v.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { $('say').value = b.dataset.q; send(); });
   $('say').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) send(); });
   $('clearChat').onclick = async () => { if (await Kit.ask('おはなしのりれきをけす？', 'けす', 'やめる')) { o.chat = []; save(); render(); } };

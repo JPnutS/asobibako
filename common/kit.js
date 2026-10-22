@@ -265,5 +265,31 @@
     window.addEventListener('load', () => { navigator.serviceWorker.register(ROOT + 'sw.js').catch(() => {}); });
   }
 
-  window.Kit = { ROOT, store, settings, saveSettings, audio, tone, noise, sfx, music, vibrate, esc, shuffle, rand, randInt, pick, clamp, el, modal, ask, toast, confetti, best, getBest, addWin, loop, fitCanvas, keepAwake, bar };
+  /* 音声入力：対応ブラウザなら🎤ボタンを作る（ないときは null） */
+  function micButton(input, { onDone, cls = 'k-btn is-small' } = {}) {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return null;
+    const b = el(`<button type="button" class="${cls}" aria-label="こえで入力">🎤</button>`);
+    let rec = null;
+    const stop = () => { if (rec) { try { rec.stop(); } catch (e) {} } };
+    b.onclick = () => {
+      if (rec) return stop();
+      rec = new SR(); rec.lang = 'ja-JP'; rec.interimResults = true; rec.maxAlternatives = 1;
+      const before = input.value;
+      let finalText = '';
+      b.textContent = '👂 きいてるよ…'; b.classList.add('is-berry'); sfx('select');
+      rec.onresult = e => {
+        let interim = ''; finalText = '';
+        for (const r of e.results) (r.isFinal ? (finalText += r[0].transcript) : (interim += r[0].transcript));
+        input.value = (before ? before : '') + (finalText || interim).replace(/[。、]$/, '');
+        input.dispatchEvent(new Event('input'));
+      };
+      rec.onerror = e => { toast(e.error === 'not-allowed' ? 'マイクがゆるされていないよ' : e.error === 'no-speech' ? 'きこえなかったよ。もういちど！' : 'うまくきけなかったよ'); };
+      rec.onend = () => { rec = null; b.textContent = '🎤'; b.classList.remove('is-berry'); if (finalText && onDone) onDone(input.value); };
+      try { rec.start(); } catch (e) { rec = null; b.textContent = '🎤'; b.classList.remove('is-berry'); }
+    };
+    return b;
+  }
+
+  window.Kit = { ROOT, micButton, store, settings, saveSettings, audio, tone, noise, sfx, music, vibrate, esc, shuffle, rand, randInt, pick, clamp, el, modal, ask, toast, confetti, best, getBest, addWin, loop, fitCanvas, keepAwake, bar };
 })();
