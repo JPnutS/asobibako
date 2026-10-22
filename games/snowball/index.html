@@ -314,7 +314,7 @@ function drawControls(i) {
   const u = S.ui[i], c = S.ctrl[i];
   g.fillStyle = 'rgba(42,34,56,.12)'; g.strokeStyle = 'rgba(42,34,56,.5)'; g.lineWidth = 3;
   g.beginPath(); g.arc(u.stick.x, u.stick.y, u.stick.r, 0, 6.28); g.fill(); g.stroke();
-  let kx = c.sx, ky = c.sy; if (i === 1) { kx = -kx; ky = -ky; }
+  const kx = c.sx, ky = c.sy;
   g.fillStyle = COL[i]; g.beginPath(); g.arc(u.stick.x + kx * u.stick.r * 0.55, u.stick.y + ky * u.stick.r * 0.55, u.stick.r * 0.45, 0, 6.28); g.fill(); g.stroke();
   g.fillStyle = c.down ? '#ffc93c' : '#ffffff'; g.beginPath(); g.arc(u.btn.x, u.btn.y, u.btn.r, 0, 6.28); g.fill(); g.strokeStyle = '#2a2238'; g.stroke();
   g.save(); g.translate(u.btn.x, u.btn.y); if (i === 1) g.rotate(Math.PI);
@@ -345,7 +345,7 @@ function setStick(i, q) {
   let dx = (q.x - u.x) / u.r, dy = (q.y - u.y) / u.r;
   const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; }
   if (m < 0.15) { dx = dy = 0; }
-  if (i === 1) { dx = -dx; dy = -dy; }
+  // 指をうごかした向き＝画面上でうごく向き（2Pも同じ）
   c.sx = dx; c.sy = dy;
 }
 cv.addEventListener('pointermove', e => {
