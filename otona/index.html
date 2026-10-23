@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>おとなのあそびばこ</title>
+<meta name="theme-color" content="#1f2328">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="../common/kit.css">
+<link rel="stylesheet" href="otona.css">
+<style>
+  .head {
+    padding-block: 44px 28px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    border-bottom: 1px solid var(--line);
+  }
+  .head-in { max-width: 880px; margin: 0 auto; display: grid; gap: 8px; }
+  .head small { font-size: .78rem; letter-spacing: .3em; color: var(--sun); font-weight: 700; }
+  .head h1 { font-size: clamp(2rem, 8vw, 3rem); letter-spacing: .08em; }
+  .head p { margin: 0; color: var(--muted); }
+  .box { max-width: 880px; margin: 0 auto; display: grid; gap: 34px;
+    padding-block: 26px 56px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .sec { display: grid; gap: 14px; }
+  .sec h2 { font-size: 1.15rem; display: flex; align-items: baseline; gap: 12px; }
+  .sec h2 span { font-family: var(--font); font-size: .8rem; color: var(--muted); font-weight: 500; letter-spacing: .1em; }
+  .list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: 12px; }
+  .item {
+    display: grid; grid-template-columns: 52px 1fr auto; align-items: center; gap: 14px;
+    padding: 14px 16px; background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    text-decoration: none; color: var(--ink); transition: border-color .15s, transform .1s; min-width: 0;
+  }
+  .item:hover { border-color: var(--muted); }
+  .item:active { transform: scale(.99); }
+  .item .ico { width: 52px; height: 52px; border-radius: 12px; display: grid; place-items: center; background: var(--soft); color: var(--ink); }
+  .item.game .ico { color: var(--sun); }
+  .item .txt { min-width: 0; display: grid; gap: 2px; }
+  .item b { font-size: 1.05rem; }
+  .item p { margin: 0; font-size: .86rem; color: var(--muted); line-height: 1.55; }
+  .item .who { font-size: .75rem; color: var(--sun); font-weight: 700; }
+  .item .arr { color: var(--muted); font-size: 1.1rem; }
+  .foot { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+  .foot h3 { font-size: 1rem; }
+  .switch { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .install ol { margin: 0; padding-left: 1.2em; font-size: .92rem; }
+  .kids { text-align: center; font-size: .9rem; }
+  .kids a { color: var(--muted); }
+</style>
+</head>
+<body>
+<header class="head">
+  <div class="head-in">
+    <small>ASOBIBAKO FOR GROWN-UPS</small>
+    <h1>おとなのあそびばこ</h1>
+    <p>くらしの道具と、大人で遊ぶゲーム。写真や動画は端末の中だけで扱います。</p>
+  </div>
+</header>
+
+<main class="box">
+  <section class="sec">
+    <h2>道具<span>TOOLS</span></h2>
+    <div class="list" id="tools"></div>
+  </section>
+  <section class="sec">
+    <h2>遊び<span>GAMES</span></h2>
+    <div class="list" id="games"></div>
+  </section>
+
+  <section class="foot">
+    <div class="k-card k-stack">
+      <h3>設定</h3>
+      <div class="switch"><span>効果音</span><button class="k-chip" id="optSound"></button></div>
+      <div class="switch"><span>画面の色</span><button class="k-chip" id="optTheme"></button></div>
+    </div>
+    <div class="k-card k-stack install">
+      <h3>アプリとして使う</h3>
+      <ol>
+        <li><b>iPhone・iPad</b>：Safari の共有ボタン →「ホーム画面に追加」</li>
+        <li><b>Android</b>：Chrome のメニュー →「ホーム画面に追加」</li>
+      </ol>
+      <p class="k-muted" style="margin:0;font-size:.9rem">一度開いた道具は、オフラインでも使えます。</p>
+      <button class="k-btn is-small is-sun" id="installBtn" hidden>ホーム画面に追加</button>
+    </div>
+  </section>
+  <p class="kids"><a href="../index.html">子ども向けの「あそびばこ」へ</a></p>
+</main>
+
+<script src="../common/kit.js" data-ns="asobibako-otona:" data-home="index.html" data-tone="adult"></script>
+<script src="items.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const items = self.OTONA_ITEMS;
+function tile(g) {
+  const stat = Kit.store.get('stat:' + g.id, '');
+  return `<a class="item ${g.kind}" href="games/${g.id}/index.html">
+    <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${g.icon}</svg></span>
+    <span class="txt"><b>${g.name}</b><p>${g.desc}</p>${g.who || stat ? `<span class="who">${[g.who, stat].filter(Boolean).map(Kit.esc).join('　')}</span>` : ''}</span>
+    <span class="arr" aria-hidden="true">›</span></a>`;
+}
+function render() {
+  $('tools').innerHTML = items.filter(g => g.kind === 'tool').map(tile).join('');
+  $('games').innerHTML = items.filter(g => g.kind === 'game').map(tile).join('');
+  $('optSound').textContent = Kit.settings.sound ? 'オン' : 'オフ';
+  $('optSound').setAttribute('aria-pressed', Kit.settings.sound);
+  $('optTheme').textContent = { auto: '端末に合わせる', light: '明るい', dark: '暗い' }[Kit.store.get('theme', 'auto')];
+}
+$('optSound').onclick = () => { Kit.settings.sound = Kit.settings.music = !Kit.settings.sound; Kit.saveSettings(); Kit.sfx('select'); render(); };
+$('optTheme').onclick = () => {
+  const order = ['auto', 'light', 'dark'];
+  const next = order[(order.indexOf(Kit.store.get('theme', 'auto')) + 1) % 3];
+  Kit.store.set('theme', next);
+  if (next === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.dataset.theme = next;
+  render();
+};
+let deferred = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; $('installBtn').hidden = false; });
+$('installBtn').onclick = async () => { if (!deferred) return; deferred.prompt(); await deferred.userChoice; deferred = null; $('installBtn').hidden = true; };
+render();
+window.addEventListener('pageshow', render);
+</script>
+</body>
+</html>

@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ヒット＆ブロー</title>
+<meta name="theme-color" content="#1f2328">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="icon" href="../../icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="../../../common/kit.css">
+<link rel="stylesheet" href="../../otona.css">
+<style>
+  .k-wrap { max-width: 720px; }
+  .f { display: grid; gap: 6px; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  .seg .k-chip { min-height: 38px; padding: 4px 14px; }
+  .rules { font-size: .92rem; color: var(--muted); margin: 0; }
+  .rules b { color: var(--ink); }
+  .ex { display: grid; gap: 4px; background: var(--soft); border-radius: 10px; padding: 10px 14px; font-size: .9rem; }
+  .ex code { font-family: var(--display); font-size: 1.05rem; letter-spacing: .2em; }
+  .boards { display: grid; gap: 12px; }
+  .boards.two { grid-template-columns: 1fr 1fr; }
+  .board { display: grid; gap: 6px; align-content: start; }
+  .board h3 { font-size: .92rem; display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+  .board h3 small { font-family: var(--font); color: var(--muted); font-weight: 500; }
+  .hist { display: grid; gap: 4px; }
+  .h { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: center; padding: 6px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+  .h .i { font-size: .72rem; color: var(--muted); }
+  .h .g { font-family: var(--display); font-size: 1.3rem; letter-spacing: .25em; font-variant-numeric: tabular-nums; }
+  .h .r { display: flex; gap: 6px; font-size: .85rem; font-weight: 700; white-space: nowrap; }
+  .pill { padding: 1px 8px; border-radius: 999px; }
+  .pill.hit { background: var(--grass); color: var(--on-color); }
+  .pill.blow { background: var(--sun); color: var(--on-color); }
+  .pill.zero { background: var(--soft); color: var(--muted); }
+  .h.win { border-color: var(--grass); }
+  .two .h .g { font-size: 1.05rem; letter-spacing: .12em; }
+  .two .h { grid-template-columns: 18px 1fr auto; padding: 5px 8px; gap: 4px; }
+  .two .h .r { gap: 3px; font-size: .75rem; }
+  .entry { display: grid; gap: 10px; position: sticky; bottom: 0; background: var(--paper); padding: 10px 0 calc(10px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); }
+  .slots { display: flex; justify-content: center; gap: 10px; }
+  .slots span { width: 52px; height: 60px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); display: grid; place-items: center; font-family: var(--display); font-size: 1.9rem; }
+  .slots span.cur { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+  .pad { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .pad button { min-height: 50px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); font-size: 1.25rem; font-weight: 700; cursor: pointer; position: relative; touch-action: manipulation; }
+  .pad button:disabled { opacity: .3; }
+  .pad button.no { color: var(--muted); text-decoration: line-through; background: var(--soft); }
+  .pad button.yes::after { content: ""; position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--grass); }
+  .pad .wide { grid-column: span 2; font-size: .95rem; }
+  .pad .go { grid-column: span 3; background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .memo-tip { font-size: .78rem; color: var(--muted); text-align: center; margin: 0; }
+  .turn { text-align: center; font-weight: 700; }
+  .cover { text-align: center; display: grid; gap: 14px; justify-items: center; padding: 30px 18px; }
+  .cover .who { font-family: var(--display); font-size: 1.7rem; }
+  .secret { font-family: var(--display); letter-spacing: .3em; font-size: 1.1rem; }
+</style>
+</head>
+<body>
+<main class="k-wrap" id="app"></main>
+
+<script src="../../../common/kit.js" data-ns="asobibako-otona:" data-home="../../index.html" data-tone="adult"></script>
+<script>
+'use strict';
+Kit.bar({ id: 'hitblow', title: 'ヒット＆ブロー', help: `
+  <p>相手が隠した数字（0〜9のちがう数字を3つか4つ）を当てる推理ゲームです。</p>
+  <p>予想を言うと、<b>ヒット</b>（数字も場所も合っている数）と<b>ブロー</b>（数字は合っているが場所がちがう数）だけ教えてもらえます。</p>
+  <p>例：答えが <b>1 2 3 4</b> で、予想が <b>1 3 5 2</b> なら、1 がヒット、3 と 2 がブローで「1ヒット 2ブロー」。</p>
+  <p><b>メモ</b>：数字ボタンを長押しすると「ない」「ある」の印を付けられます（入力には影響しません）。</p>
+  <p><b>ひとりで</b>：CPUの数字を少ない回数で当てます。<b>CPUと対決</b>：交互に予想し合って、先に当てた方の勝ち。<b>ふたりで</b>：スマホを渡しながら当て合います。</p>` });
+
+const $ = id => document.getElementById(id);
+const app = $('app');
+const esc = Kit.esc;
+const O = Object.assign({ mode: 'solo', len: 4, level: 2, names: ['', ''] }, Kit.store.get('hitblow:opt', {}));
+const saveO = () => Kit.store.set('hitblow:opt', O);
+let G = null;
+
+/* ---------- 判定と候補 ---------- */
+function score(secret, guess) {
+  let h = 0, b = 0;
+  for (let i = 0; i < guess.length; i++) { if (guess[i] === secret[i]) h++; else if (secret.includes(guess[i])) b++; }
+  return [h, b];
+}
+function allCodes(len) {
+  const out = [];
+  const rec = (cur) => { if (cur.length === len) { out.push(cur); return; } for (let d = 0; d < 10; d++) { const c = String(d); if (!cur.includes(c)) rec(cur + c); } };
+  rec(''); return out;
+}
+const randCode = len => Kit.shuffle('0123456789'.split('')).slice(0, len).join('');
+
+/* CPU：残った候補の中から選ぶ。強いほど「どの結果が返っても候補が減る」手を選ぶ */
+function cpuGuess(ai) {
+  const c = ai.cands;
+  if (!ai.hist.length) return randCode(O.len);
+  if (c.length === 1) return c[0];
+  if (O.level === 1) {
+    // よわい：直近2回のヒントしか覚えていない
+    const recent = ai.log.slice(-2);
+    const loose = allCodes(O.len).filter(s => !ai.hist.includes(s) && recent.every(([g, h, b]) => { const [x, y] = score(s, g); return x === h && y === b; }));
+    return Kit.pick(loose.length ? loose : c);
+  }
+  if (O.level < 3 || c.length > 800) return Kit.pick(c);
+  const pool = c.length > 200 ? Kit.shuffle(c).slice(0, 200) : c;
+  let best = null, bestWorst = Infinity;
+  for (const g of pool) {
+    const m = new Map();
+    for (const s of c) { const [h, b] = score(s, g); const k = h * 10 + b; m.set(k, (m.get(k) || 0) + 1); }
+    const worst = Math.max(...m.values());
+    if (worst < bestWorst) { bestWorst = worst; best = g; }
+  }
+  return best;
+}
+function cpuLearn(ai, guess, h, b) { ai.hist.push(guess); ai.log.push([guess, h, b]); ai.cands = ai.cands.filter(s => { const [x, y] = score(s, guess); return x === h && y === b; }); }
+
+/* ---------- 準備 ---------- */
+function seg(list, cur, on) {
+  const d = Kit.el('<div class="seg"></div>');
+  list.forEach(([v, l]) => { const b = Kit.el(`<button class="k-chip" aria-pressed="${cur === v}">${l}</button>`); b.onclick = () => { on(v); saveO(); Kit.sfx('tap'); setup(); }; d.appendChild(b); });
+  return d;
+}
+function setup() {
+  G = null;
+  app.innerHTML = '';
+  const c = Kit.el('<div class="k-card k-stack"></div>');
+  c.appendChild(Kit.el(`<p class="rules">隠された数字を推理して当てるゲームです。予想するたびに、<b>ヒット</b>（数字も場所も合っている）と<b>ブロー</b>（数字は合っているが場所がちがう）の数だけわかります。</p>`));
+  c.appendChild(Kit.el(`<div class="ex"><span>答え <code>1234</code> に、予想 <code>1352</code> なら</span><span>1 は場所も合っている → <b>ヒット</b>、3 と 2 は場所ちがい → <b>ブロー</b><br>結果：<b>1ヒット 2ブロー</b></span></div>`));
+  const mf = Kit.el('<div class="f"><span class="k-label">遊び方</span></div>');
+  mf.appendChild(seg([['solo', 'ひとりで'], ['cpu', 'CPUと対決'], ['pvp', 'ふたりで']], O.mode, v => O.mode = v));
+  c.appendChild(mf);
+  const lf = Kit.el('<div class="f"><span class="k-label">けた数</span></div>');
+  lf.appendChild(seg([[3, '3けた（かんたん）'], [4, '4けた（ふつう）']], O.len, v => O.len = v));
+  c.appendChild(lf);
+  if (O.mode === 'cpu') {
+    const vf = Kit.el('<div class="f"><span class="k-label">CPUの強さ</span></div>');
+    vf.appendChild(seg([[1, 'よわい'], [2, 'ふつう'], [3, 'つよい']], O.level, v => O.level = v));
+    c.appendChild(vf);
+  }
+  if (O.mode === 'pvp') {
+    const nf = Kit.el('<div class="f"><span class="k-label">名前</span><div class="k-row"></div></div>');
+    [0, 1].forEach(i => { const inp = Kit.el(`<input class="k-input" style="flex:1;min-width:0" maxlength="8" placeholder="プレイヤー${i + 1}" value="${esc(O.names[i] || '')}">`); inp.oninput = () => { O.names[i] = inp.value; saveO(); }; nf.lastChild.appendChild(inp); });
+    c.appendChild(nf);
+  }
+  const best = Kit.getBest('hitblow' + O.len);
+  if (O.mode === 'solo' && best != null) c.appendChild(Kit.el(`<p class="rules">${O.len}けたの最少記録：<b>${best}回</b></p>`));
+  const go = Kit.el('<button class="k-btn is-sun is-big">はじめる</button>');
+  go.onclick = start;
+  c.appendChild(go);
+  app.appendChild(c);
+}
+const pname = i => (O.names[i] || '').trim() || `プレイヤー${i + 1}`;
+
+/* ---------- ゲーム ---------- */
+function start() {
+  G = { mode: O.mode, len: O.len, turn: 0, over: false, input: '', memo: {} };
+  if (G.mode === 'solo') { G.secret = [randCode(G.len)]; G.hist = [[]]; play(); }
+  if (G.mode === 'cpu') {
+    G.secret = [null, randCode(G.len)];           // 0: あなた, 1: CPU
+    G.hist = [[], []];                               // hist[i] = i が予想した記録
+    G.ai = { cands: allCodes(G.len), hist: [], log: [] };
+    setSecret(0, () => { G.turn = Math.random() < .5 ? 0 : 1; play(); });
+  }
+  if (G.mode === 'pvp') {
+    G.secret = [null, null]; G.hist = [[], []];
+    setSecret(0, () => setSecret(1, () => { G.turn = 0; cover(0); }));
+  }
+}
+function setSecret(i, done) {
+  const who = G.mode === 'cpu' ? 'あなた' : pname(i);
+  G.input = '';
+  const draw = () => {
+    app.innerHTML = `<div class="k-card cover">
+      <div class="who">${esc(who)}${G.mode === 'cpu' ? '' : ' さん'}の数字</div>
+      <p class="rules">${G.mode === 'pvp' ? '相手に見えないように、' : ''}ちがう数字を${G.len}つ選んで隠してください。</p>
+      <button class="k-btn is-small" id="rnd">おまかせで決める</button></div>`;
+    app.appendChild(entry({ label: '決める', onDone: code => { G.secret[i] = code; G.input = ''; Kit.sfx('select'); if (G.mode === 'pvp') Kit.toast('決めました。相手に渡してください'); done(); }, memo: false }));
+    $('rnd').onclick = () => { G.input = randCode(G.len); draw(); };
+  };
+  draw();
+}
+function cover(i) {
+  app.innerHTML = `<div class="k-card cover"><span class="k-label">${G.hist[i].length + 1}回目</span><div class="who">${esc(pname(i))} さんの番</div><p class="rules">スマホを受け取ったらボタンを押してください。</p><button class="k-btn is-sun is-big" id="ok">予想する</button></div>`;
+  $('ok').onclick = () => play();
+}
+function histHtml(list, secret, win) {
+  if (!list.length) return '<p class="rules" style="text-align:center;padding:10px 0">まだありません</p>';
+  return list.map((g, k) => {
+    const [h, b] = score(secret, g);
+    const isWin = h === secret.length;
+    return `<div class="h ${isWin ? 'win' : ''}"><span class="i">${k + 1}</span><span class="g">${g}</span><span class="r">${h + b === 0 ? '<span class="pill zero">なし</span>' : `${h ? `<span class="pill hit">${h}H</span>` : ''}${b ? `<span class="pill blow">${b}B</span>` : ''}`}</span></div>`;
+  }).reverse().join('');
+}
+function play() {
+  const T = G.turn;
+  let boards = '';
+  if (G.mode === 'solo') boards = `<div class="boards"><div class="board"><h3>あなたの予想 <small>${G.hist[0].length}回</small></h3><div class="hist">${histHtml(G.hist[0], G.secret[0])}</div></div></div>`;
+  if (G.mode === 'cpu') boards = `<div class="boards two">
+      <div class="board"><h3>あなた <small>CPUの数字を当てる</small></h3><div class="hist">${histHtml(G.hist[0], G.secret[1])}</div></div>
+      <div class="board"><h3>CPU <small>あなたの <span class="secret">${G.secret[0]}</span></small></h3><div class="hist">${histHtml(G.hist[1], G.secret[0])}</div></div></div>`;
+  if (G.mode === 'pvp') boards = `<div class="boards"><div class="board"><h3>${esc(pname(T))} さんの予想 <small>${G.hist[T].length}回</small></h3><div class="hist">${histHtml(G.hist[T], G.secret[1 - T])}</div></div></div>`;
+  app.innerHTML = `<div class="k-stack">${G.mode !== 'solo' ? `<div class="turn" id="turn">${G.over ? '' : G.mode === 'cpu' ? (T === 0 ? 'あなたの番' : 'CPUが考えています…') : esc(pname(T)) + ' さんの番'}</div>` : ''}${boards}</div>`;
+  if (G.over) return;
+  if (G.mode === 'cpu' && T === 1) { setTimeout(cpuTurn, 900); return; }
+  app.appendChild(entry({ label: '予想する', onDone: guess, memo: true }));
+}
+function guess(code) {
+  const T = G.mode === 'solo' ? 0 : G.turn;
+  const target = G.mode === 'solo' ? G.secret[0] : G.secret[1 - T];
+  if (G.hist[T].includes(code)) { Kit.toast('その数字はもう予想しました'); return; }
+  G.hist[T].push(code);
+  const [h, b] = score(target, code);
+  G.input = '';
+  if (h === G.len) return win(T);
+  Kit.sfx(h ? 'good' : b ? 'select' : 'tap');
+  if (G.mode === 'solo') play();
+  else if (G.mode === 'cpu') { G.turn = 1; play(); }
+  else { play(); app.querySelector('.entry')?.remove(); Kit.toast(`${h}ヒット ${b}ブロー`, 2200); setTimeout(() => { G.turn = 1 - T; cover(G.turn); }, 1800); }
+}
+function cpuTurn() {
+  if (!G || G.over) return;
+  const g = cpuGuess(G.ai);
+  G.hist[1].push(g);
+  const [h, b] = score(G.secret[0], g);
+  cpuLearn(G.ai, g, h, b);
+  if (h === G.len) return win(1);
+  Kit.sfx('tap');
+  G.turn = 0; play();
+}
+function win(T) {
+  G.over = true;
+  let title, sub = '';
+  if (G.mode === 'solo') {
+    const n = G.hist[0].length;
+    const r = Kit.best('hitblow' + G.len, n, { lower: true });
+    Kit.store.set('stat:hitblow', `${G.len}けた最少 ${r.best}回`);
+    title = `${n}回で正解！`; sub = r.isNew && r.prev != null ? '最少記録を更新しました' : `最少記録 ${r.best}回`;
+    Kit.sfx('win'); Kit.confetti(1800);
+  } else if (G.mode === 'cpu') {
+    if (T === 0) { title = 'あなたの勝ち！'; sub = `${G.hist[0].length}回で当てました。CPUの数字は ${G.secret[1]}`; Kit.addWin('hitblow-cpu'); Kit.sfx('win'); Kit.confetti(1800); }
+    else { title = 'CPUの勝ち'; sub = `CPUが${G.hist[1].length}回で当てました。CPUの数字は ${G.secret[1]}`; Kit.sfx('lose'); }
+  } else {
+    title = `${esc(pname(T))} さんの勝ち！`; sub = `${G.hist[T].length}回で当てました。${esc(pname(0))}：${G.secret[0]} ／ ${esc(pname(1))}：${G.secret[1]}`; Kit.sfx('win'); Kit.confetti(1800);
+  }
+  play();
+  const box = Kit.el(`<div class="k-card cover"><div class="who">${title}</div><p class="rules">${sub}</p><div class="k-row" style="justify-content:center"><button class="k-btn is-sun" id="again">もう一回</button><button class="k-btn" id="menu">設定を変える</button></div></div>`);
+  app.prepend(box);
+  $('again').onclick = start; $('menu').onclick = setup;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ---------- 入力パッド（長押しでメモ） ---------- */
+function entry({ label, onDone, memo }) {
+  const box = Kit.el(`<div class="entry"><div class="slots"></div><div class="pad"></div>${memo ? '<p class="memo-tip">数字を長押しで「ない」「ある」のメモ</p>' : ''}</div>`);
+  const slots = box.querySelector('.slots'), pad = box.querySelector('.pad');
+  const paint = () => {
+    slots.innerHTML = Array.from({ length: G.len }, (_, i) => `<span class="${i === G.input.length ? 'cur' : ''}">${G.input[i] || ''}</span>`).join('');
+    pad.querySelectorAll('[data-d]').forEach(b => {
+      const d = b.dataset.d;
+      b.disabled = G.input.includes(d) || G.input.length >= G.len;
+      b.className = memo ? (G.memo[d] || '') : '';
+    });
+    go.disabled = G.input.length !== G.len;
+  };
+  '1234567890'.split('').forEach(d => {
+    const b = Kit.el(`<button data-d="${d}">${d}</button>`);
+    let timer = null, long = false;
+    b.addEventListener('pointerdown', () => { long = false; if (!memo) return; timer = setTimeout(() => { long = true; G.memo[d] = { undefined: 'no', '': 'no', no: 'yes', yes: '' }[G.memo[d]]; Kit.vibrate(20); Kit.sfx('tick'); paint(); }, 450); });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => b.addEventListener(ev, () => clearTimeout(timer)));
+    b.addEventListener('contextmenu', e => e.preventDefault());
+    b.onclick = () => { if (long) return; if (G.input.length < G.len && !G.input.includes(d)) { G.input += d; Kit.sfx('tap'); paint(); } };
+    pad.appendChild(b);
+  });
+  const del = Kit.el('<button class="wide" aria-label="1文字消す">⌫ 消す</button>');
+  del.onclick = () => { G.input = G.input.slice(0, -1); paint(); };
+  const go = Kit.el(`<button class="wide go">${label}</button>`);
+  go.onclick = () => { if (G.input.length === G.len) onDone(G.input); };
+  pad.append(del, go);
+  // 長押しで disabled になったボタンにも触れるよう、メモは pointerdown で受ける
+  paint();
+  return box;
+}
+addEventListener('keydown', e => {
+  if (!G || G.over || document.querySelector('.k-modal')) return;
+  const pad = document.querySelector('.entry .pad'); if (!pad) return;
+  if (/^\d$/.test(e.key)) pad.querySelector(`[data-d="${e.key}"]`)?.click();
+  else if (e.key === 'Backspace') pad.querySelector('.wide')?.click();
+  else if (e.key === 'Enter') pad.querySelector('.go')?.click();
+});
+
+setup();
+</script>
+</body>
+</html>

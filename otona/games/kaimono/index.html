@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>お買い物計算</title>
+<meta name="theme-color" content="#1f2328">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="icon" href="../../icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="../../../common/kit.css">
+<link rel="stylesheet" href="../../otona.css">
+<style>
+  .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px; background: var(--soft); border-radius: 12px; }
+  .tabs button { min-height: 42px; border: 0; border-radius: 9px; background: transparent; font-weight: 500; font-size: clamp(.8rem, 3.4vw, .95rem); cursor: pointer; padding: 4px 2px; }
+  .tabs button[aria-pressed="true"] { background: var(--card); font-weight: 700; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .f { display: grid; gap: 6px; }
+  .money { position: relative; }
+  .money .k-input { font-size: 1.5rem; font-weight: 700; text-align: right; padding-right: 2.2em; font-variant-numeric: tabular-nums; }
+  .money::after { content: attr(data-u); position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+  .money.sm .k-input { font-size: 1.1rem; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .three { display: grid; grid-template-columns: 1.2fr 1fr .8fr; gap: 8px; }
+  .disc { display: grid; gap: 10px; padding: 12px; border: 1px dashed var(--line); border-radius: 12px; }
+  .disc-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .disc-head b { font-size: .9rem; }
+  .x { border: 0; background: none; color: var(--muted); font-size: 1.2rem; cursor: pointer; min-width: 40px; min-height: 40px; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  .seg .k-chip { min-height: 36px; padding: 4px 12px; font-size: .9rem; }
+
+  /* 答え */
+  .ans { display: grid; gap: 12px; }
+  .big { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .big .lbl { color: var(--muted); font-size: .9rem; }
+  .big .val { font-family: var(--display); font-size: clamp(2.2rem, 11vw, 3.2rem); line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .big .val small { font-size: .45em; margin-left: 2px; }
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+  .fact { background: var(--soft); border-radius: 10px; padding: 8px 12px; display: grid; }
+  .fact span { font-size: .78rem; color: var(--muted); }
+  .fact b { font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+  .fact.good b { color: var(--grass); }
+  .bar { height: 14px; border-radius: 7px; background: var(--soft); overflow: hidden; display: flex; }
+  .bar i { display: block; height: 100%; }
+  .bar .pay { background: var(--ink); }
+  .bar .off { background: repeating-linear-gradient(-45deg, var(--berry), var(--berry) 4px, transparent 4px, transparent 8px); opacity: .7; }
+  .bar .tax { background: var(--sun); }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: .78rem; color: var(--muted); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+
+  .rank { display: grid; gap: 10px; }
+  .row { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: center; }
+  .row .tag { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: .85rem; background: var(--soft); }
+  .row.win .tag { background: var(--grass); color: var(--on-color); }
+  .row .meter { height: 10px; border-radius: 5px; background: var(--soft); overflow: hidden; }
+  .row .meter i { display: block; height: 100%; background: var(--muted); border-radius: 5px; }
+  .row.win .meter i { background: var(--grass); }
+  .row .u { font-variant-numeric: tabular-nums; font-weight: 700; text-align: right; white-space: nowrap; }
+  .row .sub { grid-column: 2 / 4; font-size: .8rem; color: var(--muted); margin-top: -6px; }
+  .verdict { font-weight: 700; font-size: 1.05rem; }
+  .verdict em { font-style: normal; color: var(--grass); }
+
+  .how { border-top: 1px solid var(--line); padding-top: 4px; }
+  .how summary { cursor: pointer; padding: 10px 0; color: var(--muted); font-size: .92rem; list-style: none; }
+  .how summary::before { content: "＋ "; }
+  .how[open] summary::before { content: "－ "; }
+  .how ol { margin: 0 0 6px; padding-left: 1.3em; display: grid; gap: 8px; font-size: .95rem; }
+  .how .eq { font-variant-numeric: tabular-nums; background: var(--soft); border-radius: 8px; padding: 6px 10px; display: inline-block; margin-top: 4px; }
+  .how .tip { color: var(--muted); font-size: .88rem; }
+  .err { color: var(--berry); font-size: .9rem; }
+  .muted { color: var(--muted); font-size: .9rem; }
+  .peek { position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 15;
+    display: flex; align-items: baseline; gap: 10px; padding: 10px 20px; border-radius: 999px; border: 0; cursor: pointer;
+    background: var(--accent); color: var(--on-accent); box-shadow: 0 8px 24px rgba(0,0,0,.25); white-space: nowrap; font-size: .85rem; }
+  .peek b { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+  main.k-wrap { padding-bottom: 90px; }
+</style>
+</head>
+<body>
+<main class="k-wrap">
+  <div class="tabs" role="tablist" id="tabs"></div>
+  <div class="k-card k-stack" id="form"></div>
+  <div class="k-card ans" id="ans" aria-live="polite"></div>
+</main>
+<button class="peek" id="peek" hidden></button>
+
+<script src="../../../common/kit.js" data-ns="asobibako-otona:" data-home="../../index.html" data-tone="adult"></script>
+<script>
+'use strict';
+Kit.bar({ id: 'kaimono', title: 'お買い物計算', help: `
+  <p><b>割引</b>：元の値段と割引を入れると、すぐに支払う金額が出ます。「さらに10%オフ」のような重ねがけもできます。</p>
+  <p><b>比較</b>：容量と値段がちがう商品を、同じ量あたりの値段で比べます。</p>
+  <p><b>ポイント</b>：ポイント還元が、実際には何%引きと同じなのかを出します。</p>
+  <p><b>税</b>：税込と税抜を行き来します。</p>
+  <p>計算の手順は、答えの下の「計算の仕方」を開くと見られます。入力した内容はこの端末に残ります。</p>` });
+
+const $ = id => document.getElementById(id);
+const DEF = {
+  tab: 'off',
+  off: { price: '', taxIn: 'in', discs: [{ kind: 'pct', v: '20' }], tax: 10 },
+  cmp: { unit: 'g', items: [{ price: '', amt: '', n: '1' }, { price: '', amt: '', n: '1' }] },
+  pt: { price: '', rates: ['10'], cmpPct: '' },
+  tax: { price: '', dir: 'ex2in', rate: 10 },
+};
+const S = Object.assign(structuredClone(DEF), Kit.store.get('kaimono:s', {}));
+const save = () => Kit.store.set('kaimono:s', S);
+
+const num = s => { const n = parseFloat(String(s).replace(/[,，円%％\s]/g, '').replace(/[０-９．]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))); return isFinite(n) ? n : NaN; };
+const yen = n => Math.round(n).toLocaleString('ja-JP');
+const yen1 = n => (Math.round(n * 10) / 10).toLocaleString('ja-JP', { maximumFractionDigits: 1 });
+const pct = n => (Math.round(n * 10) / 10).toLocaleString('ja-JP', { maximumFractionDigits: 1 });
+const esc = Kit.esc;
+
+const TABS = [['off', '割引'], ['cmp', '比較'], ['pt', 'ポイント'], ['tax', '税']];
+function renderTabs() {
+  $('tabs').innerHTML = '';
+  TABS.forEach(([k, l]) => {
+    const b = Kit.el(`<button role="tab" aria-pressed="${S.tab === k}">${l}</button>`);
+    b.onclick = () => { S.tab = k; save(); Kit.sfx('tap'); renderAll(); };
+    $('tabs').appendChild(b);
+  });
+}
+function seg(list, cur, on) {
+  const d = Kit.el('<div class="seg"></div>');
+  list.forEach(([v, l]) => {
+    const b = Kit.el(`<button class="k-chip" aria-pressed="${String(cur) === String(v)}">${l}</button>`);
+    b.onclick = () => { on(v); save(); renderForm(); calc(); };
+    d.appendChild(b);
+  });
+  return d;
+}
+function moneyInput(val, unit, on, ph = '', sm = false) {
+  const w = Kit.el(`<div class="money ${sm ? 'sm' : ''}" data-u="${unit}"><input class="k-input" inputmode="decimal" placeholder="${ph}" value="${esc(val)}" style="padding-right:calc(${unit.length}em + 24px)"></div>`);
+  w.firstChild.addEventListener('input', e => { on(e.target.value); save(); calc(); });
+  return w;
+}
+function field(label, child) { const f = Kit.el(`<div class="f"><span class="k-label">${label}</span></div>`); f.appendChild(child); return f; }
+
+/* ---------- 入力フォーム ---------- */
+function renderForm() {
+  const F = $('form'); F.innerHTML = '';
+  if (S.tab === 'off') {
+    const o = S.off;
+    F.appendChild(field('元の値段', moneyInput(o.price, '円', v => o.price = v, '例 3980')));
+    F.appendChild(seg([['in', '税込の値段'], ['ex', '税抜の値段']], o.taxIn, v => o.taxIn = v));
+    o.discs.forEach((d, i) => {
+      const box = Kit.el(`<div class="disc"><div class="disc-head"><b>${i ? 'さらに' : '割引'}</b></div></div>`);
+      if (i) { const x = Kit.el('<button class="x" aria-label="この割引を消す">×</button>'); x.onclick = () => { o.discs.splice(i, 1); save(); renderForm(); calc(); }; box.firstChild.appendChild(x); }
+      box.appendChild(seg([['pct', '%オフ'], ['wari', '割引'], ['yen', '円引き'], ['half', '半額']], d.kind, v => { d.kind = v; if (v === 'wari' && !(num(d.v) >= 1 && num(d.v) <= 9)) d.v = '2'; }));
+      if (d.kind === 'pct') {
+        box.appendChild(moneyInput(d.v, '%', v => d.v = v, '例 20', true));
+        box.appendChild(seg([[10, '10'], [15, '15'], [20, '20'], [30, '30'], [40, '40'], [50, '50']].map(([v, l]) => [v, l + '%']), d.v, v => d.v = String(v)));
+      } else if (d.kind === 'wari') {
+        box.appendChild(seg([1, 2, 3, 4, 5, 6, 7, 8, 9].map(k => [k, k + '割']), d.v, v => d.v = String(v)));
+      } else if (d.kind === 'yen') {
+        box.appendChild(moneyInput(d.v, '円', v => d.v = v, '例 500', true));
+      }
+      F.appendChild(box);
+    });
+    if (o.discs.length < 3) {
+      const add = Kit.el('<button class="k-btn is-small">＋ さらに割引を重ねる</button>');
+      add.onclick = () => { o.discs.push({ kind: 'pct', v: '10' }); save(); renderForm(); calc(); };
+      F.appendChild(add);
+    }
+    if (o.taxIn === 'ex') F.appendChild(field('支払う時の消費税', seg([[10, '10%'], [8, '8%（食品など）'], [0, '税なしで見る']], o.tax, v => o.tax = v)));
+  }
+  if (S.tab === 'cmp') {
+    const c = S.cmp;
+    F.appendChild(field('量の単位', seg([['g', 'g'], ['ml', 'ml'], ['個', '個'], ['枚', '枚'], ['m', 'm'], ['回', '回分']], c.unit, v => c.unit = v)));
+    c.items.forEach((it, i) => {
+      const box = Kit.el(`<div class="disc"><div class="disc-head"><b>${'ABCDE'[i]}</b></div></div>`);
+      if (c.items.length > 2) { const x = Kit.el('<button class="x" aria-label="消す">×</button>'); x.onclick = () => { c.items.splice(i, 1); save(); renderForm(); calc(); }; box.firstChild.appendChild(x); }
+      const row = Kit.el('<div class="three"></div>');
+      row.appendChild(field('値段', moneyInput(it.price, '円', v => it.price = v, '398', true)));
+      row.appendChild(field('1つの量', moneyInput(it.amt, c.unit, v => it.amt = v, '500', true)));
+      row.appendChild(field('入数', moneyInput(it.n, '個', v => it.n = v, '1', true)));
+      box.appendChild(row);
+      F.appendChild(box);
+    });
+    if (c.items.length < 5) {
+      const add = Kit.el('<button class="k-btn is-small">＋ 比べる商品を足す</button>');
+      add.onclick = () => { c.items.push({ price: '', amt: '', n: '1' }); save(); renderForm(); calc(); };
+      F.appendChild(add);
+    }
+  }
+  if (S.tab === 'pt') {
+    const p = S.pt;
+    F.appendChild(field('支払う金額', moneyInput(p.price, '円', v => p.price = v, '例 10000')));
+    p.rates.forEach((r, i) => {
+      const f = field(i ? '上乗せの還元' : 'ポイント還元率', moneyInput(r, '%', v => p.rates[i] = v, '例 10', true));
+      if (i) { const x = Kit.el('<button class="x" aria-label="消す" style="justify-self:end;margin-top:-8px">× 消す</button>'); x.onclick = () => { p.rates.splice(i, 1); save(); renderForm(); calc(); }; f.appendChild(x); }
+      F.appendChild(f);
+    });
+    if (p.rates.length < 4) {
+      const add = Kit.el('<button class="k-btn is-small">＋ キャンペーン分を足す</button>');
+      add.onclick = () => { p.rates.push('5'); save(); renderForm(); calc(); };
+      F.appendChild(add);
+    }
+    F.appendChild(field('別の店の値引きと比べる（任意）', moneyInput(p.cmpPct, '%オフ', v => p.cmpPct = v, '例 8', true)));
+  }
+  if (S.tab === 'tax') {
+    const t = S.tax;
+    F.appendChild(seg([['ex2in', '税抜 → 税込'], ['in2ex', '税込 → 税抜']], t.dir, v => t.dir = v));
+    F.appendChild(field(t.dir === 'ex2in' ? '税抜の値段' : '税込の値段', moneyInput(t.price, '円', v => t.price = v, '例 1280')));
+    F.appendChild(field('税率', seg([[10, '10%'], [8, '8%（食品など）']], t.rate, v => t.rate = v)));
+  }
+}
+
+/* ---------- 計算と答え ---------- */
+function how(steps, tip) {
+  return `<details class="how"><summary>計算の仕方</summary><ol>${steps.map(s => `<li>${s}</li>`).join('')}</ol>${tip ? `<p class="tip">${tip}</p>` : ''}</details>`;
+}
+function bar(parts) {
+  const total = parts.reduce((a, p) => a + Math.max(0, p[1]), 0) || 1;
+  return `<div class="bar">${parts.map(([c, v]) => `<i class="${c}" style="width:${Math.max(0, v) / total * 100}%"></i>`).join('')}</div>`;
+}
+let peekText = '', ansVisible = true;
+function peek(label, value) { peekText = label ? `<span>${label}</span><b>${value}</b><span>↓</span>` : ''; paintPeek(); }
+function paintPeek() { $('peek').innerHTML = peekText; $('peek').hidden = !peekText || ansVisible; }
+new IntersectionObserver(es => { ansVisible = es[0].isIntersecting; paintPeek(); }).observe($('ans'));
+$('peek').onclick = () => $('ans').scrollIntoView({ behavior: 'smooth', block: 'center' });
+function empty(msg) { peek(); $('ans').innerHTML = `<p class="muted" style="margin:0">${msg}</p>`; }
+
+function calcOff() {
+  const o = S.off, price = num(o.price);
+  if (!(price > 0)) return empty('元の値段を入れると、ここに答えが出ます。');
+  let cur = price; const steps = []; let bad = '';
+  o.discs.forEach((d, i) => {
+    const before = cur;
+    if (d.kind === 'pct') { const r = num(d.v); if (!(r > 0 && r < 100)) { bad = '割引は1〜99%で入れてください'; return; } cur = before * (1 - r / 100);
+      steps.push(`${i ? 'さらに' : ''}${pct(r)}%オフ ＝ 残りは ${pct(100 - r)}%<br><span class="eq">${yen1(before)} × ${(1 - r / 100).toFixed(r % 1 ? 3 : 2).replace(/0+$/, '')} ＝ ${yen1(cur)}円</span>`); }
+    if (d.kind === 'wari') { const w = num(d.v); cur = before * (10 - w) / 10;
+      steps.push(`${w}割引 ＝ 残りは ${10 - w}割<br><span class="eq">${yen1(before)} × 0.${10 - w} ＝ ${yen1(cur)}円</span>`); }
+    if (d.kind === 'half') { cur = before / 2; steps.push(`半額 ＝ 2で割る<br><span class="eq">${yen1(before)} ÷ 2 ＝ ${yen1(cur)}円</span>`); }
+    if (d.kind === 'yen') { const y = num(d.v); if (!(y >= 0)) { bad = '円引きの金額を入れてください'; return; } cur = Math.max(0, before - y);
+      steps.push(`${yen(y)}円引き<br><span class="eq">${yen1(before)} − ${yen(y)} ＝ ${yen1(cur)}円</span>`); }
+  });
+  if (bad) return empty(`<span class="err">${bad}</span>`);
+  const afterDisc = cur;
+  const taxRate = o.taxIn === 'ex' ? Number(o.tax) : 0;
+  const final = Math.floor(afterDisc * (1 + taxRate / 100));
+  const listPay = o.taxIn === 'ex' ? Math.floor(price * (1 + taxRate / 100)) : price;
+  const saved = listPay - final;
+  const realPct = listPay ? saved / listPay * 100 : 0;
+  if (taxRate) steps.push(`消費税${taxRate}%をたす（1円未満は切り捨て）<br><span class="eq">${yen1(afterDisc)} × 1.${String(taxRate).padStart(2, '0')} ＝ ${yen(final)}円</span>`);
+  else if (afterDisc % 1) steps.push(`1円未満は切り捨て（お店によっては四捨五入）<br><span class="eq">${yen1(afterDisc)} → ${yen(final)}円</span>`);
+  peek('支払う', yen(final) + '円');
+  const multi = o.discs.length > 1;
+  let tip = '「◯%オフ」は「残り（100−◯）%を掛ける」と考えると1回で計算できます。';
+  if (multi && o.discs.every(d => d.kind !== 'yen')) {
+    const naive = o.discs.reduce((a, d) => a + (d.kind === 'pct' ? num(d.v) : d.kind === 'wari' ? num(d.v) * 10 : 50), 0);
+    tip = `重ねがけは足し算になりません。${o.discs.map(d => d.kind === 'pct' ? num(d.v) + '%' : d.kind === 'wari' ? num(d.v) + '割' : '半額').join('＋')}は「${pct(naive)}%オフ」ではなく、実質 <b>${pct((1 - afterDisc / price) * 100)}%オフ</b> です。`;
+  }
+  $('ans').innerHTML = `
+    <div class="big"><span class="lbl">支払う金額${taxRate ? `（税込${taxRate}%）` : ''}</span><span class="val k-num">${yen(final)}<small>円</small></span></div>
+    ${bar([['pay', final], ['off', saved]])}
+    <div class="legend"><span><i style="background:var(--ink)"></i>支払う</span><span><i style="background:var(--berry);opacity:.7"></i>安くなる</span></div>
+    <div class="facts">
+      <div class="fact good"><span>安くなる金額</span><b>${yen(saved)}円</b></div>
+      <div class="fact"><span>実質の割引率</span><b>${pct(realPct)}%オフ</b></div>
+      ${o.taxIn === 'ex' && taxRate ? `<div class="fact"><span>割引前の税込</span><b>${yen(listPay)}円</b></div>` : ''}
+    </div>
+    ${how(steps, tip)}`;
+}
+
+function calcCmp() {
+  const c = S.cmp;
+  const rows = c.items.map((it, i) => {
+    const p = num(it.price), a = num(it.amt), n = num(it.n) || 1;
+    return { i, p, total: a * n, ok: p > 0 && a > 0 && n > 0 };
+  });
+  const ok = rows.filter(r => r.ok);
+  if (ok.length < 2) return empty('2つ以上の商品に、値段と量を入れてください。');
+  const per1 = c.unit === 'g' || c.unit === 'ml';
+  const base = per1 ? 100 : 1;
+  const ul = per1 ? `100${c.unit}あたり` : `1${c.unit}あたり`;
+  ok.forEach(r => r.u = r.p / r.total * base);
+  const sorted = ok.slice().sort((a, b) => a.u - b.u);
+  const best = sorted[0], second = sorted[1], worst = sorted[sorted.length - 1];
+  const same = Math.abs(best.u - second.u) < 1e-9;
+  const diffPct = (second.u - best.u) / second.u * 100;
+  const L = r => 'ABCDE'[r.i];
+  const steps = ok.map(r => `${L(r)}：${yen(r.p)}円 ÷ ${yen1(r.total)}${c.unit}${per1 ? ' × 100' : ''} ＝ <b>${yen1(r.u)}円</b>（${ul}）`);
+  const sameAmt = second.total;
+  peek('おトク', same ? '同じ' : L(best));
+  const tip = per1 ? '同じ量あたりの値段にそろえると比べられます。100g・100mlあたりは店頭の値札（単価表示）と同じ基準です。' : '1つあたりの値段にそろえると比べられます。';
+  $('ans').innerHTML = `
+    <p class="verdict" style="margin:0">${same ? 'どれも同じ単価です' : `<em>${L(best)}</em> がいちばんおトク（${L(second)}より ${pct(diffPct)}% 安い）`}</p>
+    <div class="rank">${c.items.map((it, i) => {
+      const r = ok.find(x => x.i === i);
+      if (!r) return `<div class="row"><span class="tag">${'ABCDE'[i]}</span><span class="muted">未入力</span><span></span></div>`;
+      return `<div class="row ${r === best && !same ? 'win' : ''}"><span class="tag">${L(r)}</span>
+        <div class="meter"><i style="width:${r.u / worst.u * 100}%"></i></div><span class="u">${yen1(r.u)}円</span>
+        <span class="sub">${ul}　合計 ${yen1(r.total)}${c.unit} で ${yen(r.p)}円</span></div>`;
+    }).join('')}</div>
+    ${same ? '' : `<div class="facts"><div class="fact good"><span>${L(second)}と同じ量（${yen1(sameAmt)}${c.unit}）を${L(best)}で買うと</span><b>${yen(best.u * sameAmt / base)}円（${yen(second.p - best.u * sameAmt / base)}円おトク）</b></div></div>`}
+    ${how(steps, tip)}`;
+}
+
+function calcPt() {
+  const p = S.pt, price = num(p.price);
+  const rates = p.rates.map(num).filter(r => r > 0);
+  if (!(price > 0)) return empty('支払う金額を入れると、ここに答えが出ます。');
+  if (!rates.length) return empty('還元率を入れてください。');
+  const rate = rates.reduce((a, b) => a + b, 0);
+  const pts = Math.floor(price * rate / 100);
+  const eff = pts / (price + pts) * 100;
+  const simple = rate;
+  const cp = num(p.cmpPct);
+  let cmpHtml = '';
+  if (cp > 0 && cp < 100) {
+    const other = price * (1 - cp / 100);
+    const real = price - pts;
+    const win = eff > cp + 1e-9 ? 'pt' : eff < cp - 1e-9 ? 'off' : 'eq';
+    cmpHtml = `<div class="fact ${win !== 'eq' ? 'good' : ''}"><span>${pct(cp)}%オフの店と比べると</span><b>${win === 'pt' ? 'ポイントの方がおトク' : win === 'off' ? `${pct(cp)}%オフの方がおトク` : 'ほぼ同じ'}</b></div>`;
+  }
+  peek('実質', pct(eff) + '%オフ');
+  const steps = [
+    `もらえるポイント<br><span class="eq">${yen(price)} × ${pct(rate)}% ＝ ${yen(pts)}ポイント</span>`,
+    `ポイントは「次の買い物」で使うので、合計 ${yen(price + pts)}円分の買い物に ${yen(price)}円払ったことになります。`,
+    `実質の割引率<br><span class="eq">${yen(pts)} ÷ ${yen(price + pts)} ＝ ${pct(eff)}%</span>`,
+  ];
+  $('ans').innerHTML = `
+    <div class="big"><span class="lbl">もらえるポイント</span><span class="val k-num">${yen(pts)}<small>pt</small></span></div>
+    ${bar([['pay', price - pts], ['tax', pts]])}
+    <div class="legend"><span><i style="background:var(--ink)"></i>実質の支払い</span><span><i style="background:var(--sun)"></i>ポイントで戻る</span></div>
+    <div class="facts">
+      <div class="fact"><span>実質の支払い</span><b>${yen(price - pts)}円</b></div>
+      <div class="fact good"><span>値引きにすると</span><b>${pct(eff)}%オフ相当</b></div>
+      ${cmpHtml}
+    </div>
+    ${how(steps, `ポイント${pct(simple)}%還元は「${pct(simple)}%オフ」より少しだけ弱く、実質${pct(eff)}%オフです。ポイントに期限や使える店の制限がある時は、さらに割り引いて考えましょう。`)}`;
+}
+
+function calcTax() {
+  const t = S.tax, price = num(t.price), r = Number(t.rate);
+  if (!(price > 0)) return empty('値段を入れると、ここに答えが出ます。');
+  let ex, inc, steps;
+  if (t.dir === 'ex2in') {
+    ex = price; inc = Math.floor(price * (1 + r / 100));
+    steps = [`税込 ＝ 税抜 × 1.${String(r).padStart(2, '0')}<br><span class="eq">${yen(price)} × 1.${String(r).padStart(2, '0')} ＝ ${yen1(price * (1 + r / 100))} → ${yen(inc)}円</span>`];
+  } else {
+    inc = price; ex = price / (1 + r / 100);
+    steps = [`税抜 ＝ 税込 ÷ 1.${String(r).padStart(2, '0')}<br><span class="eq">${yen(price)} ÷ 1.${String(r).padStart(2, '0')} ＝ ${yen1(ex)}円</span>`,
+      `ふつうは1円未満を切り上げて ${yen(Math.ceil(ex - 1e-9))}円 と表示されます。`];
+    ex = Math.ceil(ex - 1e-9);
+  }
+  const taxAmt = inc - ex;
+  peek(t.dir === 'ex2in' ? '税込' : '税抜', yen(t.dir === 'ex2in' ? inc : ex) + '円');
+  $('ans').innerHTML = `
+    <div class="big"><span class="lbl">${t.dir === 'ex2in' ? '税込' : '税抜'}</span><span class="val k-num">${yen(t.dir === 'ex2in' ? inc : ex)}<small>円</small></span></div>
+    ${bar([['pay', ex], ['tax', taxAmt]])}
+    <div class="legend"><span><i style="background:var(--ink)"></i>本体</span><span><i style="background:var(--sun)"></i>消費税</span></div>
+    <div class="facts">
+      <div class="fact"><span>本体（税抜）</span><b>${yen(ex)}円</b></div>
+      <div class="fact"><span>消費税${r}%</span><b>${yen(taxAmt)}円</b></div>
+      <div class="fact"><span>税込</span><b>${yen(inc)}円</b></div>
+    </div>
+    ${how(steps, r === 10 ? 'ざっくりなら「1割たす」。' : 'ざっくりなら「1割たして、少し戻す」。')}`;
+}
+
+function calc() { ({ off: calcOff, cmp: calcCmp, pt: calcPt, tax: calcTax })[S.tab](); }
+function renderAll() { renderTabs(); renderForm(); calc(); }
+renderAll();
+</script>
+</body>
+</html>
