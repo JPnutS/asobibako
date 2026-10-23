@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ダンス練習</title>
+<meta name="theme-color" content="#1f2328">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="icon" href="../../icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="../../../common/kit.css">
+<link rel="stylesheet" href="../../otona.css">
+<style>
+  .k-wrap { max-width: 1000px; }
+  .drop { border: 1.5px dashed var(--muted); border-radius: 18px; padding: 44px 18px; text-align: center; cursor: pointer; background: var(--card); display: grid; gap: 10px; justify-items: center; }
+  .drop b { font-size: 1.2rem; }
+  .drop .ico { font-size: 2.4rem; }
+  .screen { position: relative; background: #0d0e10; border-radius: 14px; overflow: hidden; display: grid; grid-template-columns: 1fr; place-items: center; height: min(62dvh, 640px); }
+  .screen.side { grid-template-columns: 1fr 1fr; gap: 2px; }
+  .screen video { width: 100%; height: 100%; object-fit: contain; display: block; min-width: 0; }
+  .screen video.main { transition: transform .2s; }
+  .screen .cam, .screen .take { transform: scaleX(-1); }
+  .screen.pip .cam { position: absolute; right: 10px; bottom: 10px; width: 30%; height: auto; max-width: 240px; border: 2px solid #fff; border-radius: 10px; background: #000; }
+  .screen.ghost .cam { position: absolute; inset: 0; opacity: var(--ghost, .45); mix-blend-mode: screen; }
+  .badge { position: absolute; left: 10px; top: 10px; background: rgba(0,0,0,.55); color: #fff; padding: 2px 10px; border-radius: 999px; font-size: .78rem; pointer-events: none; z-index: 2; }
+  .rec-dot { position: absolute; right: 12px; top: 10px; color: #fff; background: #c0392b; padding: 2px 10px; border-radius: 999px; font-size: .78rem; z-index: 2; animation: blink 1s infinite; }
+  @keyframes blink { 50% { opacity: .5; } }
+  .count { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--display); font-size: 6rem; color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,.6); pointer-events: none; z-index: 3; }
+  .tl { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; font-size: .85rem; }
+  .tlwrap { position: relative; padding-top: 22px; }
+  .tlwrap input { width: 100%; accent-color: var(--ink); margin: 0; }
+  .ab { position: absolute; bottom: 4px; height: 4px; background: var(--sun); border-radius: 2px; pointer-events: none; }
+  .marks { position: absolute; left: 0; right: 0; top: 0; height: 20px; }
+  .marks button { position: absolute; transform: translateX(-50%); border: 0; background: var(--grape); color: #fff; font-size: .68rem; padding: 1px 6px; border-radius: 6px; cursor: pointer; white-space: nowrap; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
+  .ctrl { display: grid; grid-template-columns: 1fr 1fr 1.7fr 1fr 1fr; gap: 6px; max-width: 560px; width: 100%; margin: 0 auto; align-items: center; }
+  .ctrl .k-btn { padding-left: 4px; padding-right: 4px; white-space: nowrap; font-size: clamp(.78rem, 3.3vw, .95rem); }
+  .ctrl .k-btn.is-big { font-size: clamp(.95rem, 4vw, 1.1rem); }
+  .panels { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+  .group { display: grid; gap: 8px; }
+  .group h3 { font-size: .98rem; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  .seg .k-chip { min-height: 36px; padding: 4px 12px; font-size: .88rem; }
+  .speed { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; }
+  .speed input { width: 100%; accent-color: var(--ink); }
+  .speed b { font-variant-numeric: tabular-nums; min-width: 4.2em; text-align: right; }
+  .note { font-size: .82rem; color: var(--muted); margin: 0; }
+  .mlist { display: flex; flex-wrap: wrap; gap: 6px; }
+  .mchip { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 999px; background: var(--card); overflow: hidden; }
+  .mchip button { border: 0; background: none; padding: 6px 10px; font-size: .85rem; cursor: pointer; }
+  .mchip button + button { border-left: 1px solid var(--line); color: var(--muted); padding: 6px 8px; }
+  .prog { height: 8px; border-radius: 4px; background: var(--soft); overflow: hidden; }
+  .prog i { display: block; height: 100%; width: 0; background: var(--ink); }
+  .takes { display: grid; gap: 8px; }
+  .take-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: .9rem; }
+  .take-row span { flex: 1; min-width: 120px; }
+</style>
+</head>
+<body>
+<main class="k-wrap">
+  <label class="drop" id="drop">
+    <span class="ico">🪞</span>
+    <b>練習する動画を選ぶ</b>
+    <span class="k-muted" style="font-size:.92rem">お手本の動画を左右反転すると、向かい合って同じ向きで踊れます。<br>動画はこの端末の中だけで使い、どこにも送信しません。</span>
+    <input type="file" id="file" accept="video/*" hidden>
+  </label>
+
+  <section id="player" class="k-stack" hidden>
+    <div class="screen" id="screen">
+      <video class="main" id="v" playsinline></video>
+      <video class="cam" id="cam" playsinline muted hidden></video>
+      <video class="take" id="take" playsinline hidden></video>
+      <span class="badge" id="badge"></span>
+      <span class="rec-dot" id="recDot" hidden>● 録画中</span>
+      <div class="count" id="count" hidden></div>
+    </div>
+    <div class="tl">
+      <span class="k-num" id="tNow">0:00</span>
+      <div class="tlwrap"><div class="marks" id="marks"></div><input type="range" id="seek" min="0" max="1000" value="0" aria-label="再生位置"><div class="ab" id="abBar" hidden></div></div>
+      <span class="k-num" id="tAll">0:00</span>
+    </div>
+    <div class="ctrl">
+      <button class="k-btn is-small" id="back5" title="5秒戻る（←）">−5秒</button>
+      <button class="k-btn is-small" id="stepB" title="1コマ戻る（,）">◀ コマ</button>
+      <button class="k-btn is-sun is-big" id="play">▶ 再生</button>
+      <button class="k-btn is-small" id="stepF" title="1コマ進む（.）">コマ ▶</button>
+      <button class="k-btn is-small" id="fwd5" title="5秒進む（→）">+5秒</button>
+    </div>
+
+    <div class="panels">
+      <div class="k-card group">
+        <h3>見え方</h3>
+        <div class="seg" id="optFlip"></div>
+        <span class="k-label">速さ</span>
+        <div class="speed"><input type="range" id="speed" min="0.25" max="1.5" step="0.05" aria-label="速さ"><b id="speedVal"></b></div>
+        <div class="seg" id="optSpeed"></div>
+        <button class="k-chip" id="rampOn" style="justify-self:start">だんだん速く（1周ごとに+5%）</button>
+      </div>
+
+      <div class="k-card group">
+        <h3>区間リピート</h3>
+        <div class="seg"><button class="k-chip" id="setA" title="[ キー">A をここに</button><button class="k-chip" id="setB" title="] キー">B をここに</button><button class="k-chip" id="loopOn">リピート</button><button class="k-chip" id="clearAB">解除</button></div>
+        <span class="note k-num" id="abInfo"></span>
+        <span class="k-label">リピートの合間</span>
+        <div class="seg" id="optGap"></div>
+        <button class="k-chip" id="countOn" style="justify-self:start">再生前に 3・2・1 カウント</button>
+      </div>
+
+      <div class="k-card group">
+        <h3>目印</h3>
+        <p class="note">「サビ」「2番」などの目印を付けると、すぐに飛べます。目印から次の目印までをリピートもできます。動画ごとに保存されます。</p>
+        <div class="mlist" id="mlist"></div>
+        <button class="k-btn is-small" id="addMark" style="justify-self:start">＋ ここに目印（M）</button>
+      </div>
+
+      <div class="k-card group">
+        <h3>自分と見比べる</h3>
+        <div class="seg" id="optCam"></div>
+        <div id="ghostRow" class="speed" hidden><input type="range" id="ghost" min="0.15" max="0.8" step="0.05" aria-label="重ねる濃さ"><b>濃さ</b></div>
+        <button class="k-btn is-small" id="recSelf" style="justify-self:start" hidden>● 自分を録画しながら再生</button>
+        <div class="takes" id="takes"></div>
+        <p class="note">録画は、お手本と同じタイミングで並べて見返せます。録画はこの画面を閉じると消えるので、残したい時は保存してください。</p>
+      </div>
+
+      <div class="k-card group">
+        <h3>反転した動画を保存</h3>
+        <p class="note" id="recNote">今の向きで、音も一緒に保存します。A・B を決めていると、その間だけ保存します。保存には動画と同じくらいの時間がかかります。</p>
+        <div class="prog" id="prog" hidden><i id="progBar"></i></div>
+        <div class="k-row"><button class="k-btn is-small is-sun" id="save">保存する</button><button class="k-btn is-small" id="cancel" hidden>やめる</button><button class="k-btn is-small" id="other">別の動画を開く</button></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="../../../common/kit.js" data-ns="asobibako-otona:" data-home="../../index.html" data-tone="adult"></script>
+<script>
+'use strict';
+Kit.bar({ id: 'dance', title: 'ダンス練習', help: `
+  <p>動画を選ぶと、左右反転して再生します。お手本を鏡のように見ながら踊れます。</p>
+  <p><b>速さ</b>：0.25倍から細かく変えられます。「だんだん速く」は、リピートのたびに5%ずつ速くなり、等速で止まります。</p>
+  <p><b>区間リピート</b>：A と B の間をくり返します。合間に休みやカウントを入れられます。</p>
+  <p><b>目印</b>：曲の区切りに名前を付けて、すぐに飛べます。</p>
+  <p><b>自分と見比べる</b>：カメラで自分を映して、並べたり重ねたりできます。録画すると、お手本と並べて見返せます。</p>
+  <p><b>キーボード</b>：スペース 再生／停止、← → 5秒、, . 1コマ、[ ] A・B、L リピート、M 目印、1〜5 速さ。</p>
+  <p>保存はパソコンやAndroidのChromeがおすすめです（iPhoneでは保存できないことがあります）。</p>` });
+
+const $ = id => document.getElementById(id);
+const v = $('v'), cam = $('cam'), take = $('take');
+const st = Object.assign({ h: true, vflip: false, speed: 1, count: false, gap: 0, view: 'off', ghost: .45 }, Kit.store.get('dance:opts', {}));
+const saveOpts = () => Kit.store.set('dance:opts', st);
+let A = null, B = null, loop = false, ramp = false, url = null, recording = null, camStream = null, mediaSrc = null, fileName = 'video', fileKey = '';
+let marks = [], takes = [], selfRec = null, compare = null, loops = 0, busy = false;
+
+function fmt(t) { if (!isFinite(t) || t < 0) t = 0; const m = Math.floor(t / 60), s = Math.floor(t % 60), d = Math.floor(t * 10 % 10); return `${m}:${String(s).padStart(2, '0')}.${d}`; }
+function seg(root, list, get, set) {
+  root.innerHTML = '';
+  list.forEach(([val, l]) => {
+    const b = Kit.el(`<button class="k-chip" aria-pressed="${get() === val}">${l}</button>`);
+    b.onclick = () => { set(val); saveOpts(); render(); };
+    root.appendChild(b);
+  });
+}
+function setSpeed(x) { st.speed = Math.round(Kit.clamp(x, .25, 1.5) * 100) / 100; v.playbackRate = st.speed; saveOpts(); render(); }
+
+function render() {
+  seg($('optFlip'), [['h', '左右反転'], ['n', 'そのまま'], ['hv', '左右＋上下']], () => st.h && st.vflip ? 'hv' : st.h ? 'h' : 'n', x => { st.h = x !== 'n'; st.vflip = x === 'hv'; });
+  seg($('optSpeed'), [[0.5, '0.5'], [0.75, '0.75'], [0.9, '0.9'], [1, '等速'], [1.25, '1.25']], () => st.speed, x => setSpeed(x));
+  seg($('optGap'), [[0, 'なし'], [2, '2秒休む'], [4, '4秒休む']], () => st.gap, x => st.gap = x);
+  seg($('optCam'), [['off', 'カメラなし'], ['pip', '小窓'], ['side', '並べる'], ['ghost', '重ねる']], () => camStream ? st.view : 'off', x => setView(x));
+  $('speed').value = st.speed; $('speedVal').textContent = st.speed.toFixed(2) + '倍';
+  v.style.transform = `scale(${st.h ? -1 : 1}, ${st.vflip ? -1 : 1})`;
+  v.playbackRate = st.speed;
+  $('badge').textContent = compare ? '見比べ：お手本 ｜ 自分' : `${st.h ? '左右反転' : 'そのまま'}${st.vflip ? '・上下' : ''} ・ ${st.speed.toFixed(2)}倍${loop ? ` ・ リピート${loops ? ` ${loops}回目` : ''}` : ''}`;
+  $('loopOn').setAttribute('aria-pressed', loop); $('countOn').setAttribute('aria-pressed', st.count); $('rampOn').setAttribute('aria-pressed', ramp);
+  $('abInfo').textContent = A != null || B != null ? `A ${A != null ? fmt(A) : '−'} 〜 B ${B != null ? fmt(B) : '−'}` : 'A と B を決めると、その間をくり返します。';
+  const d = v.duration || 1;
+  if (A != null && B != null) { $('abBar').hidden = false; Object.assign($('abBar').style, { left: (A / d * 100) + '%', width: ((B - A) / d * 100) + '%' }); } else $('abBar').hidden = true;
+  const scr = $('screen');
+  scr.className = 'screen ' + (compare ? 'side' : camStream ? st.view : '');
+  scr.style.setProperty('--ghost', st.ghost);
+  cam.hidden = !camStream || !!compare; take.hidden = !compare;
+  $('ghostRow').hidden = !(camStream && st.view === 'ghost'); $('ghost').value = st.ghost;
+  $('recSelf').hidden = !camStream || !window.MediaRecorder;
+  $('recSelf').textContent = selfRec ? '■ 録画を止める' : '● 自分を録画しながら再生';
+  renderMarks(); renderTakes();
+}
+
+/* ---------- 読みこみ ---------- */
+function load(f) {
+  if (!f || !f.type.startsWith('video/')) { Kit.toast('動画ファイルを選んでください'); return; }
+  if (url) URL.revokeObjectURL(url);
+  url = URL.createObjectURL(f); fileName = f.name.replace(/\.[^.]+$/, '');
+  fileKey = 'dance:marks:' + f.name + ':' + f.size;
+  marks = Kit.store.get(fileKey, []);
+  v.src = url; A = B = null; loop = false; loops = 0; endCompare();
+  $('drop').hidden = true; $('player').hidden = false;
+  render();
+}
+$('file').addEventListener('change', e => load(e.target.files[0]));
+$('drop').addEventListener('dragover', e => e.preventDefault());
+$('drop').addEventListener('drop', e => { e.preventDefault(); load(e.dataTransfer.files[0]); });
+$('other').onclick = () => { if (recording || selfRec) return; v.pause(); endCompare(); $('player').hidden = true; $('drop').hidden = false; $('file').value = ''; };
+v.addEventListener('loadedmetadata', () => { $('tAll').textContent = fmt(v.duration); render(); });
+v.addEventListener('error', () => Kit.toast('この動画は開けませんでした（ファイル形式を確認してください）', 3000));
+
+/* ---------- 再生 ---------- */
+function paintPlay() { $('play').textContent = v.paused ? '▶ 再生' : '❚❚ 停止'; }
+v.addEventListener('play', paintPlay); v.addEventListener('pause', paintPlay);
+let seeking = false;
+v.addEventListener('timeupdate', () => {
+  $('tNow').textContent = fmt(v.currentTime);
+  if (!seeking) $('seek').value = v.duration ? v.currentTime / v.duration * 1000 : 0;
+  if (!recording && loop && B != null && v.currentTime >= B && !busy) nextLoop();
+});
+v.addEventListener('ended', () => { if (loop && !recording && !busy) nextLoop(); if (selfRec) stopSelf(); });
+$('seek').addEventListener('input', e => { seeking = true; if (v.duration) v.currentTime = e.target.value / 1000 * v.duration; syncTake(); });
+$('seek').addEventListener('change', () => { seeking = false; });
+const wait = ms => new Promise(r => setTimeout(r, ms));
+async function countdown() {
+  const c = $('count'); c.hidden = false;
+  for (const n of [3, 2, 1]) { c.textContent = n; Kit.tone(660, 0.12, { type: 'square', vol: 0.08 }); await wait(Math.max(350, 600 / Math.max(.5, st.speed))); }
+  Kit.tone(990, 0.25, { type: 'square', vol: 0.08 }); c.hidden = true;
+}
+async function nextLoop() {
+  busy = true;
+  v.pause(); v.currentTime = A || 0;
+  loops++;
+  if (ramp && st.speed < 1) { setSpeed(Math.min(1, st.speed + 0.05)); Kit.toast(`${st.speed.toFixed(2)}倍に上げました`); }
+  render();
+  if (st.gap) await wait(st.gap * 1000);
+  if (st.count) await countdown();
+  busy = false;
+  if (loop) v.play().catch(() => {});
+}
+$('play').onclick = async () => {
+  if (recording || busy) return;
+  if (compare) return toggleCompare();
+  if (!v.paused) { v.pause(); return; }
+  if (loop && A != null && (v.currentTime < A || (B != null && v.currentTime >= B))) v.currentTime = A;
+  if (st.count) { busy = true; await countdown(); busy = false; }
+  v.playbackRate = st.speed;
+  v.play().catch(() => Kit.toast('再生できませんでした'));
+};
+$('speed').addEventListener('input', e => setSpeed(+e.target.value));
+$('back5').onclick = () => { v.currentTime = Math.max(0, v.currentTime - 5); syncTake(); };
+$('fwd5').onclick = () => { v.currentTime = Math.min(v.duration || 0, v.currentTime + 5); syncTake(); };
+$('stepB').onclick = () => { v.pause(); take.pause(); v.currentTime = Math.max(0, v.currentTime - 1 / 30); syncTake(); };
+$('stepF').onclick = () => { v.pause(); take.pause(); v.currentTime = Math.min(v.duration || 0, v.currentTime + 1 / 30); syncTake(); };
+$('setA').onclick = () => { A = v.currentTime; if (B != null && B <= A) B = null; loops = 0; Kit.sfx('select'); render(); };
+$('setB').onclick = () => { if (A == null) A = 0; if (v.currentTime <= A) { Kit.toast('B は A より後にしてください'); return; } B = v.currentTime; loop = true; loops = 0; Kit.sfx('select'); render(); };
+$('loopOn').onclick = () => { loop = !loop; loops = 0; render(); };
+$('clearAB').onclick = () => { A = B = null; loop = false; loops = 0; render(); };
+$('countOn').onclick = () => { st.count = !st.count; saveOpts(); render(); };
+$('rampOn').onclick = () => {
+  ramp = !ramp;
+  if (ramp) { if (st.speed >= 1) setSpeed(0.7); if (!loop) { loop = true; if (A == null) A = 0; } Kit.toast(`${st.speed.toFixed(2)}倍から始めます`); }
+  render();
+};
+$('ghost').addEventListener('input', e => { st.ghost = +e.target.value; saveOpts(); render(); });
+
+/* ---------- 目印 ---------- */
+function saveMarks() { marks.sort((a, b) => a.t - b.t); Kit.store.set(fileKey, marks); }
+function renderMarks() {
+  const d = v.duration || 1;
+  $('marks').innerHTML = '';
+  marks.forEach(m => {
+    const b = Kit.el(`<button style="left:${m.t / d * 100}%" title="${Kit.esc(m.name)}">${Kit.esc(m.name)}</button>`);
+    b.onclick = () => { v.currentTime = m.t; syncTake(); };
+    $('marks').appendChild(b);
+  });
+  $('mlist').innerHTML = marks.length ? '' : '<span class="note">まだありません</span>';
+  marks.forEach((m, i) => {
+    const c = Kit.el(`<span class="mchip"><button>${Kit.esc(m.name)} <small class="k-muted">${fmt(m.t)}</small></button><button aria-label="リピート" title="次の目印までリピート">⟲</button><button aria-label="消す" title="消す">×</button></span>`);
+    const [go, rep, del] = c.querySelectorAll('button');
+    go.onclick = () => { v.currentTime = m.t; syncTake(); };
+    rep.onclick = () => { A = m.t; B = marks[i + 1] ? marks[i + 1].t : v.duration; loop = true; loops = 0; v.currentTime = A; Kit.toast(`「${m.name}」をリピートします`); render(); };
+    del.onclick = () => { marks.splice(i, 1); saveMarks(); render(); };
+    $('mlist').appendChild(c);
+  });
+}
+$('addMark').onclick = () => {
+  v.pause();
+  const t = v.currentTime;
+  const input = Kit.el(`<input class="k-input" maxlength="12" placeholder="例：サビ" value="${['イントロ', 'Aメロ', 'Bメロ', 'サビ', '間奏', '2番', 'ラスサビ'][marks.length] || ''}">`);
+  const m = Kit.modal({ title: `${fmt(t)} に目印`, body: input, actions: [{ label: 'やめる' }, { label: '付ける', primary: true, onClick: () => { marks.push({ t, name: input.value.trim() || fmt(t) }); saveMarks(); render(); } }] });
+  setTimeout(() => { input.focus(); input.select(); }, 50);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { m.box.parentElement.querySelector('.is-sun').click(); } });
+};
+
+/* ---------- カメラ・自分の録画 ---------- */
+async function setView(x) {
+  if (x === 'off') { if (selfRec) stopSelf(); if (camStream) camStream.getTracks().forEach(t => t.stop()); camStream = null; st.view = 'off'; render(); return; }
+  st.view = x; endCompare();
+  if (!camStream) {
+    try {
+      camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 } }, audio: false });
+      cam.srcObject = camStream; await cam.play();
+    } catch (e) { camStream = null; st.view = 'off'; Kit.toast('カメラを使えませんでした（ブラウザの許可を確認してください）', 3000); }
+  }
+  render();
+}
+function pickMime(list) { if (!window.MediaRecorder) return null; return list.find(m => MediaRecorder.isTypeSupported(m)) || ''; }
+$('recSelf').onclick = async () => {
+  if (selfRec) return stopSelf();
+  if (!camStream) return;
+  const mime = pickMime(['video/mp4', 'video/webm;codecs=vp9', 'video/webm']);
+  let rec; try { rec = new MediaRecorder(camStream, mime ? { mimeType: mime } : undefined); } catch (e) { Kit.toast('録画を始められませんでした'); return; }
+  const chunks = [];
+  rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  if (loop && A != null) v.currentTime = A;
+  const vStart = v.currentTime, speed = st.speed;
+  if (st.count) { busy = true; await countdown(); busy = false; }
+  selfRec = { rec, vStart, speed };
+  rec.onstop = () => {
+    const type = rec.mimeType || mime || 'video/webm';
+    const blob = new Blob(chunks, { type });
+    takes.unshift({ url: URL.createObjectURL(blob), blob, vStart, speed, type, at: new Date() });
+    if (takes.length > 5) URL.revokeObjectURL(takes.pop().url);
+    Kit.toast('録画しました。「見比べる」で並べて再生できます', 2800);
+    render();
+  };
+  rec.start(500);
+  $('recDot').hidden = false;
+  v.playbackRate = st.speed;
+  v.play().catch(() => {});
+  render();
+};
+function stopSelf() { if (!selfRec) return; const r = selfRec.rec; selfRec = null; $('recDot').hidden = true; v.pause(); if (r.state !== 'inactive') r.stop(); render(); }
+function renderTakes() {
+  $('takes').innerHTML = '';
+  takes.forEach((t, i) => {
+    const row = Kit.el(`<div class="take-row"><span>録画${takes.length - i}（${t.at.getHours()}:${String(t.at.getMinutes()).padStart(2, '0')}・${t.speed.toFixed(2)}倍）</span></div>`);
+    const cmp = Kit.el(`<button class="k-btn is-small ${compare === t ? 'is-sun' : ''}">${compare === t ? '見比べ中' : '見比べる'}</button>`);
+    cmp.onclick = () => compare === t ? endCompare() : startCompare(t);
+    const dl = Kit.el('<button class="k-btn is-small">保存</button>');
+    dl.onclick = () => { const a = document.createElement('a'); a.href = t.url; a.download = `${fileName}-self-${takes.length - i}.${t.type.includes('mp4') ? 'mp4' : 'webm'}`; document.body.appendChild(a); a.click(); a.remove(); };
+    row.append(cmp, dl);
+    $('takes').appendChild(row);
+  });
+}
+function startCompare(t) {
+  if (selfRec) stopSelf();
+  compare = t; take.src = t.url; take.muted = true;
+  v.pause(); v.currentTime = t.vStart; v.playbackRate = t.speed; take.currentTime = 0;
+  render(); Kit.toast('▶ で、お手本と録画を同時に再生します');
+}
+function endCompare() { if (!compare) return; compare = null; take.pause(); take.removeAttribute('src'); take.load(); v.playbackRate = st.speed; render(); }
+function syncTake() { if (!compare) return; const t = (v.currentTime - compare.vStart) / compare.speed; if (t >= 0 && isFinite(t)) take.currentTime = t; }
+function toggleCompare() {
+  if (!v.paused) { v.pause(); take.pause(); return; }
+  if (v.currentTime < compare.vStart || (take.duration && take.currentTime >= take.duration - .05)) { v.currentTime = compare.vStart; take.currentTime = 0; }
+  else syncTake();
+  v.playbackRate = compare.speed;
+  Promise.all([v.play(), take.play()]).catch(() => {});
+}
+take.addEventListener('ended', () => { if (compare) v.pause(); });
+
+/* ---------- キーボード ---------- */
+addEventListener('keydown', e => {
+  if ($('player').hidden || e.target.matches('input, textarea') || document.querySelector('.k-modal')) return;
+  const k = e.key;
+  if (k === ' ') { e.preventDefault(); $('play').click(); }
+  else if (k === 'ArrowLeft') $('back5').click();
+  else if (k === 'ArrowRight') $('fwd5').click();
+  else if (k === ',') $('stepB').click();
+  else if (k === '.') $('stepF').click();
+  else if (k === '[') $('setA').click();
+  else if (k === ']') $('setB').click();
+  else if (k === 'l' || k === 'L') $('loopOn').click();
+  else if (k === 'm' || k === 'M') $('addMark').click();
+  else if ('12345'.includes(k)) setSpeed([0.5, 0.75, 0.9, 1, 1.25][+k - 1]);
+});
+
+/* ---------- 反転して保存 ---------- */
+$('save').onclick = async () => {
+  if (recording || !v.duration) return;
+  endCompare();
+  const mime = pickMime(['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']);
+  if (mime === null) { Kit.toast('このブラウザでは保存できません（パソコンのChromeがおすすめ）', 3500); return; }
+  const c = document.createElement('canvas');
+  const scale = Math.min(1, 1280 / Math.max(v.videoWidth, v.videoHeight));
+  c.width = Math.round(v.videoWidth * scale / 2) * 2; c.height = Math.round(v.videoHeight * scale / 2) * 2;
+  const g = c.getContext('2d');
+  const stream = c.captureStream(30);
+  try {
+    const ac = Kit.audio();
+    if (ac) {
+      if (!mediaSrc) { mediaSrc = ac.createMediaElementSource(v); mediaSrc.connect(ac.destination); }
+      const dest = ac.createMediaStreamDestination(); mediaSrc.connect(dest);
+      dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+      stream._dest = dest;
+    }
+  } catch (e) { /* 音なしで保存 */ }
+  let rec;
+  try { rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 5e6 } : undefined); }
+  catch (e) { Kit.toast('保存を始められませんでした', 3000); return; }
+  const chunks = [];
+  rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  const from = A || 0, to = B != null ? B : v.duration;
+  recording = { rec, cancel: false };
+  $('prog').hidden = false; $('cancel').hidden = false; $('save').disabled = true; $('play').disabled = true;
+  v.pause(); v.currentTime = from; v.playbackRate = 1;
+  await new Promise(r => v.addEventListener('seeked', r, { once: true }));
+  const drawFrame = () => {
+    if (!recording) return;
+    g.save(); g.translate(st.h ? c.width : 0, st.vflip ? c.height : 0); g.scale(st.h ? -1 : 1, st.vflip ? -1 : 1);
+    g.drawImage(v, 0, 0, c.width, c.height); g.restore();
+    $('progBar').style.width = Math.min(100, (v.currentTime - from) / (to - from) * 100) + '%';
+    if (v.currentTime >= to || v.ended) return finish();
+    if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(drawFrame); else requestAnimationFrame(drawFrame);
+  };
+  const finish = () => { if (rec.state !== 'inactive') rec.stop(); };
+  const onTime = () => { if (recording && v.currentTime >= to) finish(); };
+  v.addEventListener('ended', finish, { once: true });
+  v.addEventListener('timeupdate', onTime);
+  rec.onstop = () => {
+    const ok = !recording.cancel;
+    recording = null; v.pause(); v.playbackRate = st.speed;
+    v.removeEventListener('ended', finish); v.removeEventListener('timeupdate', onTime);
+    if (stream._dest) { try { mediaSrc.disconnect(stream._dest); } catch (e) { /* なし */ } }
+    stream.getVideoTracks().forEach(t => t.stop());
+    $('prog').hidden = true; $('cancel').hidden = true; $('save').disabled = false; $('play').disabled = false; $('progBar').style.width = '0';
+    if (!ok || !chunks.length) { Kit.toast('保存をやめました'); return; }
+    const type = rec.mimeType || mime || 'video/webm';
+    const blob = new Blob(chunks, { type });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `${fileName}-${st.h ? 'mirror' : 'copy'}.${type.includes('mp4') ? 'mp4' : 'webm'}`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    Kit.sfx('good'); Kit.toast('保存しました');
+  };
+  v.addEventListener('pause', function onP() { if (recording && !v.ended && v.currentTime < to) v.play(); else v.removeEventListener('pause', onP); });
+  rec.start(500);
+  await v.play().catch(() => { recording.cancel = true; finish(); });
+  drawFrame();
+};
+$('cancel').onclick = () => { if (!recording) return; recording.cancel = true; recording.rec.stop(); };
+document.addEventListener('visibilitychange', () => { if (document.hidden && recording) Kit.toast('保存中は、このページを開いたままにしてください', 3000); });
+
+render();
+</script>
+</body>
+</html>

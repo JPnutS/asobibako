@@ -1,10 +1,14 @@
 /* あそびばこ 共通キット：保存・音・バー・モーダル・紙ふぶき・ゲームループ */
 (function () {
   'use strict';
-  const NS = 'asobibako:';
+  /* <script src=".../kit.js" data-ns="..." data-home="..."> で、保存先と🏠の行き先を変えられる（おとな版で使う） */
+  const ME = document.currentScript;
+  const NS = (ME && ME.dataset.ns) || 'asobibako:';
   const ROOT = (() => {
-    try { return new URL('..', document.currentScript.src).href; } catch (e) { return '../../'; }
+    try { return new URL('..', ME.src).href; } catch (e) { return '../../'; }
   })();
+  const HOME = ME && ME.dataset.home ? new URL(ME.dataset.home, location.href).href : ROOT + 'index.html';
+  const ADULT = !!(ME && ME.dataset.tone === 'adult');
 
   const store = {
     get(key, fallback) {
@@ -126,7 +130,7 @@
   /* ---------- UI ---------- */
   function el(html) { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; }
 
-  function modal({ title = '', body = '', actions = [{ label: 'とじる', primary: true }], dismissable = true } = {}) {
+  function modal({ title = '', body = '', actions = [{ label: ADULT ? '閉じる' : 'とじる', primary: true }], dismissable = true } = {}) {
     const back = el('<div class="k-modal-back"><div class="k-modal" role="dialog" aria-modal="true"></div></div>');
     const box = back.firstElementChild;
     if (title) box.appendChild(el(`<h2>${title}</h2>`));
@@ -240,10 +244,10 @@
   function bar({ id, title, help, extra } = {}) {
     if (id) { const r = store.get('recent', []).filter(x => x !== id); r.unshift(id); store.set('recent', r.slice(0, 6)); }
     const h = el(`<header class="kbar">
-      <a class="k-btn k-icon" href="${ROOT}index.html" aria-label="ホームへもどる" title="ホーム">🏠</a>
+      <a class="k-btn k-icon" href="${HOME}" aria-label="ホームへもどる" title="ホーム">${ADULT ? '←' : '🏠'}</a>
       <h1>${title}</h1>
       <span class="kbar-extra"></span>
-      ${help ? '<button class="k-btn k-icon" data-k="help" aria-label="あそびかた" title="あそびかた">？</button>' : ''}
+      ${help ? `<button class="k-btn k-icon" data-k="help" aria-label="${ADULT ? '使い方' : 'あそびかた'}" title="${ADULT ? '使い方' : 'あそびかた'}">？</button>` : ''}
       <button class="k-btn k-icon" data-k="sound" aria-label="おと"></button>
     </header>`);
     const sb = h.querySelector('[data-k="sound"]');
@@ -252,9 +256,9 @@
     sb.onclick = () => {
       settings.sound = !settings.sound; settings.music = settings.sound; saveSettings(); paint();
       if (!settings.music) music.stop();
-      toast(settings.sound ? 'おと：オン' : 'おと：オフ');
+      toast(ADULT ? (settings.sound ? '音：オン' : '音：オフ') : (settings.sound ? 'おと：オン' : 'おと：オフ'));
     };
-    if (help) h.querySelector('[data-k="help"]').onclick = () => modal({ title: 'あそびかた', body: help });
+    if (help) h.querySelector('[data-k="help"]').onclick = () => modal({ title: ADULT ? '使い方' : 'あそびかた', body: help, actions: [{ label: ADULT ? '閉じる' : 'とじる', primary: true }] });
     if (extra) h.querySelector('.kbar-extra').appendChild(extra);
     document.body.prepend(h);
     return h;
@@ -277,19 +281,19 @@
       rec = new SR(); rec.lang = 'ja-JP'; rec.interimResults = true; rec.maxAlternatives = 1;
       const before = input.value;
       let finalText = '';
-      b.textContent = '👂 きいてるよ…'; b.classList.add('is-berry'); sfx('select');
+      b.textContent = ADULT ? '👂 聞き取り中…' : '👂 きいてるよ…'; b.classList.add('is-berry'); sfx('select');
       rec.onresult = e => {
         let interim = ''; finalText = '';
         for (const r of e.results) (r.isFinal ? (finalText += r[0].transcript) : (interim += r[0].transcript));
         input.value = (before ? before : '') + (finalText || interim).replace(/[。、]$/, '');
         input.dispatchEvent(new Event('input'));
       };
-      rec.onerror = e => { toast(e.error === 'not-allowed' ? 'マイクがゆるされていないよ' : e.error === 'no-speech' ? 'きこえなかったよ。もういちど！' : 'うまくきけなかったよ'); };
+      rec.onerror = e => { toast(ADULT ? (e.error === 'not-allowed' ? 'マイクが許可されていません' : e.error === 'no-speech' ? '聞き取れませんでした' : '音声入力に失敗しました') : (e.error === 'not-allowed' ? 'マイクがゆるされていないよ' : e.error === 'no-speech' ? 'きこえなかったよ。もういちど！' : 'うまくきけなかったよ')); };
       rec.onend = () => { rec = null; b.textContent = '🎤'; b.classList.remove('is-berry'); if (finalText && onDone) onDone(input.value); };
       try { rec.start(); } catch (e) { rec = null; b.textContent = '🎤'; b.classList.remove('is-berry'); }
     };
     return b;
   }
 
-  window.Kit = { ROOT, micButton, store, settings, saveSettings, audio, tone, noise, sfx, music, vibrate, esc, shuffle, rand, randInt, pick, clamp, el, modal, ask, toast, confetti, best, getBest, addWin, loop, fitCanvas, keepAwake, bar };
+  window.Kit = { ROOT, HOME, ADULT, micButton, store, settings, saveSettings, audio, tone, noise, sfx, music, vibrate, esc, shuffle, rand, randInt, pick, clamp, el, modal, ask, toast, confetti, best, getBest, addWin, loop, fitCanvas, keepAwake, bar };
 })();

@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>価値観ナンバー</title>
+<meta name="theme-color" content="#1f2328">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="icon" href="../../icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="../../../common/kit.css">
+<link rel="stylesheet" href="../../otona.css">
+<style>
+  .k-wrap { max-width: 640px; }
+  .f { display: grid; gap: 6px; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  .seg .k-chip { min-height: 38px; padding: 4px 14px; }
+  .names { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .names .k-input { min-height: 42px; }
+  .theme { text-align: center; display: grid; gap: 10px; padding: 26px 18px; }
+  .theme .q { font-family: var(--display); font-size: clamp(1.5rem, 6.5vw, 2.1rem); line-height: 1.4; }
+  .scale { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; font-size: .88rem; color: var(--muted); }
+  .scale .line { height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--sky), var(--berry)); }
+  .scale b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .pass { text-align: center; display: grid; gap: 16px; justify-items: center; padding: 34px 18px; }
+  .pass .who { font-family: var(--display); font-size: 1.8rem; }
+  .card-num { width: min(70vw, 260px); aspect-ratio: 3 / 4; border-radius: 22px; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); font-family: var(--display); font-size: clamp(4.5rem, 24vw, 7rem); box-shadow: var(--shadow); position: relative; }
+  .card-num.two { aspect-ratio: auto; padding: 22px 0; gap: 4px; font-size: clamp(3.4rem, 17vw, 5rem); }
+  .card-num small { position: absolute; top: 14px; font-family: var(--font); font-size: .8rem; opacity: .7; }
+  .lives { display: flex; gap: 4px; justify-content: center; font-size: 1.2rem; color: var(--berry); }
+  .order { display: grid; gap: 8px; }
+  .slot { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); min-height: 54px; }
+  .slot .n { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--soft); font-weight: 700; font-size: .85rem; }
+  .slot .v { font-family: var(--display); font-size: 1.6rem; font-variant-numeric: tabular-nums; min-width: 2.4em; text-align: right; }
+  .slot.ok { border-color: var(--grass); }
+  .slot.ok .v { color: var(--grass); }
+  .slot.ng { border-color: var(--berry); background: color-mix(in srgb, var(--berry) 10%, var(--card)); }
+  .slot.ng .v { color: var(--berry); }
+  .slot.flip .v { animation: flip .45s ease-out; }
+  @keyframes flip { from { transform: rotateX(90deg); opacity: 0; } }
+  .pool { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pool button { min-height: 44px; padding: 6px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); font-weight: 700; cursor: pointer; }
+  .pool button:disabled { opacity: .3; }
+  .big-result { text-align: center; display: grid; gap: 6px; }
+  .big-result .t { font-family: var(--display); font-size: 2rem; }
+  .timer { font-family: var(--display); font-size: 2.6rem; text-align: center; font-variant-numeric: tabular-nums; }
+  .rules { font-size: .92rem; color: var(--muted); margin: 0; }
+  .rules b { color: var(--ink); }
+  .between { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<main class="k-wrap" id="app"></main>
+
+<script src="../../../common/kit.js" data-ns="asobibako-otona:" data-home="../../index.html" data-tone="adult"></script>
+<script>
+'use strict';
+Kit.bar({ id: 'kachikan', title: '価値観ナンバー', help: `
+  <p>みんなで協力して、自分の数字（1〜100）を<b>小さい順</b>に並べるゲームです。</p>
+  <p><b>1.</b> スマホを回して、一人ずつこっそり自分の数字を見ます。</p>
+  <p><b>2.</b> お題（例：人気の食べ物）に沿って、自分の数字の大きさを<b>例え</b>で伝えます。100なら「焼肉」、5なら「パクチー」のように。数字そのものは言ってはいけません。</p>
+  <p><b>3.</b> 話し合って、小さいと思う人から順番に名前をタップします。</p>
+  <p><b>4.</b> 順番に数字を開けて、並びが合っていれば成功。ずれた所の数だけライフが減ります。ライフがなくなるまで、何ラウンド続けられるか挑戦しましょう。</p>
+  <p>同じ数字を持つ人はいません。人によって感覚がちがうのが面白いところです。</p>` });
+
+const THEMES = [
+  ['人気の食べ物', '人気がない', '大人気'], ['強そうな動物', '弱い', '最強'], ['もらってうれしいプレゼント', 'うれしくない', '最高にうれしい'],
+  ['怖いもの', '怖くない', 'めちゃくちゃ怖い'], ['無人島に持っていきたいもの', 'いらない', '絶対ほしい'], ['テンションが上がる瞬間', 'ふつう', '最高潮'],
+  ['言われたらうれしい一言', 'ふつう', '泣くほどうれしい'], ['言われたら傷つく一言', '平気', '立ち直れない'], ['一生に一度は行きたい場所', 'それほど', '絶対行きたい'],
+  ['お土産でもらってうれしいもの', 'うれしくない', 'すごくうれしい'], ['かっこいい職業', 'ふつう', '憧れる'], ['年収が高そうな職業', '低そう', '高そう'],
+  ['休日の過ごし方', 'だらだら', 'アクティブ'], ['ペットにしたい生き物', 'したくない', 'ぜひ飼いたい'], ['朝ごはんに出たらうれしいもの', 'うれしくない', 'うれしい'],
+  ['ゾンビが来た時に役立つもの', '役立たない', '頼りになる'], ['異世界で役立つスキル', '使えない', 'チート級'], ['子どもの頃にほしかったもの', 'ほしくない', 'のどから手が出るほど'],
+  ['昭和っぽいもの', '今っぽい', 'ザ・昭和'], ['高級そうな響きの言葉', '安っぽい', '高級そう'], ['重いもの', '軽い', '重い'],
+  ['においが強いもの', '無臭', '強烈'], ['甘いもの', '甘くない', '激甘'], ['辛いもの', '辛くない', '激辛'],
+  ['飲み会で盛り上がる話題', '盛り下がる', '大盛り上がり'], ['やめられない習慣', 'すぐやめられる', '一生やめられない'], ['寝る前にやりがちなこと', 'やらない', '毎晩やる'],
+  ['家にあったらうれしい設備', 'いらない', 'ほしい'], ['便利な家電', '使わない', '手放せない'], ['冬にほしいもの', 'いらない', '必須'],
+  ['夏といえば', '夏っぽくない', 'ザ・夏'], ['モテそうな趣味', 'モテなさそう', 'モテそう'], ['老後にやりたいこと', 'やらない', 'ぜひやりたい'],
+  ['人生で大事なもの', 'どうでもいい', 'いちばん大事'], ['結婚相手に求める条件', '気にしない', '譲れない'], ['上司にされたらうれしいこと', 'うれしくない', 'ついていきます'],
+  ['疲れた時に食べたいもの', '食べたくない', '今すぐ食べたい'], ['カラオケで盛り上がる曲', '盛り下がる', '全員で歌う'], ['有名人の知名度', '知る人ぞ知る', '誰でも知ってる'],
+  ['ドラマや映画のベタな展開', '意外', 'ベタすぎる'], ['旅行の持ち物', 'いらない', '忘れたら帰る'], ['キャンプで役立つもの', 'いらない', '必須'],
+  ['コンビニで買うもの', 'めったに買わない', 'いつも買う'], ['朝起きてやること', 'やらない', '必ずやる'], ['給料日に買いたいもの', '安い', '高い'],
+  ['子どもに人気の遊び', '人気がない', '大人気'], ['大人になってわかるありがたみ', 'わからない', '身にしみる'], ['すぐ壊れそうなもの', '丈夫', 'すぐ壊れる'],
+  ['速そうなもの', '遅い', '速い'], ['大きいもの', '小さい', '大きい'], ['長生きしそうな生き物', 'すぐ死ぬ', '長生き'],
+  ['地元自慢になるもの', '自慢にならない', '全国に自慢したい'], ['雨の日にうれしいもの', 'うれしくない', 'うれしい'], ['ご飯のおとも', '合わない', '無限に食べられる'],
+];
+
+const $ = id => document.getElementById(id);
+const app = $('app');
+const esc = Kit.esc;
+const G = Object.assign({ n: 4, names: [], cards: 1, timer: 0 }, Kit.store.get('kachikan:opt', {}));
+let R = null; // ラウンドの状態
+const save = () => Kit.store.set('kachikan:opt', { n: G.n, names: G.names, cards: G.cards, timer: G.timer });
+const nameOf = i => (G.names[i] || '').trim() || `プレイヤー${i + 1}`;
+
+function seg(list, cur, on) {
+  const d = Kit.el('<div class="seg"></div>');
+  list.forEach(([v, l]) => { const b = Kit.el(`<button class="k-chip" aria-pressed="${cur === v}">${l}</button>`); b.onclick = () => { on(v); save(); Kit.sfx('tap'); setup(); }; d.appendChild(b); });
+  return d;
+}
+function themeCard(t) {
+  return `<div class="k-card theme"><span class="k-label">お題</span><div class="q">${esc(t[0])}</div>
+    <div class="scale"><span><b>1</b> ${esc(t[1])}</span><div class="line"></div><span>${esc(t[2])} <b>100</b></span></div></div>`;
+}
+
+/* ---------- 準備 ---------- */
+function setup() {
+  app.innerHTML = '';
+  const c = Kit.el('<div class="k-card k-stack"></div>');
+  c.appendChild(Kit.el('<p class="rules">自分の数字は言わずに、お題に沿った<b>例え</b>で伝え合い、みんなで<b>小さい順</b>に並べる協力ゲームです。</p>'));
+  const nf = Kit.el('<div class="f"><span class="k-label">人数</span></div>');
+  nf.appendChild(seg([2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => [n, n + '人']), G.n, v => { G.n = v; if (G.n * G.cards > 20) G.cards = 1; }));
+  c.appendChild(nf);
+  const names = Kit.el('<div class="f"><span class="k-label">名前（空欄なら番号）</span><div class="names"></div></div>');
+  for (let i = 0; i < G.n; i++) {
+    const inp = Kit.el(`<input class="k-input" maxlength="8" placeholder="プレイヤー${i + 1}" value="${esc(G.names[i] || '')}">`);
+    inp.oninput = () => { G.names[i] = inp.value; save(); };
+    names.lastChild.appendChild(inp);
+  }
+  c.appendChild(names);
+  const cf = Kit.el('<div class="f"><span class="k-label">一人の数字</span></div>');
+  cf.appendChild(seg([[1, '1枚'], [2, '2枚（少人数向け）']], G.cards, v => G.cards = v));
+  c.appendChild(cf);
+  const tf = Kit.el('<div class="f"><span class="k-label">話し合いのタイマー</span></div>');
+  tf.appendChild(seg([[0, 'なし'], [120, '2分'], [180, '3分'], [300, '5分']], G.timer, v => G.timer = v));
+  c.appendChild(tf);
+  const go = Kit.el('<button class="k-btn is-sun is-big">はじめる</button>');
+  go.onclick = () => { R = { round: 0, lives: 3, best: 0 }; newRound(); };
+  c.appendChild(go);
+  app.appendChild(c);
+}
+
+/* ---------- ラウンド ---------- */
+function pickTheme() {
+  const used = Kit.store.get('kachikan:used', []);
+  let pool = THEMES.map((t, i) => i).filter(i => !used.includes(i));
+  if (!pool.length) { pool = THEMES.map((t, i) => i); Kit.store.set('kachikan:used', []); }
+  const i = Kit.pick(pool);
+  Kit.store.set('kachikan:used', [...Kit.store.get('kachikan:used', []), i]);
+  return THEMES[i];
+}
+function newRound() {
+  R.round++;
+  const nums = Kit.shuffle(Array.from({ length: 100 }, (_, i) => i + 1)).slice(0, G.n * G.cards);
+  R.hands = Array.from({ length: G.n }, (_, i) => nums.slice(i * G.cards, i * G.cards + G.cards).sort((a, b) => a - b));
+  R.theme = pickTheme();
+  R.turn = 0; R.order = [];
+  themeScreen();
+}
+function livesHtml() { return `<div class="lives" aria-label="ライフ ${R.lives}">${'♥'.repeat(R.lives)}<span style="opacity:.2">${'♥'.repeat(Math.max(0, 3 - R.lives))}</span></div>`; }
+function themeScreen() {
+  app.innerHTML = `<div class="k-stack">
+    <div class="between"><span class="k-label">ラウンド ${R.round}</span>${livesHtml()}</div>
+    ${themeCard(R.theme)}
+    <div class="k-row" style="justify-content:center"><button class="k-btn is-small" id="re">別のお題</button><button class="k-btn is-small" id="own">お題を自分で書く</button></div>
+    <button class="k-btn is-sun is-big" id="go">数字を配る</button></div>`;
+  $('re').onclick = () => { R.theme = pickTheme(); Kit.sfx('select'); themeScreen(); };
+  $('own').onclick = () => {
+    const body = Kit.el(`<div class="k-stack"><input class="k-input" id="tq" maxlength="30" placeholder="お題（例：好きな季節のイベント）"><div class="names"><input class="k-input" id="tl" maxlength="12" placeholder="1 の意味"><input class="k-input" id="th" maxlength="12" placeholder="100 の意味"></div></div>`);
+    Kit.modal({ title: 'お題を書く', body, actions: [{ label: 'やめる' }, { label: '決める', primary: true, onClick: () => {
+      const q = body.querySelector('#tq').value.trim(); if (!q) return false;
+      R.theme = [q, body.querySelector('#tl').value.trim() || '小さい', body.querySelector('#th').value.trim() || '大きい']; themeScreen();
+    } }] });
+  };
+  $('go').onclick = () => passScreen();
+}
+function passScreen() {
+  const i = R.turn;
+  app.innerHTML = `<div class="k-card pass">
+    <span class="k-label">${i + 1} / ${G.n}</span>
+    <div class="who">${esc(nameOf(i))} さん</div>
+    <p class="rules">ほかの人に見えないようにして、ボタンを押してください。</p>
+    <button class="k-btn is-sun is-big" id="see">自分の数字を見る</button></div>`;
+  $('see').onclick = () => {
+    Kit.sfx('select');
+    app.innerHTML = `<div class="k-card pass">
+      <div class="who">${esc(nameOf(i))} さん</div>
+      <div class="card-num ${G.cards > 1 ? 'two' : ''}"><small>${esc(R.theme[0])}</small>${R.hands[i].map(n => `<span>${n}</span>`).join('')}</div>
+      <div class="scale" style="width:min(100%,320px)"><span><b>1</b> ${esc(R.theme[1])}</span><div class="line"></div><span>${esc(R.theme[2])} <b>100</b></span></div>
+      <button class="k-btn is-big" id="hide">覚えたので隠す</button></div>`;
+    $('hide').onclick = () => { R.turn++; Kit.sfx('tap'); if (R.turn < G.n) passScreen(); else talkScreen(); };
+  };
+}
+let tick = null;
+function talkScreen() {
+  clearInterval(tick);
+  app.innerHTML = `<div class="k-stack">
+    ${themeCard(R.theme)}
+    <div class="k-card k-stack">
+      <p class="rules">自分の数字を、お題に沿った<b>例え</b>で伝えましょう。<br>例：100 なら「誰もが好きな○○」、5 なら「ほとんどの人が苦手な○○」。数字そのものや「真ん中くらい」は言わないのがルールです。</p>
+      ${G.timer ? `<div class="timer" id="tm"></div>` : ''}
+    </div>
+    <button class="k-btn is-sun is-big" id="go">並べる</button></div>`;
+  if (G.timer) {
+    let left = G.timer;
+    const paint = () => { $('tm').textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`; };
+    paint();
+    tick = setInterval(() => { left--; if (left <= 10 && left > 0) Kit.sfx('tick'); if (left <= 0) { clearInterval(tick); Kit.sfx('alarm'); Kit.vibrate([200, 100, 200]); left = 0; } if ($('tm')) paint(); }, 1000);
+  }
+  $('go').onclick = () => { clearInterval(tick); R.order = []; orderScreen(); };
+}
+/* 並べる：小さいと思う人から順にタップ。2枚の時は名前が2回ずつ出る */
+function orderScreen() {
+  const total = G.n * G.cards;
+  const chips = [];
+  for (let i = 0; i < G.n; i++) for (let k = 0; k < G.cards; k++) chips.push({ p: i, k });
+  app.innerHTML = `<div class="k-stack">
+    <div class="between"><span class="k-label">${esc(R.theme[0])}</span>${livesHtml()}</div>
+    <div class="k-card k-stack">
+      <p class="rules">数字が<b>小さい</b>と思う人から順に、名前をタップしてください。${G.cards > 1 ? '1人2回ずつ出てきます（小さい方の数字から）。' : ''}</p>
+      <div class="pool" id="pool"></div>
+    </div>
+    <div class="order" id="order"></div>
+    <div class="k-row" style="justify-content:center"><button class="k-btn is-small" id="back">1つ戻す</button><button class="k-btn is-sun" id="open" disabled>数字を開ける</button></div></div>`;
+  const paint = () => {
+    const used = R.order.map(o => o.p + ':' + o.k);
+    $('pool').innerHTML = '';
+    chips.forEach(c => {
+      const nextK = R.order.filter(o => o.p === c.p).length;
+      if (c.k !== nextK) return;
+      const b = Kit.el(`<button>${esc(nameOf(c.p))}${G.cards > 1 ? `<small class="k-muted">（${c.k + 1}枚目）</small>` : ''}</button>`);
+      b.disabled = used.includes(c.p + ':' + c.k);
+      b.onclick = () => { R.order.push(c); Kit.sfx('tap'); paint(); };
+      $('pool').appendChild(b);
+    });
+    $('order').innerHTML = R.order.map((o, i) => `<div class="slot"><span class="n">${i + 1}</span><b>${esc(nameOf(o.p))}${G.cards > 1 ? `<small class="k-muted">（${o.k + 1}枚目）</small>` : ''}</b><span class="v">？</span></div>`).join('');
+    $('open').disabled = R.order.length < total;
+  };
+  $('back').onclick = () => { R.order.pop(); paint(); };
+  $('open').onclick = () => reveal();
+  paint();
+}
+async function reveal() {
+  app.querySelector('.k-row').hidden = true; $('pool').parentElement.hidden = true;
+  const slots = [...document.querySelectorAll('.slot')];
+  let max = 0, miss = 0;
+  for (let i = 0; i < R.order.length; i++) {
+    const o = R.order[i], v = R.hands[o.p][o.k];
+    await new Promise(r => setTimeout(r, 650));
+    const ok = v > max;
+    if (!ok) miss++;
+    max = Math.max(max, v);
+    slots[i].classList.add('flip', ok ? 'ok' : 'ng');
+    slots[i].querySelector('.v').textContent = v;
+    slots[i].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    Kit.tone(ok ? 520 + i * 40 : 200, ok ? .12 : .3, { type: ok ? 'triangle' : 'sawtooth', vol: ok ? .2 : .12 });
+  }
+  await new Promise(r => setTimeout(r, 500));
+  R.lives = Math.max(0, R.lives - miss);
+  document.querySelectorAll('.lives').forEach(l => l.outerHTML = livesHtml());
+  const over = R.lives <= 0;
+  if (!miss) { Kit.sfx('win'); Kit.confetti(1800); } else Kit.sfx(over ? 'lose' : 'bad');
+  const cleared = R.round - (over ? 1 : 0);
+  if (over) { const b = Kit.best('kachikan', cleared); Kit.store.set('stat:kachikan', `最高 ${b.best}ラウンド`); }
+  const res = Kit.el(`<div class="k-card big-result">
+    <div class="t">${!miss ? 'ぴったり！' : over ? 'ゲームオーバー' : `${miss}か所ずれました`}</div>
+    <p class="rules">${over ? `${cleared}ラウンドまでクリア` : !miss ? 'ライフはそのまま。次のお題へ' : `ライフ −${miss}`}</p>
+    ${livesHtml()}
+    <div class="k-row" style="justify-content:center">${over ? '<button class="k-btn is-sun" id="again">最初から</button><button class="k-btn" id="menu">人数を変える</button>' : '<button class="k-btn is-sun" id="next">次のラウンド</button><button class="k-btn is-small" id="menu">やめる</button>'}</div></div>`);
+  app.firstElementChild.appendChild(res);
+  res.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  if ($('next')) $('next').onclick = () => newRound();
+  if ($('again')) $('again').onclick = () => { R = { round: 0, lives: 3 }; newRound(); };
+  $('menu').onclick = () => setup();
+}
+
+setup();
+</script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+/* おとなのあそびばこ：kit.css のあとに読む。色と線を落ち着いたものに差しかえる
+   生成りの紙 × 墨色。線は細く、影はやわらかく。見出しだけ明朝 */
+:root {
+  --paper: #f4f1ea;
+  --card: #fffdf8;
+  --ink: #1f2328;
+  --muted: #6b7078;
+  --line: #d9d3c6;
+  --soft: #ebe6db;
+  --sun: #b8863b;
+  --sky: #3f6f95;
+  --grass: #4d7c5f;
+  --berry: #b0544b;
+  --grape: #6a5a92;
+  --orange: #c26d3a;
+  --accent: #1f2328;
+  --on-accent: #f4f1ea;
+  --on-color: #ffffff;
+  --shadow: 0 1px 2px rgba(31, 35, 40, .06), 0 6px 18px rgba(31, 35, 40, .06);
+  --font: "Zen Kaku Gothic New", "Hiragino Sans", "BIZ UDPGothic", "Meiryo", system-ui, sans-serif;
+  --display: "Shippori Mincho B1", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --r: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #15171a; --card: #1e2125; --ink: #ebe7de; --muted: #9a9fa6; --line: #33373d; --soft: #272a2f;
+    --sun: #d2a457; --sky: #6f9fc6; --grass: #74a886; --berry: #d27a70; --grape: #9a8bc4; --orange: #dd8d5a;
+    --accent: #ebe7de; --on-accent: #15171a; --on-color: #15171a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 22px rgba(0, 0, 0, .25);
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #15171a; --card: #1e2125; --ink: #ebe7de; --muted: #9a9fa6; --line: #33373d; --soft: #272a2f;
+  --sun: #d2a457; --sky: #6f9fc6; --grass: #74a886; --berry: #d27a70; --grape: #9a8bc4; --orange: #dd8d5a;
+  --accent: #ebe7de; --on-accent: #15171a; --on-color: #15171a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 22px rgba(0, 0, 0, .25);
+}
+
+body { font-size: 16px; line-height: 1.7; letter-spacing: .02em; }
+h1, h2, h3 { font-weight: 700; letter-spacing: .04em; }
+:focus-visible { outline: 2px solid var(--sky); }
+
+.kbar { border-bottom: 1px solid var(--line); backdrop-filter: blur(8px); background: color-mix(in srgb, var(--paper) 88%, transparent); }
+.kbar h1 { font-size: 1.05rem; }
+
+.k-btn {
+  min-height: 48px; padding: 10px 20px;
+  border: 1px solid var(--line); border-radius: var(--r);
+  box-shadow: none; font-weight: 700; font-size: 1rem;
+  transition: background .15s, transform .06s, border-color .15s;
+}
+.k-btn:hover:not(:disabled) { border-color: var(--muted); }
+.k-btn:active:not(:disabled) { transform: translateY(1px); box-shadow: none; }
+.k-btn.is-sun { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.k-btn.is-sky, .k-btn.is-grass, .k-btn.is-berry, .k-btn.is-grape, .k-btn.is-orange { color: var(--on-color); border-color: transparent; }
+.k-btn.is-big { min-height: 56px; font-size: 1.1rem; }
+.k-btn.is-small { min-height: 40px; padding: 6px 14px; font-size: .92rem; box-shadow: none; }
+.k-icon { width: 40px; height: 40px; border-radius: 10px; font-size: 1.1rem; box-shadow: none; }
+
+.k-chip { min-height: 40px; padding: 6px 14px; border: 1px solid var(--line); font-weight: 500; }
+.k-chip[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 700; }
+
+.k-card { border: 1px solid var(--line); box-shadow: var(--shadow); border-radius: 16px; }
+.k-input { border: 1px solid var(--line); border-radius: 10px; }
+.k-input:focus { outline: 2px solid var(--sky); outline-offset: 0; border-color: transparent; }
+.k-label { font-weight: 500; letter-spacing: .08em; }
+
+.k-modal { border: 1px solid var(--line); box-shadow: 0 20px 50px rgba(0, 0, 0, .25); border-radius: 18px; }
+.k-modal h2 { font-size: 1.25rem; }
+.k-toast { font-weight: 500; }

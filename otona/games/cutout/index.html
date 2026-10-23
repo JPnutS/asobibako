@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>背景削除</title>
+<meta name="theme-color" content="#1f2328">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="icon" href="../../icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="../../../common/kit.css">
+<link rel="stylesheet" href="../../otona.css">
+<style>
+  .k-wrap { max-width: 1000px; }
+  .drop { border: 1.5px dashed var(--muted); border-radius: 18px; padding: 44px 18px; text-align: center; cursor: pointer; background: var(--card); display: grid; gap: 10px; justify-items: center; }
+  .drop b { font-size: 1.2rem; }
+  .drop .ico { font-size: 2.4rem; }
+  .layout { display: grid; gap: 14px; }
+  @media (min-width: 860px) { .layout { grid-template-columns: 1fr 300px; align-items: start; } .side { position: sticky; top: 76px; } }
+  .stage-wrap { position: relative; border-radius: 14px; overflow: hidden; background: var(--soft); }
+  .stage { overflow: auto; max-height: 68dvh; display: grid; place-items: center; overscroll-behavior: contain; }
+  .stage.pan { touch-action: pan-x pan-y pinch-zoom; cursor: grab; }
+  .checker { background-color: #fff; background-image: linear-gradient(45deg, #e6e3dc 25%, transparent 25%), linear-gradient(-45deg, #e6e3dc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e6e3dc 75%), linear-gradient(-45deg, transparent 75%, #e6e3dc 75%); background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0; }
+  #view { display: block; touch-action: none; max-width: none; }
+  .stage.pan #view { touch-action: pan-x pan-y pinch-zoom; }
+  .busy { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(20, 22, 26, .45); color: #fff; font-weight: 700; text-align: center; padding: 16px; z-index: 3; }
+  .busy small { display: block; font-weight: 400; opacity: .85; margin-top: 6px; }
+  .zoom { position: absolute; right: 8px; bottom: 8px; display: flex; gap: 6px; z-index: 2; }
+  .zoom button { width: 38px; height: 38px; border-radius: 10px; border: 0; background: rgba(20,22,26,.7); color: #fff; font-size: 1.1rem; cursor: pointer; }
+  .tools { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .tool { display: grid; justify-items: center; gap: 2px; padding: 8px 2px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); cursor: pointer; font-size: .74rem; line-height: 1.3; }
+  .tool span { font-size: 1.25rem; }
+  .tool[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .row { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; font-size: .88rem; }
+  .row input[type=range] { width: 100%; accent-color: var(--ink); }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  .seg .k-chip { min-height: 36px; padding: 4px 12px; font-size: .88rem; }
+  .colorchip { position: relative; display: inline-flex; align-items: center; gap: 6px; overflow: hidden; }
+  .colorchip i { width: 16px; height: 16px; border-radius: 50%; outline: 1px solid var(--line); }
+  .colorchip input { opacity: 0; position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; }
+  .sw { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--card); outline: 1px solid var(--line); cursor: pointer; padding: 0; position: relative; overflow: hidden; }
+  .sw[aria-pressed="true"] { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .sw input { opacity: 0; position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; }
+  .hint { font-size: .85rem; color: var(--muted); margin: 0; min-height: 1.4em; }
+  .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .acts .wide { grid-column: 1 / -1; }
+  .check { display: flex; gap: 8px; align-items: center; font-size: .9rem; }
+  .check input { width: 20px; height: 20px; accent-color: var(--ink); }
+</style>
+</head>
+<body>
+<main class="k-wrap">
+  <label class="drop" id="drop">
+    <span class="ico">✂️</span>
+    <b>写真を選ぶ</b>
+    <span class="k-muted" style="font-size:.92rem">残したい人や物をタップすると、そこだけ切り抜きます。<br>写真はこの端末の中だけで処理し、どこにも送信しません。</span>
+    <input type="file" id="file" accept="image/*" hidden>
+  </label>
+
+  <section id="editor" class="layout" hidden>
+    <div class="k-stack">
+      <div class="stage-wrap">
+        <div class="stage checker" id="stage"><canvas id="view"></canvas></div>
+        <div class="zoom"><button id="zOut" aria-label="縮小">−</button><button id="zIn" aria-label="拡大">＋</button></div>
+        <div class="busy" id="busy" hidden></div>
+      </div>
+      <p class="hint" id="hint"></p>
+    </div>
+
+    <div class="side k-stack">
+      <div class="k-card k-stack">
+        <div class="tools" id="tools"></div>
+        <div class="row" id="sizeRow"><span>ブラシ</span><input type="range" id="size" min="4" max="120" value="28"><span id="sizeVal" class="k-num"></span></div>
+        <div class="k-row"><button class="k-btn is-small" id="undo">↶ 戻す</button><button class="k-btn is-small" id="redo">↷ やり直す</button><button class="k-btn is-small" id="reset">最初から</button></div>
+        <label class="check"><input type="checkbox" id="preview">仕上がりで見る</label>
+      </div>
+      <div class="k-card k-stack">
+        <div class="row"><span>ふちのぼかし</span><input type="range" id="feather" min="0" max="8" step="1" value="1"><span id="featherVal" class="k-num"></span></div>
+        <span class="k-label">背景</span>
+        <div class="seg" id="bgs"></div>
+        <label class="check"><input type="checkbox" id="trim" checked>余白を詰めて保存</label>
+      </div>
+      <div class="acts">
+        <button class="k-btn is-sun wide" id="save">画像で保存</button>
+        <button class="k-btn is-small" id="share">共有</button>
+        <button class="k-btn is-small" id="copy">コピー</button>
+        <button class="k-btn is-small wide" id="other">別の写真を開く</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="../../../common/kit.js" data-ns="asobibako-otona:" data-home="../../index.html" data-tone="adult"></script>
+<script type="module">
+'use strict';
+Kit.bar({ id: 'cutout', title: '背景削除', help: `
+  <p><b>1.</b> 写真を選んだら、残したい人や物を<b>タップ</b>します。AIがその形を見つけて切り抜きます。何か所かタップすると足していけます。</p>
+  <p><b>2.</b> 余計なものが残ったら「消す」に切り替えて、そこをタップします。</p>
+  <p><b>3.</b> 細かい所は「ブラシ」で塗って直します。「＋」で拡大し、「移動」で場所を動かせます。</p>
+  <p>背景は透明・白・好きな色・元の写真をぼかしたもの、から選べます。透明のまま保存すると、スタンプやコラージュの素材に使えます。</p>
+  <p>写真はこの端末の中だけで処理します。初回だけ切り抜き用のAI（約20MB）を読み込むので、ネットにつないで使ってください。</p>` });
+
+const $ = id => document.getElementById(id);
+const MAXSIDE = 1600, UNDO = 12;
+let img = null, W = 0, H = 0, name = 'photo';
+const src = document.createElement('canvas');     // 元の写真（作業サイズ）
+const mask = document.createElement('canvas');    // 残す所 = 不透明
+const tmp = document.createElement('canvas');
+const view = $('view'), vg = view.getContext('2d');
+let mode = 'add', zoom = 1, fitScale = 1, undoStack = [], redoStack = [];
+let seg = null, segLoading = null;
+const S = Object.assign({ bg: 'clear', color: '#ffffff', feather: 1, size: 28, trim: true }, Kit.store.get('cutout:s', {}));
+const saveS = () => Kit.store.set('cutout:s', S);
+
+const TOOLS = [
+  ['add', '👆', '残す'], ['sub', '🫳', '消す'],
+  ['bAdd', '🖌️', 'ブラシ<br>残す'], ['bSub', '🧽', 'ブラシ<br>消す'], ['pan', '✋', '移動'],
+];
+const HINTS = {
+  add: '残したい人や物をタップしてください。',
+  sub: '消したい所をタップすると、その形ごと消えます。',
+  bAdd: 'なぞった所を残します。',
+  bSub: 'なぞった所を消します。',
+  pan: '拡大した時に、ドラッグで見る場所を動かします。',
+};
+function renderTools() {
+  $('tools').innerHTML = '';
+  TOOLS.forEach(([k, i, l]) => {
+    const b = Kit.el(`<button class="tool" aria-pressed="${mode === k}"><span>${i}</span>${l}</button>`);
+    b.onclick = () => { mode = k; renderTools(); };
+    $('tools').appendChild(b);
+  });
+  $('sizeRow').style.display = mode.startsWith('b') ? '' : 'none';
+  $('stage').classList.toggle('pan', mode === 'pan');
+  $('hint').textContent = HINTS[mode];
+}
+function renderBgs() {
+  const box = $('bgs'); box.innerHTML = '';
+  [['clear', '透明'], ['white', '白'], ['blur', 'ぼかし']].forEach(([k, l]) => {
+    const b = Kit.el(`<button class="k-chip" aria-pressed="${S.bg === k}">${l}</button>`);
+    b.onclick = () => { S.bg = k; saveS(); renderBgs(); draw(); };
+    box.appendChild(b);
+  });
+  const c = Kit.el(`<label class="k-chip colorchip" aria-pressed="${S.bg === 'color'}"><i style="background:${S.color}"></i>色<input type="color" value="${S.color}"></label>`);
+  const ci = c.querySelector('input');
+  ci.addEventListener('input', e => { S.color = e.target.value; S.bg = 'color'; c.querySelector('i').style.background = S.color; saveS(); draw(); });
+  ci.addEventListener('change', () => renderBgs());
+  c.onclick = () => { if (S.bg !== 'color') { S.bg = 'color'; saveS(); renderBgs(); draw(); } };
+  box.appendChild(c);
+  $('stage').classList.toggle('checker', !$('preview').checked || S.bg === 'clear');
+}
+
+/* ---------- 読みこみ ---------- */
+async function load(f) {
+  if (!f || !f.type.startsWith('image/')) { Kit.toast('画像ファイルを選んでください'); return; }
+  name = f.name.replace(/\.[^.]+$/, '');
+  let bmp;
+  try { bmp = await createImageBitmap(f, { imageOrientation: 'from-image' }); }
+  catch (e) { Kit.toast('この画像は開けませんでした'); return; }
+  const s = Math.min(1, MAXSIDE / Math.max(bmp.width, bmp.height));
+  W = Math.round(bmp.width * s); H = Math.round(bmp.height * s);
+  for (const c of [src, mask, tmp, view]) { c.width = W; c.height = H; }
+  src.getContext('2d').drawImage(bmp, 0, 0, W, H);
+  mask.getContext('2d').clearRect(0, 0, W, H);
+  img = bmp; undoStack = []; redoStack = [];
+  $('drop').hidden = true; $('editor').hidden = false;
+  $('preview').checked = false;
+  mode = 'add'; renderTools(); fit(); draw(); paintUndo();
+  ensureSeg();
+}
+$('file').addEventListener('change', e => load(e.target.files[0]));
+$('drop').addEventListener('dragover', e => e.preventDefault());
+$('drop').addEventListener('drop', e => { e.preventDefault(); load(e.dataTransfer.files[0]); });
+addEventListener('paste', e => { const f = [...(e.clipboardData?.files || [])].find(x => x.type.startsWith('image/')); if (f) load(f); });
+$('other').onclick = () => { $('editor').hidden = true; $('drop').hidden = false; $('file').value = ''; };
+
+/* ---------- AI の準備 ---------- */
+function busy(msg, sub = '') { $('busy').hidden = !msg; $('busy').innerHTML = msg ? `<div>${msg}${sub ? `<small>${sub}</small>` : ''}</div>` : ''; }
+function ensureSeg() {
+  if (seg) return Promise.resolve(seg);
+  if (segLoading) return segLoading;
+  busy('切り抜き用のAIを準備しています…', '初回は20MBほど読み込みます。2回目からはすぐです。');
+  const base = new URL('../../vendor/mediapipe/', location.href).href;
+  segLoading = (async () => {
+    const { FilesetResolver, InteractiveSegmenterLegacy } = await import(base + 'vision_bundle.mjs');
+    const fs = await FilesetResolver.forVisionTasks(base + 'wasm');
+    const opts = d => ({ baseOptions: { modelAssetPath: base + 'magic_touch.tflite', delegate: d }, outputCategoryMask: false, outputConfidenceMasks: true });
+    try { seg = await InteractiveSegmenterLegacy.createFromOptions(fs, opts('GPU')); }
+    catch (e) { seg = await InteractiveSegmenterLegacy.createFromOptions(fs, opts('CPU')); }
+    busy('');
+    return seg;
+  })().catch(e => {
+    segLoading = null;
+    busy('');
+    Kit.toast('AIを読み込めませんでした。ネットにつないでもう一度試してください。ブラシは使えます。', 4000);
+    throw e;
+  });
+  return segLoading;
+}
+
+/* ---------- 表示 ---------- */
+function fit() {
+  const box = $('stage').getBoundingClientRect();
+  const maxH = Math.min(innerHeight * .68, 900);
+  fitScale = Math.min((box.width || 360) / W, maxH / H);
+  zoom = 1; applyZoom();
+}
+function applyZoom() { view.style.width = (W * fitScale * zoom) + 'px'; view.style.height = (H * fitScale * zoom) + 'px'; }
+$('zIn').onclick = () => { zoom = Math.min(6, zoom * 1.5); applyZoom(); if (mode === 'add' || mode === 'sub') Kit.toast('拡大中は「移動」で場所を動かせます'); };
+$('zOut').onclick = () => { zoom = Math.max(1, zoom / 1.5); applyZoom(); };
+addEventListener('resize', () => { if (img) { const z = zoom; fit(); zoom = z; applyZoom(); } });
+
+/* 残す所だけの写真（ふちをぼかす） */
+function cutoutCanvas() {
+  const g = tmp.getContext('2d');
+  g.save(); g.clearRect(0, 0, W, H);
+  g.filter = S.feather ? `blur(${S.feather * Math.max(W, H) / 1000}px)` : 'none';
+  g.drawImage(mask, 0, 0); g.restore();
+  g.globalCompositeOperation = 'source-in'; g.drawImage(src, 0, 0); g.globalCompositeOperation = 'source-over';
+  return tmp;
+}
+function paintBg(g, w, h, ox = 0, oy = 0) {
+  if (S.bg === 'white') { g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); }
+  if (S.bg === 'color') { g.fillStyle = S.color; g.fillRect(0, 0, w, h); }
+  if (S.bg === 'blur') { g.save(); g.filter = `blur(${Math.max(W, H) / 60}px)`; g.drawImage(src, -ox, -oy); g.restore(); }
+}
+let raf = 0;
+function draw() { cancelAnimationFrame(raf); raf = requestAnimationFrame(drawNow); }
+function drawNow() {
+  vg.clearRect(0, 0, W, H);
+  const cut = cutoutCanvas();
+  if ($('preview').checked) { paintBg(vg, W, H); vg.drawImage(cut, 0, 0); }
+  else {
+    // 編集中：消える所はうすく、残る所はそのまま、境目に線
+    vg.globalAlpha = .28; vg.drawImage(src, 0, 0); vg.globalAlpha = 1;
+    vg.drawImage(cut, 0, 0);
+  }
+  $('stage').classList.toggle('checker', !$('preview').checked || S.bg === 'clear');
+}
+$('preview').onchange = draw;
+$('feather').oninput = e => { S.feather = +e.target.value; $('featherVal').textContent = S.feather; saveS(); draw(); };
+$('size').oninput = e => { S.size = +e.target.value; $('sizeVal').textContent = S.size; saveS(); };
+$('trim').onchange = e => { S.trim = e.target.checked; saveS(); };
+
+/* ---------- 戻す ---------- */
+function snap() { undoStack.push(mask.getContext('2d').getImageData(0, 0, W, H)); if (undoStack.length > UNDO) undoStack.shift(); redoStack = []; paintUndo(); }
+function paintUndo() { $('undo').disabled = !undoStack.length; $('redo').disabled = !redoStack.length; }
+$('undo').onclick = () => { if (!undoStack.length) return; const g = mask.getContext('2d'); redoStack.push(g.getImageData(0, 0, W, H)); g.putImageData(undoStack.pop(), 0, 0); paintUndo(); draw(); };
+$('redo').onclick = () => { if (!redoStack.length) return; const g = mask.getContext('2d'); undoStack.push(g.getImageData(0, 0, W, H)); g.putImageData(redoStack.pop(), 0, 0); paintUndo(); draw(); };
+$('reset').onclick = async () => { if (!(await Kit.ask('切り抜きを最初からやり直しますか？', 'やり直す', 'やめる'))) return; snap(); mask.getContext('2d').clearRect(0, 0, W, H); draw(); };
+
+/* ---------- タップで切り抜き ---------- */
+async function tapAt(x, y, add) {
+  let s;
+  try { s = await ensureSeg(); } catch (e) { return; }
+  busy('切り抜いています…');
+  await new Promise(r => setTimeout(r, 30));
+  try {
+    s.segment(src, { keypoint: { x: x / W, y: y / H } }, res => {
+      const m = res.confidenceMasks && res.confidenceMasks[0];
+      if (!m) return;
+      const a = m.getAsFloat32Array(), mw = m.width, mh = m.height;
+      const id = new ImageData(mw, mh); const d = id.data;
+      let hit = 0;
+      for (let i = 0; i < a.length; i++) { const v = a[i] < .15 ? 0 : a[i] > .85 ? 255 : Math.round(a[i] * 255); d[i * 4 + 3] = v; if (v > 128) hit++; }
+      const lay = document.createElement('canvas'); lay.width = mw; lay.height = mh; lay.getContext('2d').putImageData(id, 0, 0);
+      snap();
+      const g = mask.getContext('2d');
+      g.globalCompositeOperation = add ? 'source-over' : 'destination-out';
+      g.drawImage(lay, 0, 0, W, H);
+      g.globalCompositeOperation = 'source-over';
+      if (!hit) Kit.toast('うまく見つけられませんでした。少し場所を変えてタップしてください');
+    });
+  } catch (e) { Kit.toast('切り抜きに失敗しました'); }
+  busy('');
+  if (add && $('preview').checked === false) $('hint').textContent = 'ほかにも残したい所があればタップ。余計な所は「消す」で。';
+  Kit.sfx('pop');
+  draw();
+}
+
+/* ---------- 入力 ---------- */
+function pos(e) { const r = view.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H]; }
+let drag = null;
+view.addEventListener('pointerdown', e => {
+  if (mode === 'pan') return;
+  if (!e.isPrimary) return;
+  view.setPointerCapture(e.pointerId);
+  const [x, y] = pos(e);
+  drag = { x0: e.clientX, y0: e.clientY, last: [x, y], painted: false };
+  if (mode.startsWith('b')) { snap(); stroke(x, y, x, y); drag.painted = true; }
+});
+view.addEventListener('pointermove', e => {
+  if (!drag || !mode.startsWith('b')) return;
+  const [x, y] = pos(e);
+  stroke(drag.last[0], drag.last[1], x, y); drag.last = [x, y];
+});
+view.addEventListener('pointerup', e => {
+  if (!drag) return;
+  const moved = Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0);
+  const d = drag; drag = null;
+  if ((mode === 'add' || mode === 'sub') && moved < 12) { const [x, y] = pos(e); tapAt(x, y, mode === 'add'); }
+  else if (d.painted) draw();
+});
+view.addEventListener('pointercancel', () => { drag = null; });
+function stroke(x1, y1, x2, y2) {
+  const g = mask.getContext('2d');
+  const r = S.size / (fitScale * zoom) / 2;   // 画面上の太さを保つ
+  g.save();
+  g.globalCompositeOperation = mode === 'bAdd' ? 'source-over' : 'destination-out';
+  g.strokeStyle = '#000'; g.lineCap = 'round'; g.lineJoin = 'round'; g.lineWidth = r * 2;
+  g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2 + .01, y2); g.stroke();
+  g.restore();
+  draw();
+}
+// パン（移動モード）：マウスのドラッグでもスクロールできるように
+let panS = null;
+$('stage').addEventListener('pointerdown', e => { if (mode !== 'pan' || e.pointerType === 'touch') return; panS = { x: e.clientX, y: e.clientY, l: $('stage').scrollLeft, t: $('stage').scrollTop }; });
+addEventListener('pointermove', e => { if (!panS) return; $('stage').scrollLeft = panS.l - (e.clientX - panS.x); $('stage').scrollTop = panS.t - (e.clientY - panS.y); });
+addEventListener('pointerup', () => { panS = null; });
+
+/* ---------- 書き出し ---------- */
+function bounds() {
+  const d = mask.getContext('2d').getImageData(0, 0, W, H).data;
+  let x0 = W, y0 = H, x1 = -1, y1 = -1;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (d[(y * W + x) * 4 + 3] > 16) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  if (x1 < 0) return null;
+  const pad = Math.round(Math.max(W, H) * .02);
+  x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad); x1 = Math.min(W - 1, x1 + pad); y1 = Math.min(H - 1, y1 + pad);
+  return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+}
+function output() {
+  const b = S.trim ? bounds() : { x: 0, y: 0, w: W, h: H };
+  if (!b) { Kit.toast('まだ何も切り抜いていません。残したい所をタップしてください'); return null; }
+  const c = document.createElement('canvas'); c.width = b.w; c.height = b.h;
+  const g = c.getContext('2d');
+  paintBg(g, b.w, b.h, b.x, b.y);
+  g.drawImage(cutoutCanvas(), -b.x, -b.y);
+  return c;
+}
+const isClear = () => S.bg === 'clear';
+const toBlob = c => new Promise(r => c.toBlob(r, isClear() ? 'image/png' : 'image/jpeg', .92));
+const fname = () => `${name}-cutout.${isClear() ? 'png' : 'jpg'}`;
+function download(blob, n) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = n; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 3000); }
+$('save').onclick = async () => { const c = output(); if (!c) return; download(await toBlob(c), fname()); Kit.toast('保存しました'); };
+$('share').onclick = async () => {
+  const c = output(); if (!c) return;
+  const file = new File([await toBlob(c)], fname(), { type: isClear() ? 'image/png' : 'image/jpeg' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file] }); } catch (e) { /* 取り消し */ } }
+  else { download(file, file.name); Kit.toast('共有に対応していないので、保存しました'); }
+};
+$('copy').onclick = async () => {
+  const c = output(); if (!c) return;
+  try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': new Promise(r => c.toBlob(r, 'image/png')) })]); Kit.toast('コピーしました'); }
+  catch (e) { Kit.toast('この端末ではコピーできません。保存か共有を使ってください'); }
+};
+
+$('feather').value = S.feather; $('featherVal').textContent = S.feather;
+$('size').value = S.size; $('sizeVal').textContent = S.size;
+$('trim').checked = S.trim;
+renderTools(); renderBgs();
+</script>
+</body>
+</html>

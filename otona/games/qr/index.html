@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>QRコード作成</title>
+<meta name="theme-color" content="#1f2328">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="icon" href="../../icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="../../../common/kit.css">
+<link rel="stylesheet" href="../../otona.css">
+<style>
+  .layout { display: grid; gap: 18px; }
+  @media (min-width: 820px) { .k-wrap { max-width: 1000px; } .layout { grid-template-columns: 1fr 380px; grid-template-areas: "a p" "b p"; align-items: start; }
+    .colA { grid-area: a; } .colB { grid-area: b; } .preview { grid-area: p; position: sticky; top: 76px; } }
+  .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px; background: var(--soft); border-radius: 12px; }
+  .tabs button { min-height: 42px; border: 0; border-radius: 9px; background: transparent; font-weight: 500; font-size: .92rem; cursor: pointer; }
+  .tabs button[aria-pressed="true"] { background: var(--card); font-weight: 700; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .f { display: grid; gap: 6px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  textarea.k-input { min-height: 110px; resize: vertical; line-height: 1.6; }
+  .pw { position: relative; }
+  .pw .k-input { padding-right: 70px; }
+  .pw button { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: 0; background: var(--soft); border-radius: 8px; padding: 6px 10px; font-size: .8rem; cursor: pointer; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  .seg .k-chip { min-height: 36px; padding: 4px 12px; font-size: .9rem; }
+  .swatches { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .sw { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--card); outline: 1px solid var(--line); cursor: pointer; padding: 0; position: relative; }
+  .sw[aria-pressed="true"] { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .sw.pick { background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); overflow: hidden; }
+  .sw.pick input { opacity: 0; position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; }
+  .preview { display: grid; gap: 12px; justify-items: center; }
+  .stage { width: 100%; background: var(--soft); border-radius: 16px; padding: 18px; display: grid; place-items: center; }
+  #cv { width: min(100%, 320px); height: auto; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.12); background: #fff; }
+  .info { font-size: .82rem; color: var(--muted); text-align: center; min-height: 1.4em; }
+  .info.warn { color: var(--berry); }
+  .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
+  .acts .k-btn { padding-left: 8px; padding-right: 8px; }
+  .acts .wide { grid-column: 1 / -1; }
+  .logo-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .logo-row .k-input { width: 90px; text-align: center; font-size: 1.2rem; }
+  .hist { display: flex; gap: 8px; flex-wrap: wrap; }
+  .hist button { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 12px; font-size: .82rem; cursor: pointer; }
+  details.opt summary { cursor: pointer; font-weight: 700; padding: 4px 0; list-style: none; }
+  details.opt summary::after { content: " ＋"; color: var(--muted); font-weight: 400; }
+  details.opt[open] summary::after { content: " －"; }
+  .check { display: flex; gap: 8px; align-items: center; font-size: .92rem; }
+  .check input { width: 20px; height: 20px; accent-color: var(--ink); }
+</style>
+</head>
+<body>
+<main class="k-wrap">
+  <div class="layout">
+    <div class="k-stack colA">
+      <div class="tabs" id="tabs"></div>
+      <div class="k-card k-stack" id="form"></div>
+    </div>
+    <div class="preview k-card">
+      <div class="stage"><canvas id="cv" width="640" height="640" aria-label="QRコードのプレビュー"></canvas></div>
+      <div class="info" id="info"></div>
+      <div class="acts">
+        <button class="k-btn is-sun wide" id="savePng">画像で保存</button>
+        <button class="k-btn is-small" id="share">共有</button>
+        <button class="k-btn is-small" id="copy">コピー</button>
+        <button class="k-btn is-small" id="saveSvg">SVGで保存</button>
+        <button class="k-btn is-small" id="print">印刷</button>
+      </div>
+    </div>
+    <div class="k-stack colB">
+      <div class="k-card k-stack">
+        <details class="opt" id="optBox">
+          <summary>デザイン</summary>
+          <div class="k-stack" style="margin-top:10px">
+            <div class="f"><span class="k-label">形</span><div class="seg" id="optShape"></div></div>
+            <div class="f"><span class="k-label">色</span><div class="swatches" id="optColor"></div></div>
+            <div class="f"><span class="k-label">背景</span><div class="seg" id="optBg"></div></div>
+            <div class="f"><span class="k-label">まん中のマーク（絵文字や1〜2文字、または画像）</span>
+              <div class="logo-row"><input class="k-input" id="logoText" maxlength="4" placeholder="なし"><label class="k-btn is-small">画像を選ぶ<input type="file" id="logoFile" accept="image/*" hidden></label><button class="k-btn is-small" id="logoClear">外す</button></div></div>
+            <div class="f"><span class="k-label">下に入れる文字</span><input class="k-input" id="caption" maxlength="40" placeholder="例：ゲスト用Wi-Fi"></div>
+            <div class="f"><span class="k-label">読み取りの強さ（汚れや印刷のかすれに強くなるほど、模様が細かくなります）</span><div class="seg" id="optEcc"></div></div>
+          </div>
+        </details>
+      </div>
+      <div class="k-stack" id="histWrap" hidden><span class="k-label">最近作ったもの</span><div class="hist" id="hist"></div></div>
+    </div>
+
+  </div>
+</main>
+
+<script src="../../../common/kit.js" data-ns="asobibako-otona:" data-home="../../index.html" data-tone="adult"></script>
+<script src="../../vendor/qrcode.js"></script>
+<script>
+'use strict';
+Kit.bar({ id: 'qr', title: 'QRコード作成', help: `
+  <p>種類を選んで内容を入れると、すぐにQRコードができます。</p>
+  <p><b>Wi-Fi</b>：来客用に便利です。スマホのカメラで読むと、パスワードを打たずにつながります。「印刷」でパスワード付きのカードにできます。</p>
+  <p><b>連絡先</b>：読み取ると、相手のスマホの連絡先に登録できます。</p>
+  <p><b>デザイン</b>：色や形、まん中のマークを変えられます。マークを入れると、自動で読み取りを強くします。色は薄すぎると読めないことがあるので、作ったら一度スマホで読み取って確かめてください。</p>
+  <p>入力した内容はこの端末の中だけで使います。</p>` });
+qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+
+const $ = id => document.getElementById(id);
+const esc = Kit.esc;
+const S = Object.assign({
+  tab: 'url',
+  url: '', text: '',
+  wifi: { ssid: '', pass: '', sec: 'WPA', hidden: false },
+  card: { last: '', first: '', tel: '', mail: '', org: '', url: '' },
+  shape: 'square', color: '#1f2328', bg: 'white', ecc: 'auto', logo: '', caption: '',
+}, Kit.store.get('qr:s', {}));
+let logoImg = null;
+const save = () => Kit.store.set('qr:s', S);
+
+const TABS = [['url', 'URL'], ['text', '文章'], ['wifi', 'Wi-Fi'], ['card', '連絡先']];
+function renderTabs() {
+  $('tabs').innerHTML = '';
+  TABS.forEach(([k, l]) => {
+    const b = Kit.el(`<button aria-pressed="${S.tab === k}">${l}</button>`);
+    b.onclick = () => { S.tab = k; save(); renderTabs(); renderForm(); draw(); };
+    $('tabs').appendChild(b);
+  });
+}
+function inp(label, obj, key, { type = 'text', ph = '', mode = '', area = false, auto = 'off' } = {}) {
+  const f = Kit.el(`<label class="f"><span class="k-label">${label}</span></label>`);
+  const i = area ? Kit.el(`<textarea class="k-input" placeholder="${ph}"></textarea>`) : Kit.el(`<input class="k-input" type="${type}" placeholder="${ph}" ${mode ? `inputmode="${mode}"` : ''} autocomplete="${auto}" autocapitalize="off" spellcheck="false">`);
+  i.value = obj[key] || '';
+  i.addEventListener('input', () => { obj[key] = i.value; save(); draw(); });
+  f.appendChild(i);
+  return f;
+}
+function seg(root, list, cur, on) {
+  root.innerHTML = '';
+  list.forEach(([v, l]) => {
+    const b = Kit.el(`<button class="k-chip" aria-pressed="${cur() === v}">${l}</button>`);
+    b.onclick = () => { on(v); save(); renderOpts(); renderForm(); draw(); };
+    root.appendChild(b);
+  });
+}
+function renderForm() {
+  const F = $('form'); F.innerHTML = '';
+  if (S.tab === 'url') {
+    F.appendChild(inp('URL', S, 'url', { type: 'url', ph: 'https://example.com', mode: 'url' }));
+    const paste = Kit.el('<button class="k-btn is-small" style="justify-self:start">貼り付け</button>');
+    paste.onclick = async () => { try { const t = await navigator.clipboard.readText(); S.url = t.trim(); save(); renderForm(); draw(); } catch (e) { Kit.toast('貼り付けできませんでした。入力欄を長押しして貼り付けてください'); } };
+    if (navigator.clipboard && navigator.clipboard.readText) F.appendChild(paste);
+  }
+  if (S.tab === 'text') F.appendChild(inp('文章', S, 'text', { area: true, ph: '読み取った人に見せたい文章' }));
+  if (S.tab === 'wifi') {
+    const w = S.wifi;
+    F.appendChild(inp('ネットワーク名（SSID）', w, 'ssid', { ph: '例 my-home-wifi' }));
+    const pf = inp('パスワード', w, 'pass', { type: 'password' });
+    pf.classList.add('pw');
+    const wrap = Kit.el('<div class="pw"></div>'); const pi = pf.querySelector('input'); pf.appendChild(wrap); wrap.appendChild(pi);
+    const eye = Kit.el('<button type="button">表示</button>');
+    eye.onclick = e => { e.preventDefault(); pi.type = pi.type === 'password' ? 'text' : 'password'; eye.textContent = pi.type === 'password' ? '表示' : '隠す'; };
+    wrap.appendChild(eye);
+    if (w.sec !== 'nopass') F.appendChild(pf);
+    const sec = Kit.el('<div class="f"><span class="k-label">暗号化</span><div class="seg"></div></div>');
+    seg(sec.lastChild, [['WPA', 'WPA / WPA2 / WPA3'], ['WEP', 'WEP'], ['nopass', 'なし']], () => w.sec, v => w.sec = v);
+    F.appendChild(sec);
+    const hid = Kit.el(`<label class="check"><input type="checkbox" ${w.hidden ? 'checked' : ''}>ステルス（ネットワーク名を隠している）</label>`);
+    hid.firstChild.onchange = e => { w.hidden = e.target.checked; save(); draw(); };
+    F.appendChild(hid);
+    F.appendChild(Kit.el('<p class="k-muted" style="margin:0;font-size:.85rem">ネットワーク名とパスワードはルーターの側面や裏のシールに書いてあることが多いです。</p>'));
+  }
+  if (S.tab === 'card') {
+    const c = S.card;
+    const two = Kit.el('<div class="two"></div>');
+    two.appendChild(inp('姓', c, 'last', { auto: 'family-name' })); two.appendChild(inp('名', c, 'first', { auto: 'given-name' }));
+    F.appendChild(two);
+    F.appendChild(inp('電話', c, 'tel', { type: 'tel', mode: 'tel', auto: 'tel' }));
+    F.appendChild(inp('メール', c, 'mail', { type: 'email', mode: 'email', auto: 'email' }));
+    F.appendChild(inp('会社・所属', c, 'org', { auto: 'organization' }));
+    F.appendChild(inp('URL・SNS', c, 'url', { type: 'url', mode: 'url' }));
+  }
+}
+
+const COLORS = ['#1f2328', '#2f4b6e', '#3f6b52', '#7a2f3b', '#6a4c93', '#a0662a'];
+function renderOpts() {
+  seg($('optShape'), [['square', '四角'], ['round', '角丸'], ['dot', 'ドット']], () => S.shape, v => S.shape = v);
+  seg($('optBg'), [['white', '白'], ['cream', '生成り'], ['clear', '透明（PNG）']], () => S.bg, v => S.bg = v);
+  seg($('optEcc'), [['auto', 'おまかせ'], ['L', '弱'], ['M', '標準'], ['Q', '強'], ['H', '最強']], () => S.ecc, v => S.ecc = v);
+  const box = $('optColor'); box.innerHTML = '';
+  COLORS.forEach(c => {
+    const b = Kit.el(`<button class="sw" style="background:${c}" aria-label="${c}" aria-pressed="${S.color === c}"></button>`);
+    b.onclick = () => { S.color = c; save(); renderOpts(); draw(); };
+    box.appendChild(b);
+  });
+  const pick = Kit.el(`<label class="sw pick" aria-pressed="${!COLORS.includes(S.color)}" title="好きな色"><input type="color" value="${S.color}"></label>`);
+  pick.firstChild.addEventListener('input', e => { S.color = e.target.value; save(); draw(); });
+  pick.firstChild.addEventListener('change', () => renderOpts());
+  box.appendChild(pick);
+  $('logoText').value = S.logo;
+  $('caption').value = S.caption;
+}
+$('logoText').addEventListener('input', e => { S.logo = e.target.value; logoImg = null; save(); draw(); });
+$('caption').addEventListener('input', e => { S.caption = e.target.value; save(); draw(); });
+$('logoFile').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const img = new Image();
+  img.onload = () => { logoImg = img; S.logo = ''; $('logoText').value = ''; save(); draw(); };
+  img.src = URL.createObjectURL(f);
+  e.target.value = '';
+});
+$('logoClear').onclick = () => { logoImg = null; S.logo = ''; $('logoText').value = ''; save(); draw(); };
+
+/* ---------- 中身の文字列 ---------- */
+const wesc = s => String(s).replace(/([\\;,:"])/g, '\\$1');
+const vesc = s => String(s).replace(/([\\;,])/g, '\\$1').replace(/\n/g, '\\n');
+function payload() {
+  if (S.tab === 'url') { const u = S.url.trim(); return { data: u, label: u, ok: !!u }; }
+  if (S.tab === 'text') return { data: S.text, label: S.text.slice(0, 30), ok: !!S.text.trim() };
+  if (S.tab === 'wifi') {
+    const w = S.wifi;
+    if (!w.ssid) return { ok: false };
+    const d = `WIFI:T:${w.sec};S:${wesc(w.ssid)};${w.sec !== 'nopass' ? `P:${wesc(w.pass)};` : ''}${w.hidden ? 'H:true;' : ''};`;
+    return { data: d, label: 'Wi-Fi ' + w.ssid, ok: true };
+  }
+  const c = S.card;
+  if (!(c.last || c.first)) return { ok: false };
+  const lines = ['BEGIN:VCARD', 'VERSION:3.0', `N:${vesc(c.last)};${vesc(c.first)};;;`, `FN:${vesc([c.last, c.first].filter(Boolean).join(' '))}`];
+  if (c.org) lines.push(`ORG:${vesc(c.org)}`);
+  if (c.tel) lines.push(`TEL;TYPE=CELL:${c.tel.replace(/[^\d+]/g, '')}`);
+  if (c.mail) lines.push(`EMAIL:${c.mail.trim()}`);
+  if (c.url) lines.push(`URL:${c.url.trim()}`);
+  lines.push('END:VCARD');
+  return { data: lines.join('\r\n'), label: '連絡先 ' + [c.last, c.first].join(''), ok: true };
+}
+
+/* ---------- 描画 ---------- */
+let qr = null, cur = null;
+const hasLogo = () => !!(logoImg || S.logo.trim());
+function build(data) {
+  const ecc = S.ecc === 'auto' ? (hasLogo() ? 'H' : 'M') : S.ecc;
+  const q = qrcode(0, ecc); q.addData(data, 'Byte'); q.make();
+  return { q, ecc };
+}
+/* 位置合わせの小さい四角の中心（バージョンごと）。ドットの時もここだけは四角でかく */
+const ALIGN = [[], [], [6, 18], [6, 22], [6, 26], [6, 30], [6, 34], [6, 22, 38], [6, 24, 42], [6, 26, 46], [6, 28, 50], [6, 30, 54], [6, 32, 58], [6, 34, 62], [6, 26, 46, 66], [6, 26, 48, 70], [6, 26, 50, 74], [6, 30, 54, 78], [6, 30, 56, 82], [6, 30, 58, 86], [6, 34, 62, 90], [6, 28, 50, 72, 94], [6, 26, 50, 74, 98], [6, 30, 54, 78, 102], [6, 28, 54, 80, 106], [6, 32, 58, 84, 110], [6, 30, 58, 86, 114], [6, 34, 62, 90, 118], [6, 26, 50, 74, 98, 122], [6, 30, 54, 78, 102, 126], [6, 26, 52, 78, 104, 130], [6, 30, 56, 82, 108, 134], [6, 34, 60, 86, 112, 138], [6, 30, 58, 86, 114, 142], [6, 34, 62, 90, 118, 146], [6, 30, 54, 78, 102, 126, 150], [6, 24, 50, 76, 102, 128, 154], [6, 28, 54, 80, 106, 132, 158], [6, 32, 58, 84, 110, 136, 162], [6, 26, 54, 82, 110, 138, 166], [6, 30, 58, 86, 114, 142, 170]];
+function isStructure(n, r, c) {
+  if (r === 6 || c === 6) return true;
+  const a = ALIGN[(n - 17) / 4] || [];
+  return a.some(ar => a.some(ac => !isFinder(n, ar, ac) && Math.abs(r - ar) <= 2 && Math.abs(c - ac) <= 2));
+}
+function isFinder(n, r, c) { return (r < 7 && c < 7) || (r < 7 && c >= n - 7) || (r >= n - 7 && c < 7); }
+function rr(g, x, y, w, h, r) { g.beginPath(); g.roundRect ? g.roundRect(x, y, w, h, r) : g.rect(x, y, w, h); }
+
+/* g は Canvas の 2D か、SVG 用の記録係。size は1辺のピクセル */
+function paint(g, size, { forPrint = false } = {}) {
+  const n = qr.getModuleCount();
+  const quiet = 4;
+  const capH = S.caption.trim() ? size * 0.11 : 0;
+  const cell = size / (n + quiet * 2);
+  const off = quiet * cell;
+  const H = size + capH;
+  if (S.bg !== 'clear' || forPrint) { g.fillStyle = S.bg === 'cream' ? '#f6f1e6' : '#ffffff'; g.fillRect(0, 0, size, H); }
+  g.fillStyle = S.color;
+  const logoOn = hasLogo();
+  const ls = Math.floor(n * 0.22) | 1;
+  const l0 = Math.floor((n - ls) / 2);
+  const inLogo = (r, c) => logoOn && r >= l0 - 1 && r < l0 + ls + 1 && c >= l0 - 1 && c < l0 + ls + 1;
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    if (!qr.isDark(r, c) || isFinder(n, r, c) || inLogo(r, c)) continue;
+    const x = off + c * cell, y = off + r * cell;
+    if (S.shape === 'square') g.fillRect(x - .02, y - .02, cell + .04, cell + .04);
+    else if (S.shape === 'dot' && isStructure(n, r, c)) g.fillRect(x - .02, y - .02, cell + .04, cell + .04);
+    else if (S.shape === 'dot') { g.beginPath(); g.arc(x + cell / 2, y + cell / 2, cell * .46, 0, Math.PI * 2); g.fill(); }
+    else {
+      // 角丸：となりがつながっている角だけ四角のまま
+      const d = (rr2, cc) => rr2 >= 0 && cc >= 0 && rr2 < n && cc < n && qr.isDark(rr2, cc) && !isFinder(n, rr2, cc) && !inLogo(rr2, cc);
+      const up = d(r - 1, c), dn = d(r + 1, c), lf = d(r, c - 1), rt = d(r, c + 1), k = cell * .5;
+      g.beginPath();
+      if (g.roundRect) g.roundRect(x, y, cell + .03, cell + .03, [!up && !lf ? k : 0, !up && !rt ? k : 0, !dn && !rt ? k : 0, !dn && !lf ? k : 0]);
+      else g.rect(x, y, cell, cell);
+      g.fill();
+    }
+  }
+  // 目印の3つの四角
+  [[0, 0], [0, n - 7], [n - 7, 0]].forEach(([r, c]) => {
+    const x = off + c * cell, y = off + r * cell;
+    const rad = S.shape === 'square' ? 0 : cell * (S.shape === 'dot' ? 1.8 : 1.4);
+    g.fillStyle = S.color; rr(g, x, y, cell * 7, cell * 7, rad); g.fill();
+    if (S.bg === 'clear' && !forPrint) { g.save(); g.globalCompositeOperation = 'destination-out'; rr(g, x + cell, y + cell, cell * 5, cell * 5, rad * .6); g.fill(); g.restore(); }
+    else { g.fillStyle = S.bg === 'cream' ? '#f6f1e6' : '#ffffff'; rr(g, x + cell, y + cell, cell * 5, cell * 5, rad * .6); g.fill(); }
+    g.fillStyle = S.color; rr(g, x + cell * 2, y + cell * 2, cell * 3, cell * 3, rad * .4); g.fill();
+  });
+  if (logoOn) {
+    const x = off + l0 * cell, y = off + l0 * cell, w = ls * cell;
+    if (logoImg) {
+      const s = Math.min(w / logoImg.width, w / logoImg.height);
+      const dw = logoImg.width * s, dh = logoImg.height * s;
+      g.save(); rr(g, x, y, w, w, cell * 1.2); g.clip();
+      g.drawImage(logoImg, x + (w - dw) / 2, y + (w - dh) / 2, dw, dh); g.restore();
+    } else {
+      const t = S.logo.trim();
+      g.fillStyle = S.color; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.font = `700 ${w * (t.length > 2 ? .38 : t.length > 1 ? .5 : .8)}px "Zen Kaku Gothic New", "Hiragino Sans", sans-serif`;
+      g.fillText(t, x + w / 2, y + w / 2 + w * .04);
+    }
+  }
+  if (capH) {
+    g.fillStyle = S.color; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = `700 ${capH * .5}px "Zen Kaku Gothic New", "Hiragino Sans", sans-serif`;
+    g.fillText(S.caption.trim(), size / 2, size - cell * 1.2 + capH / 2, size - cell * 4);
+  }
+}
+function lum(hex) {
+  const m = hex.replace('#', '').match(/../g).map(h => parseInt(h, 16) / 255).map(v => v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4));
+  return .2126 * m[0] + .7152 * m[1] + .0722 * m[2];
+}
+function draw() {
+  const p = payload();
+  const cv = $('cv'), g = cv.getContext('2d');
+  cur = p.ok ? p : null;
+  ['savePng', 'share', 'copy', 'saveSvg', 'print'].forEach(id => $(id).disabled = !p.ok);
+  if (!p.ok) {
+    cv.width = cv.height = 640; g.clearRect(0, 0, 640, 640); g.fillStyle = '#f2efe8'; g.fillRect(0, 0, 640, 640);
+    g.fillStyle = '#9a9fa6'; g.font = '500 28px "Zen Kaku Gothic New", sans-serif'; g.textAlign = 'center'; g.fillText('内容を入れるとここに出ます', 320, 330);
+    $('info').textContent = ''; $('info').className = 'info'; return;
+  }
+  let ecc;
+  try { ({ q: qr, ecc } = build(p.data)); } catch (e) { $('info').textContent = '長すぎてQRコードにできません。文字を減らしてください。'; $('info').className = 'info warn'; return; }
+  const size = 640, capH = S.caption.trim() ? size * 0.11 : 0;
+  cv.width = size; cv.height = size + capH;
+  g.clearRect(0, 0, cv.width, cv.height);
+  paint(g, size);
+  const contrast = (1.05) / (lum(S.color) + .05);
+  const n = qr.getModuleCount();
+  const warn = contrast < 4 ? '色が薄いので読み取れないことがあります。濃い色がおすすめです。' : n > 73 ? '文字が多く模様が細かいので、大きめに印刷してください。' : '';
+  $('info').textContent = warn || `${p.data.length}文字 ・ ${n}×${n}マス ・ 読み取りの強さ ${{ L: '弱', M: '標準', Q: '強', H: '最強' }[ecc]}`;
+  $('info').className = 'info' + (warn ? ' warn' : '');
+}
+
+/* ---------- 書き出し ---------- */
+function fileBase() { return 'qr-' + (cur.label || 'code').replace(/[\\/:*?"<>|\s]+/g, '_').slice(0, 30); }
+function bigCanvas(px = 1200, forPrint = false) {
+  const capH = S.caption.trim() ? px * 0.11 : 0;
+  const c = document.createElement('canvas'); c.width = px; c.height = px + capH;
+  paint(c.getContext('2d'), px, { forPrint });
+  return c;
+}
+const toBlob = c => new Promise(r => c.toBlob(r, 'image/png'));
+function remember() {
+  const h = Kit.store.get('qr:hist', []).filter(x => x.label !== cur.label);
+  h.unshift({ label: cur.label, tab: S.tab, url: S.url, text: S.text, wifi: { ...S.wifi, pass: S.wifi.pass }, card: { ...S.card } });
+  Kit.store.set('qr:hist', h.slice(0, 8)); renderHist();
+}
+function download(blob, name) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+$('savePng').onclick = async () => { download(await toBlob(bigCanvas()), fileBase() + '.png'); remember(); Kit.toast('画像を保存しました'); };
+$('share').onclick = async () => {
+  const file = new File([await toBlob(bigCanvas())], fileBase() + '.png', { type: 'image/png' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: 'QRコード' }); remember(); } catch (e) { /* 取り消し */ } }
+  else { download(file, file.name); remember(); Kit.toast('共有に対応していないので、保存しました'); }
+};
+$('copy').onclick = async () => {
+  try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': toBlob(bigCanvas()) })]); remember(); Kit.toast('画像をコピーしました'); }
+  catch (e) { Kit.toast('この端末ではコピーできません。保存か共有を使ってください'); }
+};
+$('saveSvg').onclick = () => {
+  const n = qr.getModuleCount(), q = 4, W = n + q * 2;
+  const bg = S.bg === 'clear' ? '' : `<rect width="${W}" height="${W}" fill="${S.bg === 'cream' ? '#f6f1e6' : '#ffffff'}"/>`;
+  let d = '';
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) d += `M${c + q},${r + q}h1v1h-1z`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${W}" shape-rendering="crispEdges">${bg}<path fill="${S.color}" d="${d}"/></svg>`;
+  download(new Blob([svg], { type: 'image/svg+xml' }), fileBase() + '.svg'); remember();
+  Kit.toast('SVGで保存しました（形・マークは四角の基本デザインになります）');
+};
+$('print').onclick = () => {
+  const url = bigCanvas(900, true).toDataURL('image/png');
+  const w = S.wifi;
+  const extra = S.tab === 'wifi' ? `<p class="t">Wi-Fi</p><p>ネットワーク名：<b>${esc(w.ssid)}</b></p>${w.sec !== 'nopass' ? `<p>パスワード：<b>${esc(w.pass)}</b></p>` : ''}<p class="s">スマホのカメラで読み取るとつながります</p>` : '';
+  const win = window.open('', '_blank');
+  if (!win) { Kit.toast('印刷画面を開けませんでした'); return; }
+  win.document.write(`<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>${esc(cur.label)}</title><style>
+    body{font-family:"Hiragino Sans","Yu Gothic",sans-serif;display:grid;place-items:center;margin:0;padding:24px;color:#1f2328}
+    .card{border:1px solid #ccc;border-radius:16px;padding:28px;text-align:center;width:320px}
+    img{width:260px;height:auto}.t{font-size:22px;font-weight:700;margin:12px 0 4px}p{margin:4px 0}b{font-size:18px;word-break:break-all}.s{font-size:12px;color:#666;margin-top:10px}
+    @media print{body{padding:0}}</style></head><body><div class="card"><img src="${url}" alt="">${extra}</div>
+    <script>document.querySelector('img').onload=()=>setTimeout(()=>print(),200)<\/script></body></html>`);
+  win.document.close();
+};
+
+function renderHist() {
+  const h = Kit.store.get('qr:hist', []);
+  $('histWrap').hidden = !h.length;
+  $('hist').innerHTML = '';
+  h.forEach(x => {
+    const b = Kit.el(`<button>${esc(x.label)}</button>`);
+    b.onclick = () => { Object.assign(S, { tab: x.tab, url: x.url, text: x.text, wifi: { ...x.wifi }, card: { ...x.card } }); save(); renderTabs(); renderForm(); draw(); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+    $('hist').appendChild(b);
+  });
+}
+
+renderTabs(); renderForm(); renderOpts(); renderHist(); draw();
+document.fonts && document.fonts.ready.then(draw);
+</script>
+</body>
+</html>
