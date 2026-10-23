@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>おにごっこ</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  .stage { flex: 1; position: relative; min-height: 0; touch-action: none; user-select: none; -webkit-user-select: none; background: #8fd17a; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .over { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(30, 60, 40, .4); overflow: auto; z-index: 5; }
+  .over .k-card { width: min(520px, 100%); }
+  .pauseBtn { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); z-index: 3; }
+  .players { display: grid; gap: 6px; }
+  .players .k-row { flex-wrap: nowrap; }
+  .players .k-input { flex: 1; min-width: 0; }
+  .ava { width: 36px; height: 36px; flex: none; border-radius: 50%; border: 3px solid var(--line); display: grid; place-items: center; font-size: 1.2rem; }
+  .stepper { display: flex; align-items: center; gap: 10px; }
+  .stepper b { font-size: 1.5rem; min-width: 2ch; text-align: center; }
+  .res { display: grid; gap: 6px; width: 100%; }
+  .res div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 2px dashed var(--soft); padding: 4px 0; align-items: center; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <canvas id="cv"></canvas>
+  <button class="k-btn k-icon pauseBtn" id="pauseBtn" aria-label="一時停止" hidden>⏸</button>
+  <div class="over" id="setupOv">
+    <div class="k-card k-stack">
+      <h2 style="text-align:center">🏃 おにごっこ</h2>
+      <span class="k-label">ルール</span>
+      <div class="k-chips" id="optRule"></div>
+      <p class="k-muted" id="ruleDesc" style="margin:0"></p>
+      <span class="k-label">タブレットで うごかす人（1台で4人まで）</span>
+      <div class="stepper"><button class="k-btn k-icon" id="hMinus">－</button><b id="hCount">1</b><span>人</span><button class="k-btn k-icon" id="hPlus">＋</button></div>
+      <div class="players" id="players"></div>
+      <span class="k-label">CPU</span>
+      <div class="stepper"><button class="k-btn k-icon" id="cMinus">－</button><b id="cCount">3</b><span>ひき</span><button class="k-btn k-icon" id="cPlus">＋</button>
+        <div class="k-chips" id="optLv" style="margin-left:8px"></div></div>
+      <span class="k-label">じかん</span>
+      <div class="k-chips" id="optTime"></div>
+      <p class="k-muted" style="margin:0;font-size:.85rem" id="ctrlHelp"></p>
+      <button class="k-btn is-berry is-big is-wide" id="startBtn">スタート</button>
+    </div>
+  </div>
+  <div class="over" id="pauseOv" hidden>
+    <div class="k-card k-stack k-center"><h2>ひとやすみ</h2>
+      <button class="k-btn is-sun is-big" id="resume">つづける</button>
+      <button class="k-btn" id="quit">やめる</button></div>
+  </div>
+  <div class="over" id="resultOv" hidden><div class="k-card k-stack k-center" id="resultCard"></div></div>
+</div>
+
+<script src="../../common/kit.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const E = Kit.esc;
+const cv = $('cv');
+let VW = 0, VH = 0, g = null;
+const FW = 1000, FH = 680; // フィールドの大きさ（画面に合わせてかくだい）
+const ANIMALS = ['🐶', '🐱', '🐰', '🐻', '🐼', '🦊', '🐸', '🐵'];
+const COLS = ['#ff5d8f', '#4aa8ff', '#3ecf8e', '#ff8a3d', '#8b5cf6', '#ffc93c', '#2fb7b3', '#c98b52'];
+const RULES = {
+  tag: { name: '🔁 ふつう', desc: 'タッチされたら おにが交代。さいごに おにだった時間が いちばん少ない人の勝ち。' },
+  ice: { name: '🧊 こおりおに', desc: 'おにに タッチされたら こおる。なかまに タッチしてもらうと とける。ぜんいん こおったら おにの勝ち！' },
+  zombie: { name: '🧟 ふえおに', desc: 'タッチされたら おにの なかまになる。さいごまで にげきった人の勝ち！' },
+};
+const DEF_NAMES = ['たろう', 'はなこ', 'ゆうき', 'さくら'];
+const ww = Kit.store.get('wordwolf:setup', {});
+const O = Object.assign({ rule: 'tag', humans: 1, cpus: 3, level: 2, time: 90, names: (ww.names || DEF_NAMES).slice(0, 4) }, Kit.store.get('oni:opt', {}));
+while (O.names.length < 4) O.names.push(DEF_NAMES[O.names.length]);
+let S = null;
+
+/* ---------- せってい ---------- */
+function chips(root, items, cur, on) {
+  root.innerHTML = '';
+  items.forEach(([v, l]) => { const b = Kit.el(`<button class="k-chip" aria-pressed="${v === cur}">${l}</button>`); b.onclick = () => { Kit.sfx('select'); on(v); }; root.appendChild(b); });
+}
+function renderSetup() {
+  const save = () => Kit.store.set('oni:opt', O);
+  chips($('optRule'), Object.entries(RULES).map(([k, v]) => [k, v.name]), O.rule, v => { O.rule = v; save(); renderSetup(); });
+  $('ruleDesc').textContent = RULES[O.rule].desc;
+  O.cpus = Kit.clamp(O.cpus, Math.max(0, 2 - O.humans), 8 - O.humans);
+  $('hCount').textContent = O.humans; $('cCount').textContent = O.cpus;
+  $('hMinus').onclick = () => { if (O.humans > 0) { O.humans--; save(); renderSetup(); } };
+  $('hPlus').onclick = () => { if (O.humans < 4) { O.humans++; save(); renderSetup(); } };
+  $('cMinus').onclick = () => { if (O.cpus > Math.max(0, 2 - O.humans)) { O.cpus--; save(); renderSetup(); } };
+  $('cPlus').onclick = () => { if (O.humans + O.cpus < 8) { O.cpus++; save(); renderSetup(); } };
+  $('players').innerHTML = '';
+  for (let i = 0; i < O.humans; i++) {
+    const r = Kit.el(`<div class="k-row"><span class="ava" style="background:${COLS[i]}">${ANIMALS[i]}</span><input class="k-input" maxlength="8" value="${E(O.names[i])}"><span class="k-muted" style="flex:none;font-size:.8rem">${['左下', '右下', '左上', '右上'][i]}</span></div>`);
+    r.querySelector('input').oninput = e => { O.names[i] = e.target.value; save(); };
+    $('players').appendChild(r);
+  }
+  chips($('optLv'), [[1, 'やさしい'], [2, 'ふつう'], [3, 'つよい']], O.level, v => { O.level = v; save(); renderSetup(); });
+  chips($('optTime'), [[60, '60びょう'], [90, '90びょう'], [120, '2ふん']], O.time, v => { O.time = v; save(); renderSetup(); });
+  $('ctrlHelp').textContent = O.humans <= 1 ? '画面のどこでも、さわったところが スティックになるよ。（キーボード：WASD）'
+    : O.humans === 2 ? '画面の左半分が1人目、右半分が2人目のスティック。（WASD と ←↑→↓）'
+    : '画面を4つに分けて、それぞれのすみが自分のスティック。';
+  $('startBtn').disabled = O.humans + O.cpus < 2;
+}
+
+/* ---------- フィールド ---------- */
+function makeField() {
+  const obs = [];
+  const tries = 60;
+  const want = Kit.randInt(7, 10);
+  for (let i = 0; i < tries && obs.length < want; i++) {
+    const kind = Kit.pick(['tree', 'tree', 'rock', 'pond', 'bush']);
+    const r = kind === 'pond' ? Kit.rand(55, 80) : kind === 'tree' ? Kit.rand(28, 40) : Kit.rand(24, 34);
+    const x = Kit.rand(120, FW - 120), y = Kit.rand(110, FH - 110);
+    if (obs.some(o => Math.hypot(o.x - x, o.y - y) < o.r + r + 70)) continue;
+    obs.push({ kind, x, y, r });
+  }
+  return obs;
+}
+function newGame() {
+  const n = O.humans + O.cpus;
+  const ps = [];
+  for (let i = 0; i < n; i++) {
+    const human = i < O.humans;
+    ps.push({ i, human, name: human ? (O.names[i].trim() || `${i + 1}P`) : `CPU${i - O.humans + 1}`, face: ANIMALS[i], col: COLS[i],
+      x: 0, y: 0, vx: 0, vy: 0, oni: false, frozen: false, imm: 0, stun: 0, boost: 0, oniTime: 0, caught: 0, saves: 0, alive: true, wander: Math.random() * 6 });
+  }
+  // スタートいち：円にならべる
+  ps.forEach((p, k) => { const a = k / n * Math.PI * 2; p.x = FW / 2 + Math.cos(a) * 280; p.y = FH / 2 + Math.sin(a) * 210; });
+  // おにをきめる
+  const nOni = O.rule === 'ice' && n >= 6 ? 2 : 1;
+  Kit.shuffle(ps.slice()).slice(0, nOni).forEach(p => { p.oni = true; p.stun = 1.5; });
+  S = { ps, obs: makeField(), t: O.time, items: [], itemT: 6, ctrl: [0, 1, 2, 3].map(() => ({ id: null, ox: 0, oy: 0, x: 0, y: 0 })), keys: {}, count: 3, over: false, msgs: [] };
+  S.obs.forEach(o => { for (const p of ps) if (Math.hypot(p.x - o.x, p.y - o.y) < o.r + 30) { p.x = Kit.clamp(p.x + (p.x - o.x) * .8, 40, FW - 40); p.y = Kit.clamp(p.y + (p.y - o.y) * .8, 40, FH - 40); } });
+  $('setupOv').hidden = true; $('resultOv').hidden = true; $('pauseBtn').hidden = false;
+  resize();
+  Kit.keepAwake(true);
+  Kit.sfx('tick');
+  loop.start();
+}
+
+/* ---------- 画面とフィールドの対応 ---------- */
+let sc = 1, ox = 0, oy = 0;
+function resize() {
+  ({ w: VW, h: VH, g } = Kit.fitCanvas(cv));
+  sc = Math.min(VW / FW, VH / FH); ox = (VW - FW * sc) / 2; oy = (VH - FH * sc) / 2;
+  if (!loop.running) draw();
+}
+addEventListener('resize', resize);
+
+/* ---------- そうさ ---------- */
+function zoneOf(x, y) {
+  const n = O.humans;
+  if (n <= 1) return 0;
+  if (n === 2) return x < VW / 2 ? 0 : 1;
+  const right = x >= VW / 2, top = y < VH / 2;
+  const z = top ? (right ? 3 : 2) : (right ? 1 : 0);
+  return z < n ? z : -1;
+}
+const pos = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+cv.addEventListener('pointerdown', e => {
+  if (!S || S.over) return;
+  const [x, y] = pos(e); const z = zoneOf(x, y);
+  if (z < 0 || S.ctrl[z].id != null) return;
+  cv.setPointerCapture(e.pointerId);
+  Object.assign(S.ctrl[z], { id: e.pointerId, ox: x, oy: y, x, y });
+});
+cv.addEventListener('pointermove', e => {
+  if (!S) return;
+  const c = S.ctrl.find(c => c.id === e.pointerId); if (!c) return;
+  const [x, y] = pos(e); c.x = x; c.y = y;
+  // ゆびが遠くへ行ったら スティックの中心もついていく
+  const R = 60, dx = c.x - c.ox, dy = c.y - c.oy, d = Math.hypot(dx, dy);
+  if (d > R) { c.ox = c.x - dx / d * R; c.oy = c.y - dy / d * R; }
+});
+const up = e => { if (!S) return; const c = S.ctrl.find(c => c.id === e.pointerId); if (c) c.id = null; };
+cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+const KEYS = { w: [0, 0, -1], s: [0, 0, 1], a: [0, -1, 0], d: [0, 1, 0], ArrowUp: [1, 0, -1], ArrowDown: [1, 0, 1], ArrowLeft: [1, -1, 0], ArrowRight: [1, 1, 0] };
+addEventListener('keydown', e => { if (!S) return; const k = KEYS[e.key] || KEYS[e.key.toLowerCase()]; if (k) { S.keys[e.key.toLowerCase()] = true; e.preventDefault(); } if (e.key === 'Escape') pause(); });
+addEventListener('keyup', e => { if (!S) return; S.keys[e.key.toLowerCase()] = false; });
+function humanVec(i) {
+  const c = S.ctrl[i];
+  let x = 0, y = 0;
+  if (c.id != null) { x = (c.x - c.ox) / 60; y = (c.y - c.oy) / 60; }
+  for (const [k, [pi, kx, ky]] of Object.entries(KEYS)) {
+    const who = O.humans <= 1 ? 0 : pi;
+    if (who === i && S.keys[k.toLowerCase()]) { x += kx; y += ky; }
+  }
+  const m = Math.hypot(x, y); if (m > 1) { x /= m; y /= m; } if (m < .12) { x = 0; y = 0; }
+  return [x, y];
+}
+
+/* ---------- CPU ---------- */
+function avoid(p, vx, vy) {
+  // しょうがいぶつと かべを よける
+  let ax = 0, ay = 0;
+  for (const o of S.obs) {
+    const dx = p.x - o.x, dy = p.y - o.y, d = Math.hypot(dx, dy) - o.r;
+    if (d < 70) {
+      const w = (70 - d) / 70;
+      // まわりこむ（すすむ向きに合わせて右か左へ）
+      const tx = -dy, ty = dx, side = Math.sign(tx * vx + ty * vy) || 1;
+      const L = Math.hypot(dx, dy) || 1;
+      ax += (dx / L * .8 + tx / L * side) * w * 1.4; ay += (dy / L * .8 + ty / L * side) * w * 1.4;
+    }
+  }
+  const m = 70;
+  if (p.x < m) ax += (m - p.x) / m * 1.6; if (p.x > FW - m) ax -= (p.x - FW + m) / m * 1.6;
+  if (p.y < m) ay += (m - p.y) / m * 1.6; if (p.y > FH - m) ay -= (p.y - FH + m) / m * 1.6;
+  return [vx + ax, vy + ay];
+}
+function cpuVec(p, dt) {
+  const lv = O.level;
+  const onis = S.ps.filter(q => q.oni && q !== p);
+  let vx = 0, vy = 0;
+  if (p.oni) {
+    // ちかい人を おいかける（少し先をよむ）
+    const targets = S.ps.filter(q => !q.oni && !q.frozen && q.imm <= 0 && q.alive);
+    let best = null, bd = 1e9;
+    for (const q of targets) { const d = Math.hypot(q.x - p.x, q.y - p.y) + (q === p.lastT ? -60 : 0); if (d < bd) { bd = d; best = q; } }
+    if (best) {
+      p.lastT = best;
+      const lead = lv >= 2 ? Math.min(.5, bd / 400) : 0;
+      vx = best.x + best.vx * lead - p.x; vy = best.y + best.vy * lead - p.y;
+    } else { p.wander += dt; vx = Math.cos(p.wander); vy = Math.sin(p.wander); }
+  } else if (!p.frozen) {
+    // おにから にげる
+    for (const q of onis) {
+      const dx = p.x - q.x, dy = p.y - q.y, d = Math.max(20, Math.hypot(dx, dy));
+      const w = d < 380 ? 1 / (d * d) * 1e5 : 0;
+      vx += dx / d * w; vy += dy / d * w;
+    }
+    // こおりおに：たすけに行く
+    if (O.rule === 'ice') {
+      const fr = S.ps.filter(q => q.frozen);
+      const nearOni = Math.min(...onis.map(q => Math.hypot(q.x - p.x, q.y - p.y)), 1e9);
+      if (fr.length && nearOni > 220) {
+        const f = fr.reduce((a, b) => Math.hypot(a.x - p.x, a.y - p.y) < Math.hypot(b.x - p.x, b.y - p.y) ? a : b);
+        const dx = f.x - p.x, dy = f.y - p.y, d = Math.hypot(dx, dy) || 1;
+        vx += dx / d * 1.2; vy += dy / d * 1.2;
+      }
+    }
+    // まんなかの方が にげやすい
+    vx += (FW / 2 - p.x) * .0012; vy += (FH / 2 - p.y) * .0012;
+    // アイテム
+    const it = S.items[0];
+    if (it && Math.hypot(it.x - p.x, it.y - p.y) < 220) { vx += (it.x - p.x) * .004; vy += (it.y - p.y) * .004; }
+    if (Math.hypot(vx, vy) < .2) { p.wander += dt * .8; vx += Math.cos(p.wander) * .3; vy += Math.sin(p.wander) * .3; }
+  }
+  let m = Math.hypot(vx, vy) || 1; vx /= m; vy /= m;
+  [vx, vy] = avoid(p, vx, vy);
+  m = Math.hypot(vx, vy); if (m > 1) { vx /= m; vy /= m; }
+  // ちょっとだけ ふらつく（やさしいほど）
+  const jit = [0, .45, .2, .05][lv];
+  vx += Kit.rand(-jit, jit); vy += Kit.rand(-jit, jit);
+  return [vx, vy];
+}
+
+/* ---------- まいフレーム ---------- */
+const R = 22;
+function update(dt) {
+  if (!S) return;
+  if (S.count > 0) {
+    const before = Math.ceil(S.count);
+    S.count -= dt;
+    if (Math.ceil(S.count) !== before && S.count > 0) Kit.sfx('tick');
+    if (S.count <= 0) { Kit.sfx('whoosh'); Kit.music.play({ bpm: 150, lead: [659, 0, 784, 659, 0, 523, 587, 0, 659, 0, 784, 880, 0, 784, 659, 0], bass: [131, 0, 196, 0, 147, 0, 196, 0], vol: .025, type: 'square' }); }
+    draw(); return;
+  }
+  if (!S.over) {
+    S.t -= dt;
+    if (S.t <= 0) { S.t = 0; return finish(); }
+  }
+  // アイテム ⚡
+  S.itemT -= dt;
+  if (S.itemT <= 0 && S.items.length < 2) {
+    for (let k = 0; k < 20; k++) { const x = Kit.rand(80, FW - 80), y = Kit.rand(80, FH - 80); if (!S.obs.some(o => Math.hypot(o.x - x, o.y - y) < o.r + 30)) { S.items.push({ x, y, t: 9 }); break; } }
+    S.itemT = Kit.rand(6, 10);
+  }
+  S.items.forEach(it => it.t -= dt); S.items = S.items.filter(it => it.t > 0);
+  const cpuSp = [0, .8, .9, .98][O.level];
+  for (const p of S.ps) {
+    p.imm = Math.max(0, p.imm - dt); p.boost = Math.max(0, p.boost - dt);
+    if (p.oni) p.oniTime += dt;
+    let [mx, my] = p.human ? humanVec(p.i) : cpuVec(p, dt);
+    if (p.stun > 0) { p.stun -= dt; mx = my = 0; }
+    if (p.frozen) mx = my = 0;
+    let sp = 230 * (p.oni ? 1.06 : 1) * (p.boost > 0 ? 1.45 : 1) * (p.human ? 1 : cpuSp);
+    // 少しずつ かそく
+    const k = Math.min(1, dt * 10);
+    p.vx += (mx * sp - p.vx) * k; p.vy += (my * sp - p.vy) * k;
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    // しょうがいぶつ
+    for (const o of S.obs) {
+      if (o.kind === 'pond') {
+        const dx = p.x - o.x, dy = p.y - o.y, d = Math.hypot(dx, dy) || 1, min = o.r + R * .4;
+        if (d < min) { p.x = o.x + dx / d * min; p.y = o.y + dy / d * min; }
+      } else {
+        const dx = p.x - o.x, dy = p.y - o.y, d = Math.hypot(dx, dy) || 1, min = o.r + R;
+        if (d < min) { p.x = o.x + dx / d * min; p.y = o.y + dy / d * min; }
+      }
+    }
+    p.x = Kit.clamp(p.x, R, FW - R); p.y = Kit.clamp(p.y, R, FH - R);
+    // アイテムをとる
+    S.items = S.items.filter(it => { if (Math.hypot(it.x - p.x, it.y - p.y) < R + 16 && !p.frozen) { p.boost = 3; if (p.human) Kit.sfx('coin'); return false; } return true; });
+  }
+  // タッチ
+  for (const a of S.ps) {
+    if (!a.oni || a.stun > 0) continue;
+    for (const b of S.ps) {
+      if (b === a || b.oni || b.frozen || b.imm > 0) continue;
+      if (Math.hypot(a.x - b.x, a.y - b.y) < R * 2) tag(a, b);
+    }
+  }
+  if (O.rule === 'ice') {
+    for (const a of S.ps) {
+      if (a.oni || a.frozen) continue;
+      for (const b of S.ps) if (b.frozen && Math.hypot(a.x - b.x, a.y - b.y) < R * 2.1) { b.frozen = false; b.imm = 1.2; a.saves++; Kit.sfx('select'); msg(b, 'とけた！'); }
+    }
+  }
+  // おしあい
+  for (let i = 0; i < S.ps.length; i++) for (let j = i + 1; j < S.ps.length; j++) {
+    const a = S.ps[i], b = S.ps[j], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+    if (d > 0 && d < R * 1.6) { const push = (R * 1.6 - d) / 2; a.x -= dx / d * push; a.y -= dy / d * push; b.x += dx / d * push; b.y += dy / d * push; }
+  }
+  S.msgs.forEach(m => m.t -= dt); S.msgs = S.msgs.filter(m => m.t > 0);
+  draw();
+}
+function tag(a, b) {
+  b.caught++;
+  Kit.vibrate(50);
+  if (O.rule === 'tag') {
+    a.oni = false; a.imm = 1.5; b.oni = true; b.stun = 1.2; Kit.sfx('hit'); msg(b, 'おに！');
+  } else if (O.rule === 'ice') {
+    b.frozen = true; b.vx = b.vy = 0; Kit.sfx('drop'); msg(b, 'カチーン！');
+    if (S.ps.filter(p => !p.oni).every(p => p.frozen)) setTimeout(finish, 600);
+  } else {
+    b.oni = true; b.stun = 1; b.out = S.t; Kit.sfx('hit'); msg(b, 'おにになった！');
+    if (S.ps.every(p => p.oni)) setTimeout(finish, 600);
+  }
+}
+function msg(p, t) { S.msgs.push({ p, t: 1.2, text: t }); }
+
+/* ---------- えがく ---------- */
+function draw() {
+  if (!g) return;
+  g.fillStyle = '#7cc46a'; g.fillRect(0, 0, VW, VH);
+  if (!S) return;
+  g.save(); g.translate(ox, oy); g.scale(sc, sc);
+  // しばふ
+  g.fillStyle = '#8fd17a'; g.beginPath(); g.roundRect(0, 0, FW, FH, 30); g.fill();
+  g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 4; g.setLineDash([16, 14]); g.beginPath(); g.arc(FW / 2, FH / 2, 120, 0, 6.29); g.stroke(); g.setLineDash([]);
+  // 4人のときの くぎり
+  if (O.humans >= 2) {
+    g.restore(); g.save();
+    g.strokeStyle = 'rgba(42,34,56,.15)'; g.lineWidth = 2; g.setLineDash([8, 10]);
+    g.beginPath(); g.moveTo(VW / 2, 0); g.lineTo(VW / 2, VH); if (O.humans >= 3) { g.moveTo(0, VH / 2); g.lineTo(VW, VH / 2); } g.stroke(); g.setLineDash([]);
+    g.restore(); g.save(); g.translate(ox, oy); g.scale(sc, sc);
+  }
+  for (const o of S.obs) drawObs(o);
+  for (const it of S.items) {
+    const b = Math.sin(performance.now() / 150) * 3;
+    g.fillStyle = '#ffc93c'; g.strokeStyle = '#2a2238'; g.lineWidth = 3;
+    g.beginPath(); g.arc(it.x, it.y + b, 16, 0, 6.29); g.fill(); g.stroke();
+    g.font = '20px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('⚡', it.x, it.y + b + 1);
+  }
+  const ps = S.ps.slice().sort((a, b) => a.y - b.y);
+  for (const p of ps) drawP(p);
+  for (const m of S.msgs) {
+    g.font = '900 22px "Zen Maru Gothic", sans-serif'; g.textAlign = 'center';
+    g.lineWidth = 5; g.strokeStyle = '#fff'; g.strokeText(m.text, m.p.x, m.p.y - 40 - (1.2 - m.t) * 20);
+    g.fillStyle = '#2a2238'; g.fillText(m.text, m.p.x, m.p.y - 40 - (1.2 - m.t) * 20);
+  }
+  g.restore();
+  // スティック
+  S.ctrl.forEach((c, i) => {
+    if (c.id == null || i >= Math.max(1, O.humans)) return;
+    g.fillStyle = 'rgba(255,255,255,.35)'; g.strokeStyle = 'rgba(42,34,56,.5)'; g.lineWidth = 3;
+    g.beginPath(); g.arc(c.ox, c.oy, 60, 0, 6.29); g.fill(); g.stroke();
+    g.fillStyle = COLS[i]; g.beginPath(); g.arc(c.x, c.y, 26, 0, 6.29); g.fill(); g.stroke();
+  });
+  // うえの じょうほう
+  g.font = '900 20px "Zen Maru Gothic", sans-serif'; g.textAlign = 'left'; g.textBaseline = 'middle';
+  const tt = `⏱ ${Math.ceil(S.t)}`;
+  g.fillStyle = 'rgba(255,255,255,.9)'; g.strokeStyle = '#2a2238'; g.lineWidth = 3;
+  g.beginPath(); g.roundRect(10, 10, 96, 36, 18); g.fill(); g.stroke();
+  g.fillStyle = S.t <= 10 ? '#ff5d8f' : '#2a2238'; g.fillText(tt, 22, 29);
+  if (O.rule !== 'tag') {
+    const left = O.rule === 'ice' ? S.ps.filter(p => !p.oni && !p.frozen).length : S.ps.filter(p => !p.oni).length;
+    const t2 = `🏃 のこり ${left}`;
+    g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.roundRect(VW - 150, 10, 140, 36, 18); g.fill(); g.stroke();
+    g.fillStyle = '#2a2238'; g.fillText(t2, VW - 138, 29);
+  }
+  if (S.count > 0) {
+    g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(0, 0, VW, VH);
+    g.font = '64px "Dela Gothic One", sans-serif'; g.textAlign = 'center'; g.fillStyle = '#fff';
+    g.fillText(Math.ceil(S.count), VW / 2, VH / 2);
+    g.font = '900 22px "Zen Maru Gothic", sans-serif';
+    const onis = S.ps.filter(p => p.oni).map(p => p.name).join('・');
+    g.fillText(`おには ${onis}！`, VW / 2, VH / 2 + 60);
+  }
+}
+function drawObs(o) {
+  g.lineWidth = 3; g.strokeStyle = '#2a2238';
+  if (o.kind === 'pond') {
+    g.fillStyle = '#6fc3ff'; g.beginPath(); g.ellipse(o.x, o.y, o.r * 1.15, o.r, 0, 0, 6.29); g.fill(); g.stroke();
+    g.fillStyle = 'rgba(255,255,255,.5)'; g.beginPath(); g.ellipse(o.x - o.r * .3, o.y - o.r * .3, o.r * .3, o.r * .12, -.4, 0, 6.29); g.fill();
+  } else if (o.kind === 'tree') {
+    g.fillStyle = 'rgba(0,0,0,.15)'; g.beginPath(); g.ellipse(o.x + 6, o.y + 8, o.r * 1.1, o.r * .9, 0, 0, 6.29); g.fill();
+    g.fillStyle = '#3fa96a'; g.beginPath(); g.arc(o.x, o.y, o.r * 1.15, 0, 6.29); g.fill(); g.stroke();
+    g.fillStyle = '#56c47f'; g.beginPath(); g.arc(o.x - o.r * .3, o.y - o.r * .3, o.r * .55, 0, 6.29); g.fill();
+  } else if (o.kind === 'rock') {
+    g.fillStyle = '#a3a8ae'; g.beginPath();
+    for (let k = 0; k < 7; k++) { const a = k / 7 * 6.28, rr = o.r * (k % 2 ? 1 : .85); g.lineTo(o.x + Math.cos(a) * rr, o.y + Math.sin(a) * rr); }
+    g.closePath(); g.fill(); g.stroke();
+  } else {
+    g.fillStyle = '#2f8f58';
+    [[0, 0, 1], [-.6, .2, .7], [.6, .25, .7]].forEach(([dx, dy, s]) => { g.beginPath(); g.arc(o.x + dx * o.r, o.y + dy * o.r, o.r * s, 0, 6.29); g.fill(); g.stroke(); });
+  }
+}
+function drawP(p) {
+  const blink = p.imm > 0 && Math.floor(p.imm * 10) % 2;
+  g.globalAlpha = blink ? .5 : 1;
+  // かげ
+  g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.ellipse(p.x, p.y + R * .8, R, R * .45, 0, 0, 6.29); g.fill();
+  if (p.boost > 0) { g.strokeStyle = '#ffc93c'; g.lineWidth = 4; g.beginPath(); g.arc(p.x, p.y, R + 6, 0, 6.29); g.stroke(); }
+  if (p.oni) {
+    g.fillStyle = 'rgba(255,60,80,.25)'; g.beginPath(); g.arc(p.x, p.y, R + 12 + Math.sin(performance.now() / 120) * 3, 0, 6.29); g.fill();
+  }
+  g.fillStyle = p.col; g.strokeStyle = '#2a2238'; g.lineWidth = 3;
+  g.beginPath(); g.arc(p.x, p.y, R, 0, 6.29); g.fill(); g.stroke();
+  g.font = `${R * 1.3}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(p.face, p.x, p.y + 2);
+  if (p.oni) {
+    // つの
+    g.fillStyle = '#ff3b4e';
+    [-1, 1].forEach(s => { g.beginPath(); g.moveTo(p.x + s * 8, p.y - R + 4); g.lineTo(p.x + s * 15, p.y - R - 14); g.lineTo(p.x + s * 18, p.y - R + 6); g.closePath(); g.fill(); g.stroke(); });
+  }
+  if (p.frozen) {
+    g.fillStyle = 'rgba(170,225,255,.6)'; g.strokeStyle = '#6fb8e6'; g.lineWidth = 3;
+    g.beginPath(); g.roundRect(p.x - R - 6, p.y - R - 6, R * 2 + 12, R * 2 + 12, 8); g.fill(); g.stroke();
+    g.strokeStyle = 'rgba(255,255,255,.8)'; g.beginPath(); g.moveTo(p.x - R, p.y - R + 8); g.lineTo(p.x - R + 10, p.y - R); g.stroke();
+  }
+  g.globalAlpha = 1;
+  // なまえ
+  g.font = '900 13px "Zen Maru Gothic", sans-serif';
+  const w = g.measureText(p.name).width + 12;
+  g.fillStyle = p.human ? '#ffffff' : 'rgba(255,255,255,.7)'; g.strokeStyle = p.human ? p.col : 'rgba(42,34,56,.3)'; g.lineWidth = 2;
+  g.beginPath(); g.roundRect(p.x - w / 2, p.y + R + 6, w, 18, 9); g.fill(); g.stroke();
+  g.fillStyle = '#2a2238'; g.fillText(p.name, p.x, p.y + R + 16);
+}
+
+/* ---------- おわり ---------- */
+function finish() {
+  if (!S || S.over) return;
+  S.over = true; loop.stop(); Kit.music.stop(); Kit.keepAwake(false); $('pauseBtn').hidden = true;
+  draw();
+  let title = '', rows = [];
+  const ps = S.ps;
+  if (O.rule === 'tag') {
+    const sorted = ps.slice().sort((a, b) => a.oniTime - b.oniTime);
+    const w = sorted[0];
+    title = `🏆 ${E(w.name)} の勝ち！`;
+    rows = sorted.map((p, i) => `<div><span>${i + 1}. ${p.face} ${E(p.name)}</span><b class="k-num">おに ${p.oniTime.toFixed(1)}びょう</b></div>`);
+  } else if (O.rule === 'ice') {
+    const runners = ps.filter(p => !p.oni);
+    const oniWin = runners.every(p => p.frozen);
+    title = oniWin ? '👹 おにの勝ち！ぜんいん こおった' : '🏃 にげる人の勝ち！';
+    rows = ps.map(p => `<div><span>${p.face} ${E(p.name)}${p.oni ? '（おに）' : ''}</span><b>${p.oni ? '' : p.frozen ? '🧊 こおった' : '😆 セーフ'}${p.saves ? `・たすけた ${p.saves}回` : ''}</b></div>`);
+  } else {
+    const surv = ps.filter(p => !p.oni);
+    title = surv.length ? `🏆 ${surv.map(p => E(p.name)).join('・')} がにげきった！` : '🧟 ぜんいん おにになった！';
+    const rank = p => !p.oni ? -1 : p.out == null ? 1e9 : p.out; // にげきり → おそくつかまった じゅん → さいしょのおに
+    const order = ps.slice().sort((a, b) => rank(a) - rank(b));
+    rows = order.map(p => `<div><span>${p.face} ${E(p.name)}</span><b>${!p.oni ? '🏆 にげきり' : p.out == null ? 'さいしょのおに' : `${Math.round(O.time - p.out)}びょうで つかまった`}</b></div>`);
+  }
+  const humanWon = O.rule === 'tag' ? ps.slice().sort((a, b) => a.oniTime - b.oniTime)[0].human
+    : O.rule === 'ice' ? ps.some(p => p.human && !p.oni) && !ps.filter(p => !p.oni).every(p => p.frozen)
+    : ps.some(p => p.human && !p.oni);
+  if (humanWon) { Kit.confetti(); Kit.sfx('win'); } else Kit.sfx('lose');
+  $('resultCard').innerHTML = `<h2>${title}</h2><div class="res">${rows.join('')}</div>
+    <div class="k-row" style="justify-content:center"><button class="k-btn is-berry is-big" id="again">もういっかい</button><button class="k-btn" id="toSetup">せっていへ</button></div>`;
+  $('resultOv').hidden = false;
+  $('again').onclick = () => { Kit.sfx('tap'); newGame(); };
+  $('toSetup').onclick = () => { $('resultOv').hidden = true; $('setupOv').hidden = false; S = null; draw(); renderSetup(); };
+}
+const loop = Kit.loop(update);
+function pause() { if (!S || S.over || !loop.running) return; loop.stop(); Kit.music.stop(); $('pauseOv').hidden = false; }
+$('pauseBtn').onclick = pause;
+$('resume').onclick = () => { $('pauseOv').hidden = true; loop.start(); if (S.count <= 0) Kit.music.play(Kit.music.opts); };
+$('quit').onclick = () => { $('pauseOv').hidden = true; S = null; $('pauseBtn').hidden = true; $('setupOv').hidden = false; Kit.music.stop(); draw(); renderSetup(); };
+document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+$('startBtn').onclick = () => { Kit.sfx('tap'); newGame(); };
+
+Kit.bar({ id: 'onigokko', title: '🏃 おにごっこ', help: `
+  <p>つのが はえているのが <b>おに</b>。スティックで にげたり おいかけたり！</p>
+  <ul>
+    <li><b>ふつう</b>：タッチで おに交代。おにだった時間が いちばん少ない人の勝ち。</li>
+    <li><b>こおりおに</b>：タッチされると こおる。なかまに タッチしてもらうと とける。</li>
+    <li><b>ふえおに</b>：タッチされると おにが ふえる。さいごまで にげきろう。</li>
+  </ul>
+  <p>⚡を とると 3びょう はやくなる。1台で4人まで あそべるよ（画面を分けて、それぞれのところを さわってうごかす）。</p>` });
+renderSetup();
+resize();
+</script>
+</body>
+</html>

@@ -2,6 +2,8 @@
 self.ASOBI_GAMES = [
   { id: 'wordwolf', name: 'ワードウルフ', icon: '🐺', color: 'grape', tag: 'みんなで', who: '3〜8人', desc: 'ひとりだけちがうお題。だれがウルフかな？' },
   { id: 'oekaki', name: 'おえかきでんごん', icon: '🖍️', color: 'orange', tag: 'みんなで', who: '3〜10人', desc: '絵とことばでつたえていく。さいごはどうなる？' },
+  { id: 'kakurenbo', name: 'へんしんかくれんぼ', icon: '🫥', color: 'grape', tag: 'みんなで', who: '1〜6人', desc: '3Dのへやで、物にへんしんしてかくれよう' },
+  { id: 'onigokko', name: 'おにごっこ', icon: '🏃', color: 'berry', tag: 'みんなで', who: '1〜4人＋CPU', desc: 'ふつう・こおりおに・ふえおに' },
   { id: 'babanuki', name: 'ババぬき', icon: '🃏', color: 'berry', tag: 'みんなで', who: '1人＋CPU', desc: 'CPUと対戦。ジジぬきもできるよ' },
   { id: 'connect4', name: 'よんもくならべ', icon: '🔴', color: 'sun', tag: 'たいせん', who: '1〜2人', desc: 'たて・よこ・ななめに4つそろえよう' },
   { id: 'dots', name: 'ドット＆ボックス', icon: '✏️', color: 'sky', tag: 'たいせん', who: '2〜4人', desc: '線をひいて、はこをたくさん取ろう' },
