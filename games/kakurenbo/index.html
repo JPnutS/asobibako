@@ -29,6 +29,8 @@
   .objs .k-btn[aria-pressed="true"] { background: var(--sky); color: var(--on-color); }
   .float { position: absolute; z-index: 4; pointer-events: none; transform: translate(-50%, -100%); font-weight: 900; background: var(--card); border: 3px solid var(--line); border-radius: 12px; padding: 2px 10px; white-space: nowrap; box-shadow: 0 3px 0 var(--line); }
   .hint { position: absolute; left: 50%; top: 58px; transform: translateX(-50%); width: max-content; max-width: 92%; text-align: center; z-index: 4; font-family: var(--display); font-size: 1.6rem; pointer-events: none; text-shadow: 0 2px 0 #fff, 0 -2px 0 #fff, 2px 0 0 #fff, -2px 0 0 #fff; transition: opacity .4s; }
+  .acts { position: absolute; left: 10px; bottom: 10px; z-index: 3; display: flex; gap: 8px; flex-wrap: wrap; max-width: calc(100% - 80px); }
+  .stage.photo canvas { filter: sepia(.75) contrast(.95); }
   .corner { position: absolute; right: 10px; bottom: 10px; z-index: 3; display: flex; gap: 8px; }
   .players { display: grid; gap: 6px; }
   .players .k-row { flex-wrap: nowrap; }
@@ -46,6 +48,7 @@
   <div class="hint" id="hint"></div>
   <div class="corner" id="corner" hidden><button class="k-btn k-icon" id="camReset" aria-label="カメラをもどす">🎥</button></div>
   <div class="tools" id="tools" hidden></div>
+  <div class="acts" id="acts" hidden></div>
   <div id="labels"></div>
 
   <div class="over" id="setupOv">
@@ -370,8 +373,23 @@ function newRound() {
   G.checks = G.hiders.length + 3;
   resetCam();
   $('setupOv').hidden = true; $('resultOv').hidden = true;
-  nextHider();
+  startMemory();
 }
+/* おには さいしょに へやを おぼえる（あとで「ふえた物・かわった物」をさがす） */
+function startMemory() {
+  if (G.seeker.cpu) return nextHider();
+  showPass(`<p class="k-label">まずは おにが へやを おぼえる</p><div style="font-family:var(--display);font-size:2.2rem;color:${G.seeker.color}">${E(G.seeker.name)}さん</div>
+    <p style="margin:0">${O.mode === 'family' ? 'かくれる人は 見ていてもOK。' : ''}どこに なにがあるか、<b>20びょう</b>で おぼえよう！<br>あとで <b>ふえた物・かわった物</b> をさがすよ。ドラッグでカメラをまわせるよ。</p>`, 'おぼえる！', () => {
+    G.phase = 'memo'; G.memoT = 20; resetCam(); $('corner').hidden = false;
+    acts('<button class="k-btn is-sun" id="memoDone">おぼえた！</button>');
+    $('memoDone').onclick = endMemory;
+  });
+}
+function endMemory() {
+  if (!G || G.phase !== 'memo') return;
+  G.phase = 'hide'; acts(''); hud(''); Kit.sfx('good'); nextHider();
+}
+function acts(html) { $('acts').innerHTML = html; $('acts').hidden = !html; }
 function nextHider() {
   hideTools();
   if (G.idx >= G.hiders.length) return startSeek();
@@ -401,7 +419,7 @@ function startHide(h) {
   tapCb = (cx, cy) => hideTap(h, cx, cy);
   renderTools(h);
   hud(`<span class="pill who" style="background:${h.color}">${E(h.name)}さん：へんしんして かくれよう</span>`);
-  hint('ゆかや台をタップすると そこへいどう', 2200);
+  hint('もとからある物と 同じ見た目にして、にた物のそばへ！', 2600);
 }
 function hideTap(h, cx, cy) {
   const hits = pick(cx, cy, [...statics, ...props.map(p => p.g)]);
@@ -414,12 +432,29 @@ function hideTap(h, cx, cy) {
     if (n.y < .6) { hint('そこには おけないよ', 900); return; }
     const pt = hit.point;
     if (Math.abs(pt.x) > W / 2 - .3 || Math.abs(pt.z) > D / 2 - .3) { hint('もっと内がわにしてね', 900); return; }
-    Object.assign(G.sel, { x: pt.x, y: pt.y, z: pt.z }); G.sel.g.position.copy(pt);
+    Object.assign(G.sel, { x: pt.x, y: pt.y, z: pt.z }); G.sel.g.position.copy(pt); paintMeter(h);
     G.sel.g.scale.setScalar(G.sel.scale * 1.15); setTimeout(() => G.sel && G.sel.g.scale.setScalar(G.sel.scale), 120);
     Kit.sfx('pop'); return;
   }
 }
 const SIZES = [.7, .85, 1, 1.2, 1.45];
+/* ばれやすさ：もとからある物と ちがうほど めだつ */
+function oddness(p) {
+  const same = props.filter(q => !q.isNew && q.type === p.type);
+  let o = 0;
+  if (!same.length) o += 2;
+  else if (!same.some(q => q.color === p.color)) o += 1.2;
+  if (!same.some(q => Math.abs(q.scale - p.scale) < .2)) o += .8;
+  if (same.length && !same.some(q => Math.hypot(q.x - p.x, q.z - p.z) < 3.2)) o += .5;
+  return o;
+}
+const oddLabel = o => o < .6 ? ['😎 とけこんでる！', '#3ecf8e'] : o < 1.6 ? ['🙂 まあまあ', '#ffc93c'] : ['😰 めだってる', '#ff8fb1'];
+const blinkGap = p => (p.odd ?? 1) < .6 ? Kit.rand(12, 18) : p.odd < 1.6 ? Kit.rand(7, 11) : Kit.rand(3, 5);
+function paintMeter(h) {
+  const m = $('oddMeter'); if (!m || !h.prop) return;
+  const [t, c] = oddLabel(oddness(h.prop));
+  m.textContent = `ばれやすさ：${t}`; m.style.background = c;
+}
 function renderTools(h) {
   const p = G.sel, types = MAPS[O.map].types;
   const pal = [...new Set([...PROPS[p.type].colors, '#ffffff', '#2a2238', '#ff5d5d', '#4aa8ff', '#3ecf8e', '#ffc93c', '#c99a5b', '#9aa0a6', '#8b5cf6', '#ffb3c7'])];
@@ -429,6 +464,7 @@ function renderTools(h) {
       ${h.made.map((m, i) => `<button class="k-btn is-small" data-obj="${i}" aria-pressed="${p === m}">${PROPS[m.type].icon} つくった物${i + 1}</button>`).join('')}
       ${h.made.length < 2 ? '<button class="k-btn is-small is-grass" id="mk">＋ かくれる物をつくる</button>' : ''}
       ${!isSelf ? '<button class="k-btn is-small" id="del">🗑️</button>' : ''}
+      <span class="pill" id="oddMeter" style="flex:none;white-space:nowrap"></span>
       <span style="flex:1"></span><button class="k-btn is-sun" id="done">かくれた！</button></div>
     <div class="row"><span class="lbl">${isSelf ? 'へんしん' : 'かたち'}</span>${types.map(t => `<button class="pchip" data-t="${t}" aria-pressed="${p.type === t}">${PROPS[t].icon}</button>`).join('')}</div>
     <div class="row"><span class="lbl">いろ</span>${pal.map(c => `<button class="sw" data-c="${c}" style="background:${c}" aria-pressed="${p.color === c}"></button>`).join('')}</div>
@@ -449,20 +485,23 @@ function renderTools(h) {
   };
   if ($('del')) $('del').onclick = () => { removeProp(p); h.made = h.made.filter(x => x !== p); G.sel = h.prop; Kit.sfx('tap'); renderTools(h); };
   $('done').onclick = () => { Kit.sfx('good'); G.sel = null; tapCb = null; G.idx++; nextHider(); };
+  paintMeter(h);
   requestAnimationFrame(updateSelRing);
 }
 function hideTools() { $('tools').hidden = true; }
 
 /* CPUのかくれかた：へやにある物と同じ見た目をまねする */
 function cpuHide(h) {
-  for (let i = 0; i < 200; i++) {
+  // へやにある物を1つえらんで、同じ見た目で そのちかくに かくれる
+  const lv = O.mode === 'cpuHide' ? 2 : 2;
+  for (let i = 0; i < 300; i++) {
     const model = Kit.pick(props.filter(p => !p.hider && !p.isNew));
-    const s = surfaces[Math.random() < .6 ? 0 : Kit.randInt(0, surfaces.length - 1)];
-    const x = Kit.rand(s.x0, s.x1), z = Kit.rand(s.z0, s.z1);
-    if (s.floor === undefined && (model.type === 'chair' || model.type === 'lamp' || model.type === 'trash' || model.type === 'stump')) continue;
+    const s = surfaces.find(q => Math.abs(q.y - model.y) < .05 && model.x >= q.x0 - .3 && model.x <= q.x1 + .3 && model.z >= q.z0 - .3 && model.z <= q.z1 + .3) || surfaces[0];
+    const a = Kit.rand(0, 6.28), d = Kit.rand(.9, 2.2);
+    const x = Kit.clamp(model.x + Math.cos(a) * d, s.x0, s.x1), z = Kit.clamp(model.z + Math.sin(a) * d, s.z0, s.z1);
     if (!fits(x, z, PROPS[model.type].r * model.scale, s)) continue;
     h.prop = addProp({ type: model.type, color: model.color, x, y: s.y, z, rot: Kit.rand(0, 6.28), scale: model.scale * Kit.rand(.95, 1.05), hider: h, isNew: true });
-    return;
+    void lv; return;
   }
   const [x, z] = freeSpot(.5);
   h.prop = addProp({ type: 'box', color: PROPS.box.colors[0], x, y: 0, z, rot: 0, scale: 1, hider: h, isNew: true });
@@ -471,18 +510,56 @@ function cpuHide(h) {
 /* ---------- さがす ---------- */
 function startSeek() {
   G.phase = 'seek'; G.t = O.time || 0;
-  props.forEach(p => { p.blinkAt = 3 + Math.random() * 6; });
+  props.forEach(p => { if (p.isNew) p.odd = oddness(p); if (p.hider) p.blinkAt = blinkGap(p); });
+  G.calls = 3; G.photo = 1; G.cpuSince = 99;
   const go = () => {
     G.running = true;
     resetCam();
     if (G.seeker.cpu) { tapCb = null; camLock = false; G.cpuNext = 1.5; hint('CPUおにが さがしはじめた！', 1600); }
-    else { tapCb = seekTap; hint('あやしい物をタップして しらべよう', 2000); }
+    else { tapCb = seekTap; renderActs(); hint('ふえた物・かわった物は どれ？', 2000); }
     Kit.music.play({ bpm: 112, lead: [523, 0, 659, 0, 784, 0, 659, 0, 587, 0, 698, 0, 880, 0, 698, 0], bass: [131, 0, 0, 0, 147, 0, 0, 0], vol: .025, type: 'triangle' });
     paintHud();
   };
   if (G.seeker.cpu) showPass(`<p class="k-label">さがす番</p><div style="font-family:var(--display);font-size:2rem">🤖 CPUおに</div><p style="margin:0">みんな見つからないでね…！ドキドキ</p>`, 'スタート', go);
   else showPass(`<p class="k-label">さがす番（おに）</p><div style="font-family:var(--display);font-size:2.2rem;color:${G.seeker.color}">${E(G.seeker.name)}さん</div>
-    <p style="margin:0">かくれているのは <b>${G.hiders.length}人</b>。しらべられるのは <b>${G.checks}回</b> まで。<br>はずれると「あつい・つめたい」でヒントが出るよ。${O.blink ? '<br>へんしんした人は ときどき目をパチッとするかも👀' : ''}</p>`, 'さがす！', go);
+    <p style="margin:0">かくれているのは <b>${G.hiders.length}人</b>。しらべられるのは <b>${G.checks}回</b> まで。<br><br>📣「もういいかい？」（3回）…かくれている人だけ ピクッとうごいて、声のする方向がわかる<br>📸「まえのへや」（1回）…4びょうだけ、かくれる前のへやが見える<br>はずれると「あつい・つめたい」でヒント。${O.blink ? '目立つへんしんほど 目をパチッとするよ👀' : ''}</p>`, 'さがす！', go);
+}
+function renderActs() {
+  if (G.seeker.cpu) { acts(''); return; }
+  acts(`<button class="k-btn is-orange" id="callBtn" ${G.calls ? '' : 'disabled'}>📣 もういいかい？（${G.calls}）</button><button class="k-btn is-sky" id="photoBtn" ${G.photo ? '' : 'disabled'}>📸 まえのへや（${G.photo}）</button>`);
+  $('callBtn').onclick = () => callOut();
+  $('photoBtn').onclick = showPhoto;
+}
+function say(t) {
+  try { if (!Kit.settings.sound || !window.speechSynthesis) return; const u = new SpeechSynthesisUtterance(t); u.lang = 'ja-JP'; u.rate = 1.15; u.pitch = 1.3; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {}
+}
+/* もういいかい？：かくれている人だけ ピクッとして、その方向から こたえる */
+function callOut() {
+  if (!G.running || G.calls <= 0) return;
+  G.calls--; renderActs();
+  say('もういいかい？'); hint('📣 もういいかい？', 1200);
+  G.hiders.forEach(h => { if (!h.prop.found) h.prop.twT = -Kit.rand(1, 1.8); });
+  if (G.seeker.cpu) G.cpuSince = 0;
+}
+function chirp(p) {
+  const a = Kit.audio(); if (!a || !Kit.settings.sound) return;
+  v3.set(p.x, p.y + .5, p.z).project(camera);
+  const pan = a.createStereoPanner ? a.createStereoPanner() : null;
+  if (pan) { pan.pan.value = Kit.clamp(v3.x * 1.2, -1, 1); pan.connect(a.destination); setTimeout(() => pan.disconnect(), 1500); }
+  const out = pan || a.destination, vol = .16;
+  Kit.tone(784, .14, { type: 'triangle', vol, out, slide: 200 });
+  Kit.tone(1046, .2, { type: 'triangle', vol, out, delay: .16, slide: -150 });
+}
+function showPhoto() {
+  if (!G.running || G.photo <= 0 || G.photoT > 0) return;
+  G.photo--; renderActs();
+  G.photoT = 4; tapCb = null;
+  props.forEach(p => { if (p.isNew && !p.found) p.g.visible = false; });
+  stage.classList.add('photo'); Kit.sfx('select'); hint('📸 これが かくれる前のへや！', 1800);
+}
+function endPhoto() {
+  props.forEach(p => { p.g.visible = true; });
+  stage.classList.remove('photo'); if (G.running && !G.seeker.cpu) tapCb = seekTap;
 }
 function paintHud() {
   if (!G || G.phase !== 'seek') return;
@@ -547,14 +624,14 @@ function burst(p) {
 /* CPUおに：あたらしく増えた物・色がへんな物を あやしいと思う */
 function cpuThink() {
   const lv = O.level;
-  const memory = [0, .25, .55, .9][lv];
+  const memory = [0, .2, .45, .75][lv];
   const cand = props.filter(p => !p.checked && !p.found);
   let best = null, bs = -1;
   for (const p of cand) {
     let s = Math.random() * .9;
     if (p.isNew) s += memory * Math.random();
-    if (!PROPS[p.type].colors.includes(p.color)) s += .35 * lv;
-    if (Math.abs(p.scale - 1) > .25) s += .15 * lv;
+    if (p.isNew) s += (p.odd || 0) * .2 * lv;
+    if (p.twSeen) s += 1.4;
     if (p.eyesOn) s += 1.5;
     if (s > bs) { bs = s; best = p; }
   }
@@ -564,7 +641,7 @@ function cpuThink() {
 /* ---------- おわり ---------- */
 function endRound() {
   if (!G || G.phase === 'end') return;
-  G.phase = 'end'; G.running = false; tapCb = null;
+  G.phase = 'end'; G.running = false; tapCb = null; acts(''); if (G.photoT > 0) { G.photoT = 0; endPhoto(); }
   Kit.music.stop();
   G.hiders.forEach(h => { if (!h.prop.found) { h.prop.label = `${h.name}（ここ！）`; jump(h.prop); } });
   const safe = G.hiders.filter(h => !h.prop.found);
@@ -625,25 +702,47 @@ function frame(now) {
     selRing.visible = !!p;
     if (p) { selRing.position.set(p.x, p.y + .03, p.z); const s = PROPS[p.type].r * p.scale * 1.4 * (1 + Math.sin(now / 200) * .08); selRing.scale.setScalar(s); }
   }
+  if (G && G.phase === 'memo') {
+    const before = Math.ceil(G.memoT); G.memoT -= dt;
+    if (Math.ceil(G.memoT) !== before || !$('hud').innerHTML) hud(`<span class="pill who" style="background:${G.seeker.color}">🧠 おぼえる時間 ${Math.max(0, Math.ceil(G.memoT))}</span>`);
+    if (G.memoT <= 0) endMemory();
+  }
+  if (G && G.photoT > 0) { G.photoT -= dt; if (G.photoT <= 0) endPhoto(); }
   if (G && G.phase === 'seek' && G.running) {
     if (O.time) { G.t -= dt; if (G.t <= 0) { G.t = 0; paintHud(); hint('じかんぎれ！', 1500); endRound(); } else if (Math.ceil(G.t) !== Math.ceil(G.t + dt)) paintHud(); }
     // まばたき
     if (O.blink) G.hiders.forEach(h => {
       const p = h.prop; if (p.found || !p.eyes) return;
       p.blinkAt -= dt;
-      if (p.blinkAt <= 0) { p.eyes.visible = true; p.eyesOn = true; if (p.blinkAt < -.35) { p.eyes.visible = false; p.eyesOn = false; p.blinkAt = Kit.rand(5, 10); } }
+      if (p.blinkAt <= 0) { p.eyes.visible = true; p.eyesOn = true; if (p.blinkAt < -.35) { p.eyes.visible = false; p.eyesOn = false; p.blinkAt = blinkGap(p); } }
     });
     // CPUおに
     if (G.seeker.cpu && G.phase === 'seek') {
       G.cpuNext -= dt;
+      if (G.cpuNext <= 0 && !G.cpuTarget && G.calls > 0 && G.cpuSince >= 3 - Math.min(2, O.level - 1)) {
+        callOut(); resetCam(); G.cpuNext = 2.6;
+      }
       if (G.cpuNext <= 0 && !G.cpuTarget) {
         G.cpuTarget = cpuThink();
         if (G.cpuTarget) { Object.assign(camGoal, { tx: G.cpuTarget.x, tz: G.cpuTarget.z, ty: G.cpuTarget.y + .3, r: 9 }); G.cpuWait = 1.3; Kit.sfx('tick'); hint('🤖 …あやしい？', 900); }
       }
-      if (G.cpuTarget) { G.cpuWait -= dt; if (G.cpuWait <= 0) { check(G.cpuTarget); G.cpuTarget = null; G.cpuNext = [0, 2.2, 1.7, 1.3][O.level]; } }
+      if (G.cpuTarget) { G.cpuWait -= dt; if (G.cpuWait <= 0) { check(G.cpuTarget); G.cpuTarget = null; G.cpuSince++; G.cpuNext = [0, 2.2, 1.7, 1.3][O.level]; } }
     }
   }
   props.forEach(p => {
+    if (p.twT != null) {
+      const was = p.twT; p.twT += dt;
+      if (was < 0 && p.twT >= 0) {
+        chirp(p);
+        if (G && G.seeker && G.seeker.cpu && Math.random() < [0, .35, .6, .85][O.level]) p.twSeen = true;
+      }
+      if (p.twT >= 0) {
+        const t = p.twT;
+        p.g.rotation.z = Math.sin(t * 45) * .2 * Math.max(0, 1 - t / .5);
+        p.g.position.y = p.y + Math.sin(Math.min(1, t / .5) * Math.PI) * .18;
+        if (t > .5) { p.g.rotation.z = 0; p.g.position.y = p.y; p.twT = null; }
+      }
+    }
     if (p.jumpT != null) {
       p.jumpT += dt;
       const k = p.jumpT / .45;
@@ -665,9 +764,10 @@ Kit.bar({ id: 'kakurenbo', title: '🫥 へんしんかくれんぼ', help: `
   <ol>
     <li><b>かくれる人</b>は1人ずつ、家具やおもちゃに<b>へんしん</b>します。かたち・色・大きさ・むきをかえて、ゆかや台をタップした場所へいどう。</li>
     <li>「＋かくれる物をつくる」で、まわりに物を2つまでおけます。かべにしたり、にせものにしたり！</li>
-    <li><b>おに</b>は、あやしい物をタップしてしらべます。はずれると「あつい・つめたい」でヒント。しらべられる回数にはかぎりがあります。</li>
+    <li>はじめに <b>おに</b>が へやを20びょう おぼえます。かくれる人は、もとからある物と同じ見た目にして にた物のそばにおくと「ばれやすさ」が下がります。</li>
+    <li><b>おに</b>は「ふえた物・かわった物」をさがしてタップ。📣もういいかい？で かくれた人だけがピクッ（つくった物はうごかない）。📸まえのへやで、かくれる前のへやを4びょう見られます。</li>
     <li>見つからずに にげきったら勝ち！ ドラッグでカメラをまわす、2本ゆびでズーム・いどう。</li>
-    <li>CPUおには、あとから<b>ふえた物</b>や<b>色がへんな物</b>をあやしむよ。</li>
+    <li>はずれると「あつい・つめたい」でヒント。目立つへんしんほど、目をパチッとします。</li>
   </ol>` });
 renderSetup();
 buildMap(O.map); resize(); resetCam(); applyCam(1);
