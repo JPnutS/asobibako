@@ -1,13 +1,13 @@
 /* オフライン用：はじめに全部をキャッシュし、その後は「キャッシュ→裏で更新」 */
-const VERSION = 'asobibako-v10';
-importScripts('common/games.js', 'otona/items.js');
+const VERSION = 'asobibako-v11';
+importScripts('common/games.js', 'tools/items.js');
 const CORE = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png',
   'common/kit.css', 'common/kit.js', 'common/games.js', 'common/vendor/three.module.min.js',
   ...self.ASOBI_GAMES.map(g => `games/${g.id}/index.html`),
-  // おとな版（背景削除のAIは大きいので、初めて使った時にだけ保存する）
-  'otona/', 'otona/index.html', 'otona/otona.css', 'otona/items.js', 'otona/manifest.webmanifest', 'otona/icon.svg', 'otona/icon-192.png', 'otona/icon-512.png',
-  'otona/vendor/qrcode.js',
-  ...self.OTONA_ITEMS.map(g => `otona/games/${g.id}/index.html`)];
+  // 道具と遊び（背景削除のAIは大きいので、初めて使った時にだけ保存する）
+  'tools/', 'tools/index.html', 'tools/style.css', 'tools/items.js', 'tools/manifest.webmanifest', 'tools/icon.svg', 'tools/icon-192.png', 'tools/icon-512.png',
+  'tools/vendor/qrcode.js',
+  ...self.OTONA_ITEMS.map(g => `tools/games/${g.id}/index.html`)];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));

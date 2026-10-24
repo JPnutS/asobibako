@@ -1,7 +1,7 @@
 /* あそびばこ 共通キット：保存・音・バー・モーダル・紙ふぶき・ゲームループ */
 (function () {
   'use strict';
-  /* <script src=".../kit.js" data-ns="..." data-home="..."> で、保存先と🏠の行き先を変えられる（おとな版で使う） */
+  /* <script src=".../kit.js" data-ns="..." data-home="..."> で、保存先と🏠の行き先を変えられる（「道具と遊び」で使う） */
   const ME = document.currentScript;
   const NS = (ME && ME.dataset.ns) || 'asobibako:';
   const ROOT = (() => {

@@ -1,6 +1,7 @@
-/* おとな版の一覧。トップとオフライン保存の両方がここを見る */
+/* 「道具と遊び」の一覧。トップとオフライン保存の両方がここを見る */
 self.OTONA_ITEMS = [
   { id: 'kaimono', name: 'お買い物計算', icon: '<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="8" cy="8" r="1.6"/>', kind: 'tool', desc: '割引後の値段、どっちがおトク、ポイント還元、税込・税抜' },
+  { id: 'coffee', name: 'コーヒー 4:6', icon: '<path d="M4 6h16l-6 8h-4z"/><path d="M10 14v3h4v-3"/><path d="M6 20h12"/><path d="M9 2.5c0 1 1 1 1 2M13 2.5c0 1 1 1 1 2"/>', kind: 'tool', desc: '4:6メソッドの注ぐ量を計算。45秒ごとに知らせるタイマー付き' },
   { id: 'qr', name: 'QRコード作成', icon: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/>', kind: 'tool', desc: 'URL・文章・Wi-Fi・連絡先からQRコードを作って保存' },
   { id: 'dance', name: 'ダンス練習', icon: '<circle cx="12" cy="4.5" r="2"/><path d="M12 7v6l-3 7M12 13l3 7M6 9.5l6-1 6-2"/>', kind: 'tool', desc: '動画を左右反転・スロー・区間リピート。自分の姿と並べて確認' },
   { id: 'cutout', name: '背景削除', icon: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.2 8.2 20 20M8.2 15.8 20 4"/>', kind: 'tool', desc: '写真の人や物をタップして切り抜き。ブラシで仕上げ' },

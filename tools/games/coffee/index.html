@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>コーヒー 4:6</title>
+<meta name="theme-color" content="#1f2328">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="icon" href="../../icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="../../../common/kit.css">
+<link rel="stylesheet" href="../../style.css">
+<style>
+  .k-wrap { max-width: 680px; }
+  :root { --bean: #6b4a33; --sweet: #c08a3e; --bright: #c8643f; --body: #4b3a30; }
+  .f { display: grid; gap: 6px; }
+  .stepper { display: grid; grid-template-columns: 48px 1fr 48px; gap: 8px; align-items: center; }
+  .stepper button { height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); font-size: 1.3rem; cursor: pointer; touch-action: manipulation; }
+  .stepper .val { text-align: center; font-family: var(--display); font-size: 2rem; font-variant-numeric: tabular-nums; }
+  .stepper .val small { font-size: .5em; color: var(--muted); margin-left: 2px; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  .seg .k-chip { min-height: 38px; padding: 4px 12px; font-size: .9rem; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .note { font-size: .82rem; color: var(--muted); margin: 0; }
+
+  .sum { display: flex; justify-content: space-around; text-align: center; gap: 8px; }
+  .sum div { display: grid; }
+  .sum span { font-size: .78rem; color: var(--muted); }
+  .sum b { font-family: var(--display); font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+  .stack { display: flex; height: 22px; border-radius: 6px; overflow: hidden; gap: 2px; }
+  .stack i { display: block; height: 100%; }
+  .stack .a { background: var(--sweet); } .stack .b { background: var(--body); }
+  .legend { display: flex; justify-content: space-between; font-size: .76rem; color: var(--muted); }
+  .plan { display: grid; gap: 6px; }
+  .pour { display: grid; grid-template-columns: 52px 1fr auto; gap: 12px; align-items: center; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+  .pour .t { font-variant-numeric: tabular-nums; color: var(--muted); font-size: .9rem; }
+  .pour .w { display: grid; }
+  .pour .w b { font-size: 1.05rem; }
+  .pour .w small { color: var(--muted); font-size: .78rem; }
+  .pour .to { font-family: var(--display); font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+  .pour .to small { font-size: .5em; color: var(--muted); }
+  .pour.p1, .pour.p2 { border-left: 4px solid var(--sweet); }
+  .pour.body { border-left: 4px solid var(--body); }
+  .pour.end { border-left: 4px solid var(--line); }
+  .pour.now { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .pour.now .t, .pour.now small { color: inherit; opacity: .8; }
+  .pour.done { opacity: .4; }
+  details.how summary { cursor: pointer; color: var(--muted); font-size: .92rem; padding: 6px 0; list-style: none; }
+  details.how summary::before { content: "＋ "; }
+  details.how[open] summary::before { content: "－ "; }
+  details.how p { margin: 6px 0; font-size: .92rem; }
+
+  /* タイマー */
+  .run { display: grid; gap: 14px; justify-items: center; text-align: center; }
+  .ring { position: relative; width: min(70vw, 280px, 42dvh); aspect-ratio: 1; }
+  .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring .bg { stroke: var(--soft); }
+  .ring .fg { stroke: var(--ink); transition: stroke-dashoffset .25s linear; }
+  .ring .in { position: absolute; inset: 0; display: grid; place-content: center; gap: 2px; }
+  .ring .lbl { font-size: .9rem; color: var(--muted); }
+  .ring .big { font-family: var(--display); font-size: clamp(3.2rem, 17vw, 4.6rem); line-height: 1; font-variant-numeric: tabular-nums; }
+  .ring .big small { font-size: .35em; margin-left: 2px; }
+  .ring .sub { font-size: .95rem; }
+  .clock { font-variant-numeric: tabular-nums; font-size: 1.1rem; color: var(--muted); }
+  .next { font-size: .95rem; }
+  .ctrl { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .flash { animation: flash .6s ease-out; }
+  @keyframes flash { from { background: color-mix(in srgb, var(--sun) 40%, transparent); } }
+</style>
+</head>
+<body>
+<main class="k-wrap" id="app"></main>
+
+<script src="../../../common/kit.js" data-ns="asobibako-otona:" data-home="../../index.html" data-tone="adult"></script>
+<script>
+'use strict';
+Kit.bar({ id: 'coffee', title: 'コーヒー 4:6', help: `
+  <p>粕谷哲さんの「4:6メソッド」で淹れるための、注ぎ方の計算とタイマーです。</p>
+  <p>お湯の量の<b>最初の40%</b>を2回に分けて注ぎ、その配分で<b>味</b>（甘さと酸味のバランス）を決めます。1回目を少なくすると甘めに、多くすると明るい酸味寄りになります。</p>
+  <p><b>残りの60%</b>は何回に分けるかで<b>濃さ</b>を決めます。回数を増やすほど濃く、減らすほどすっきりします。</p>
+  <p>注ぐのは45秒ごと。スケールの表示が「◯gまで」になるまで注ぎます。タイマーは注ぐ時に音とバイブで知らせ、使っている間は画面が消えにくくなります。</p>
+  <p>豆は粗挽き（ザラメくらい）がめやすです。</p>` });
+
+const $ = id => document.getElementById(id);
+const app = $('app');
+const S = Object.assign({ beans: 20, ratio: 15, taste: 'std', strength: 3, roast: 'mid', interval: 45 }, Kit.store.get('coffee:s', {}));
+const save = () => Kit.store.set('coffee:s', S);
+
+const TASTE = { sweet: [5, 7], std: [6, 6], bright: [7, 5] };           // 40% の分け方（12分の）
+const TASTE_L = { sweet: '甘め', std: 'バランス', bright: '明るい酸味' };
+const STRENGTH_L = { 1: 'すっきり', 2: 'やや軽め', 3: '標準', 4: '濃いめ' };
+const ROAST = { light: ['浅煎り', 93], mid: ['中煎り', 88], dark: ['深煎り', 83] };
+
+function plan() {
+  const water = Math.round(S.beans * S.ratio);
+  const first = water * .4, rest = water - first;
+  const [a, b] = TASTE[S.taste];
+  const amounts = [first * a / 12, first * b / 12, ...Array(S.strength).fill(rest / S.strength)];
+  // 1g単位に丸め、合計が water になるよう最後で調整
+  const rounded = amounts.map(Math.round);
+  rounded[rounded.length - 1] += water - rounded.reduce((x, y) => x + y, 0);
+  let cum = 0;
+  const pours = rounded.map((w, i) => { cum += w; return { i, t: i * S.interval, w, to: cum, kind: i < 2 ? 'p' + (i + 1) : 'body' }; });
+  const endT = pours[pours.length - 1].t + 30;
+  return { water, first: rounded[0] + rounded[1], rest: water - rounded[0] - rounded[1], pours, endT };
+}
+const mmss = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+
+function seg(list, cur, on) {
+  const d = Kit.el('<div class="seg"></div>');
+  list.forEach(([v, l]) => { const b = Kit.el(`<button class="k-chip" aria-pressed="${String(cur) === String(v)}">${l}</button>`); b.onclick = () => { on(v); save(); Kit.sfx('tap'); render(); }; d.appendChild(b); });
+  return d;
+}
+function field(label, child, note) { const f = Kit.el(`<div class="f"><span class="k-label">${label}</span></div>`); f.appendChild(child); if (note) f.appendChild(Kit.el(`<p class="note">${note}</p>`)); return f; }
+
+/* ---------- 設定と計画 ---------- */
+function render() {
+  const P = plan();
+  app.innerHTML = '';
+  const form = Kit.el('<div class="k-card k-stack"></div>');
+  const st = Kit.el(`<div class="stepper"><button aria-label="減らす">−</button><div class="val">${S.beans}<small>g</small></div><button aria-label="増やす">＋</button></div>`);
+  const [minus, , plus] = st.children;
+  const bump = d => { S.beans = Kit.clamp(S.beans + d, 8, 60); save(); render(); };
+  minus.onclick = () => bump(-1); plus.onclick = () => bump(1);
+  form.appendChild(field('豆の量', st, `お湯 ${P.water}g ・ できあがり約 ${Math.round(P.water - S.beans * 2)}ml（${Math.max(1, Math.round((P.water - S.beans * 2) / 150))}杯ぶん）`));
+  form.appendChild(field('豆とお湯の比率', seg([[13, '1:13'], [14, '1:14'], [15, '1:15（基本）'], [16, '1:16'], [17, '1:17']], S.ratio, v => S.ratio = v)));
+  const two = Kit.el('<div class="k-stack"></div>');
+  two.appendChild(field('味（最初の40%）', seg([['sweet', '甘め'], ['std', 'バランス'], ['bright', '明るい酸味']], S.taste, v => S.taste = v)));
+  two.appendChild(field('濃さ（残りの60%）', seg([[1, 'すっきり'], [2, 'やや軽め'], [3, '標準'], [4, '濃いめ']], S.strength, v => S.strength = v)));
+  form.appendChild(two);
+  form.appendChild(field('焙煎', seg(Object.entries(ROAST).map(([k, [l, t]]) => [k, `${l} ${t}℃`]), S.roast, v => S.roast = v), 'お湯の温度のめやすです。'));
+  app.appendChild(form);
+
+  const out = Kit.el('<div class="k-card k-stack"></div>');
+  out.innerHTML = `
+    <div class="sum">
+      <div><span>豆</span><b>${S.beans}g</b></div>
+      <div><span>お湯</span><b>${P.water}g</b></div>
+      <div><span>温度</span><b>${ROAST[S.roast][1]}℃</b></div>
+      <div><span>時間</span><b>${mmss(P.endT)}</b></div>
+    </div>
+    <div class="stack">${P.pours.map(p => `<i class="${p.kind === 'body' ? 'b' : 'a'}" style="flex:${p.w}"></i>`).join('')}</div>
+    <div class="legend"><span>味 ${P.first}g（${TASTE_L[S.taste]}）</span><span>濃さ ${P.rest}g（${S.strength}回・${STRENGTH_L[S.strength]}）</span></div>
+    <div class="plan">${P.pours.map(p => `
+      <div class="pour ${p.kind === 'body' ? 'body' : p.kind}"><span class="t">${mmss(p.t)}</span>
+        <span class="w"><b>${p.i + 1}投目　${p.w}g</b><small>${p.kind === 'body' ? '濃さ' : '味'}</small></span>
+        <span class="to">${p.to}<small>gまで</small></span></div>`).join('')}
+      <div class="pour end"><span class="t">${mmss(P.endT)}</span><span class="w"><b>落ちきったら外す</b><small>めやす</small></span><span></span></div>
+    </div>
+    <button class="k-btn is-sun is-big" id="go">タイマーをはじめる</button>
+    <details class="how"><summary>4:6メソッドについて</summary>
+      <p>お湯を「40%」と「60%」に分けて考える淹れ方です。前半の2回で味の方向を、後半の回数で濃さを調整します。</p>
+      <p>${TASTE_L[S.taste]}：最初の${P.first}gを ${P.pours[0].w}g → ${P.pours[1].w}g で注ぎます。${S.taste === 'sweet' ? '1回目を少なくすると甘みが出やすくなります。' : S.taste === 'bright' ? '1回目を多くすると酸味が明るく出ます。' : '同じ量ずつで、甘さと酸味のバランス型です。'}</p>
+      <p>${STRENGTH_L[S.strength]}：残りの${P.rest}gを${S.strength}回に分けます。回数を増やすほど濃く、減らすほどすっきりします。</p>
+      <p class="note">各回、前のお湯がだいたい落ちてから次を注ぎます。落ちるのが速すぎる時は細かめ、遅すぎる時は粗めに挽き目を調整してください。</p>
+    </details>`;
+  app.appendChild(out);
+  $('go').onclick = () => run(P);
+}
+
+/* ---------- タイマー ---------- */
+let timer = null;
+function run(P) {
+  Kit.keepAwake(true);
+  window.scrollTo(0, 0);
+  let t0 = null, paused = 0, pauseAt = null, lastIdx = -1, beeped = new Set();
+  const C = 2 * Math.PI * 46;
+  app.innerHTML = `<div class="run">
+    <div class="clock" id="clock">0:00</div>
+    <div class="ring"><svg viewBox="0 0 100 100"><circle class="bg" cx="50" cy="50" r="46" fill="none" stroke-width="5"/><circle class="fg" id="arc" cx="50" cy="50" r="46" fill="none" stroke-width="5" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="0"/></svg>
+      <div class="in"><span class="lbl" id="lbl">準備ができたら</span><span class="big" id="big">${P.pours[0].to}<small>g</small></span><span class="sub" id="sub">スケールを0にしてスタート</span></div></div>
+    <div class="next" id="next"></div>
+    <div class="ctrl"><button class="k-btn is-sun is-big" id="start">スタート（1投目）</button></div>
+    <div class="plan" id="plan" style="width:100%">${P.pours.map(p => `<div class="pour ${p.kind === 'body' ? 'body' : p.kind}" data-i="${p.i}"><span class="t">${mmss(p.t)}</span><span class="w"><b>${p.i + 1}投目　${p.w}g</b><small>${p.kind === 'body' ? '濃さ' : '味'}</small></span><span class="to">${p.to}<small>gまで</small></span></div>`).join('')}</div>
+    <button class="k-btn is-small" id="back">設定に戻る</button></div>`;
+  const now = () => (performance.now() - t0 - paused) / 1000;
+  function cue(strong) { Kit.vibrate(strong ? [200, 80, 200] : 60); if (strong) { Kit.tone(880, .15, { type: 'triangle', vol: .3 }); Kit.tone(1320, .25, { type: 'triangle', vol: .3, delay: .15 }); } else Kit.tone(660, .08, { type: 'square', vol: .08 }); }
+  function tick() {
+    if (pauseAt) return;
+    const t = now();
+    $('clock').textContent = mmss(t);
+    let idx = P.pours.findIndex((p, i) => t >= p.t && (i === P.pours.length - 1 || t < P.pours[i + 1].t));
+    const lastP = P.pours[P.pours.length - 1];
+    const finished = t >= P.endT;
+    if (idx !== lastIdx) {
+      lastIdx = idx;
+      if (idx > 0) { cue(true); $('app').firstElementChild.classList.remove('flash'); void app.offsetWidth; app.firstElementChild.classList.add('flash'); }
+      document.querySelectorAll('#plan .pour').forEach(el => { const i = +el.dataset.i; el.classList.toggle('now', i === idx); el.classList.toggle('done', i < idx); });
+    }
+    if (finished) {
+      clearInterval(timer); timer = null; Kit.keepAwake(false);
+      $('lbl').textContent = 'おつかれさまでした'; $('big').innerHTML = mmss(P.endT); $('sub').textContent = '落ちきったらドリッパーを外してください';
+      $('arc').style.strokeDashoffset = 0; $('next').textContent = '';
+      document.querySelectorAll('#plan .pour').forEach(el => { el.classList.remove('now'); el.classList.add('done'); });
+      $('start').textContent = 'もう一度'; $('start').onclick = () => run(P);
+      Kit.sfx('win'); Kit.vibrate([200, 100, 200, 100, 300]);
+      return;
+    }
+    const p = P.pours[idx];
+    const nextT = idx < P.pours.length - 1 ? P.pours[idx + 1].t : P.endT;
+    const left = nextT - t;
+    [3, 2, 1].forEach(s => { const k = idx + ':' + s; if (left <= s && !beeped.has(k) && idx < P.pours.length - 1) { beeped.add(k); cue(false); } });
+    $('lbl').textContent = `${p.i + 1}投目　${p.w}g 注ぐ`;
+    $('big').innerHTML = `${p.to}<small>gまで</small>`;
+    $('sub').textContent = idx < P.pours.length - 1 ? `次の注ぎまで ${Math.ceil(left)}秒` : `落ちきるまで待つ（あと${Math.ceil(left)}秒めやす）`;
+    $('arc').style.strokeDashoffset = C * (1 - (t - p.t) / (nextT - p.t));
+    $('next').innerHTML = idx < P.pours.length - 1 ? `次：${mmss(P.pours[idx + 1].t)} に <b>${P.pours[idx + 1].to}g</b> まで` : '最後の注ぎです';
+  }
+  $('start').onclick = () => {
+    if (!t0) { t0 = performance.now(); cue(true); timer = setInterval(tick, 200); tick(); $('start').textContent = '一時停止'; $('start').classList.remove('is-sun'); return; }
+    if (!pauseAt) { pauseAt = performance.now(); $('start').textContent = '再開'; }
+    else { paused += performance.now() - pauseAt; pauseAt = null; $('start').textContent = '一時停止'; tick(); }
+  };
+  $('back').onclick = async () => {
+    if (t0 && timer && !(await Kit.ask('タイマーを止めて設定に戻りますか？', '戻る', '続ける'))) return;
+    clearInterval(timer); timer = null; Kit.keepAwake(false); render();
+  };
+}
+render();
+</script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 {
-  "name": "おとなのあそびばこ",
-  "short_name": "おとなばこ",
-  "description": "くらしの道具と、大人で遊ぶゲーム",
+  "name": "あそびばこ 道具と遊び",
+  "short_name": "道具と遊び",
+  "description": "暮らしに効く道具と、集まった時の遊び",
   "lang": "ja",
   "start_url": "./index.html",
   "scope": "./",
