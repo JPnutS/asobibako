@@ -52,9 +52,10 @@
       <h2 style="text-align:center">👻 おばけかくれんぼ</h2>
       <p style="margin:0">いえの中に おばけが <b>へんしん</b>して かくれているよ。<b>みずでっぽう</b>で ぜんぶ つかまえよう！</p>
       <ul style="margin:0;padding-left:1.2em;line-height:1.7">
-        <li>あやしい物に みずをかけると、おばけが にげだす。<b>もう1回</b> あてたら つかまえた！</li>
-        <li>🤭 <b>わらいごえ</b> が きこえる方向に いるよ。</li>
-        <li>👀 おばけは <b>見ていないあいだに ばしょをかえる</b>。さっきと ちがう物は あやしい！</li>
+        <li>あやしい物に みずをかけると、おばけが にげだす。<b>にげている間に もう1回</b> あてたら つかまえた！</li>
+        <li>🛡 おばけは <b>ガード</b>する。ガードされると ふつうの物みたいに「ぷるん」と ゆれるだけ。でも <b>みずが あたってないのに ぷるん</b>とした物は おばけ！</li>
+        <li>🤭 <b>わらいごえ</b> の方向に いるよ。ソファや 本だなの <b>うら</b>にも まわりこもう。</li>
+        <li>👀 へやは かたづいている。<b>さっき なかった物</b>は あやしい！</li>
         <li>💧 みずが なくなったら 台所か せんめんじょの <b>じゃぐち🚰</b> へ。</li>
       </ul>
       <span class="k-label">むずかしさ</span>
@@ -80,9 +81,10 @@ import * as THREE from '../../common/vendor/three.module.min.js';
 const $ = id => document.getElementById(id);
 const stage = $('stage');
 const LV = {
-  1: { name: 'やさしい', ghosts: 3, giggle: [4, 7], move: [30, 42], flee: 2.0, fleeT: 9 },
-  2: { name: 'ふつう', ghosts: 4, giggle: [6, 10], move: [18, 28], flee: 2.5, fleeT: 7 },
-  3: { name: 'むずかしい', ghosts: 5, giggle: [8, 13], move: [11, 18], flee: 3.0, fleeT: 6 },
+  // guard: うたれた時に ガードする かくりつ / flinch: そばに みずが はねた時 びくっとする / panic: ねらわれつづけると あわてる（1びょうあたり）
+  1: { name: 'やさしい', ghosts: 3, giggle: [4, 7], move: [30, 42], flee: 2.2, guard: .25, flinch: .7, panic: .9 },
+  2: { name: 'ふつう', ghosts: 4, giggle: [6, 10], move: [18, 28], flee: 2.7, guard: .4, flinch: .5, panic: .6 },
+  3: { name: 'むずかしい', ghosts: 5, giggle: [8, 13], move: [12, 18], flee: 3.2, guard: .55, flinch: .35, panic: .4 },
 };
 const O = Object.assign({ level: 1, time: 180 }, Kit.store.get('obake:opt', {}));
 function chips(root, items, cur, on) {
@@ -139,83 +141,118 @@ const PROPS = {
 
 /* ---------- いえ（リビング・だいどころ・こどもべや・ろうか） ---------- */
 const ROOMS = {
-  living:  { x0: -11.6, x1: 1.6, z0: -8.6, z1: 3.1, floor: '#e8c99b', types: ['teddy', 'ball', 'cushion', 'books', 'plant', 'lamp', 'box', 'block', 'duck', 'stool'], n: 15 },
-  kitchen: { x0: 2.4, x1: 11.6, z0: -8.6, z1: -.4, floor: '#f4f0e8', types: ['pot', 'cup', 'plant', 'box', 'stool', 'ball', 'duck'], n: 10 },
-  kids:    { x0: 2.4, x1: 11.6, z0: .4, z1: 8.6, floor: '#bfe0f5', types: ['teddy', 'ball', 'block', 'duck', 'books', 'box', 'cushion', 'lamp'], n: 13 },
-  hall:    { x0: -11.6, x1: 1.6, z0: 3.9, z1: 8.6, floor: '#d4a777', types: ['umbrella', 'box', 'plant', 'ball', 'cushion', 'stool'], n: 7 },
+  living:  { x0: -11.6, x1: 1.6, z0: -8.6, z1: 3.1, floor: '#e8c99b' },
+  kitchen: { x0: 2.4, x1: 11.6, z0: -8.6, z1: -.4, floor: '#f4f0e8' },
+  kids:    { x0: 2.4, x1: 11.6, z0: .4, z1: 8.6, floor: '#bfe0f5' },
+  hall:    { x0: -11.6, x1: 1.6, z0: 3.9, z1: 8.6, floor: '#d4a777' },
 };
 const DOORS = [[2, -5.1], [2, 4.9], [7.4, 0], [-5, 3.5]];
-let rects = [], surfaces = [], sinks = [], props = [], ghosts = [];
+// 物の正面の向き
+const FS = 0, FN = Math.PI, FE = Math.PI / 2, FW = -Math.PI / 2;
+const SMALL = ['books', 'cup', 'duck', 'block'];
+const TOY = ['teddy', 'ball', 'block', 'duck', 'box', 'cushion'];
+const FLOOR = ['plant', 'lamp', 'teddy', 'cushion', 'box', 'stool'];
+const KIT = ['pot', 'cup', 'plant'];
+let rects = [], spots = [], sinks = [], props = [], ghosts = [];
 function wallX(x0, x1, z, color = '#fff6e3') { world.add(box(x1 - x0, 2.6, .2, color, (x0 + x1) / 2, 1.3, z)); rects.push({ x0, x1, z0: z - .1, z1: z + .1, wall: true }); }
 function wallZ(z0, z1, x, color = '#fff6e3') { world.add(box(.2, 2.6, z1 - z0, color, x, 1.3, (z0 + z1) / 2)); rects.push({ x0: x - .1, x1: x + .1, z0, z1, wall: true }); }
-function solid(m, x0, x1, z0, z1, top) { world.add(m); rects.push({ x0, x1, z0, z1 }); if (top != null) surfaces.push({ x0: x0 + .25, x1: x1 - .25, z0: z0 + .2, z1: z1 - .2, y: top, room: roomAt((x0 + x1) / 2, (z0 + z1) / 2) }); }
+function solid(m, x0, x1, z0, z1) { world.add(m); rects.push({ x0, x1, z0, z1 }); }
 const deco = m => world.add(m);
+/* 物をおく ばしょ（hidden＝まわりこまないと 見えにくい） */
+function spot(x, z, y, rot, types, hidden = false) { spots.push({ x, z, y, rot, types, hidden, room: roomAt(x, z), prop: null, reserved: null }); }
+function row(x0, z0, x1, z1, y, n, rot, types, hidden) { for (let i = 0; i < n; i++) { const k = n === 1 ? .5 : i / (n - 1); spot(x0 + (x1 - x0) * k, z0 + (z1 - z0) * k, y, rot, types, hidden); } }
+function legs(x0, x1, z0, z1, h) { [[x0, z0], [x1, z0], [x0, z1], [x1, z1]].forEach(([x, z]) => deco(box(.08, h, .08, '#8a5a33', x, h / 2, z))); }
 function roomAt(x, z) { for (const [k, r] of Object.entries(ROOMS)) if (x >= r.x0 - .4 && x <= r.x1 + .4 && z >= r.z0 - .4 && z <= r.z1 + .4) return k; return 'living'; }
 function buildHouse() {
-  world.clear(); rects = []; surfaces = []; sinks = []; props = []; ghosts = [];
-  for (const [k, r] of Object.entries(ROOMS)) {
-    deco(box(r.x1 - r.x0 + .8, .1, r.z1 - r.z0 + .8, r.floor, (r.x0 + r.x1) / 2, -.05, (r.z0 + r.z1) / 2));
-    surfaces.push({ x0: r.x0 + .4, x1: r.x1 - .4, z0: r.z0 + .4, z1: r.z1 - .4, y: 0, room: k, floor: true });
-  }
+  world.clear(); rects = []; spots = []; sinks = []; props = []; ghosts = [];
+  for (const r of Object.values(ROOMS)) deco(box(r.x1 - r.x0 + .8, .1, r.z1 - r.z0 + .8, r.floor, (r.x0 + r.x1) / 2, -.05, (r.z0 + r.z1) / 2));
   deco(box(24.4, .1, 18.4, '#fffaf0', 0, 2.65, 0));
   wallX(-12, 12, -9, '#ffe9c9'); wallX(-12, 12, 9, '#ffe9c9'); wallZ(-9, 9, -12, '#ffe9c9'); wallZ(-9, 9, 12, '#ffe9c9');
   wallZ(-9, -6, 2); wallZ(-4.2, 4, 2); wallZ(5.8, 9, 2);
   wallX(2, 6.5, 0, '#e6f3ff'); wallX(8.3, 12, 0, '#e6f3ff');
   wallX(-12, -6, 3.5, '#fde8ef'); wallX(-4, 2, 3.5, '#fde8ef');
   DOORS.forEach(([x, z], i) => deco(i < 2 ? box(.3, .3, 1.9, '#c98b52', x, 2.45, z) : box(1.9, .3, .3, '#c98b52', x, 2.45, z)));
-  // リビング
-  deco(box(7, .03, 5, '#9ad3ff', -5, .02, -3));
-  solid(box(4, .5, 1.2, '#6c8ef5', -8, .25, -7.9), -10, -6, -8.6, -7.3, .5); deco(box(4, 1.0, .3, '#5a7be0', -8, .75, -8.45));
-  solid(box(3, .1, 1.6, '#c98b52', -4.5, .78, -3), -6, -3, -3.8, -2.2, .84);
-  [[-5.8, -3.6], [-3.2, -3.6], [-5.8, -2.4], [-3.2, -2.4]].forEach(([x, z]) => deco(box(.1, .76, .1, '#8a5a33', x, .38, z)));
-  solid(box(.8, .6, 3, '#8a5a33', -11.2, .3, -2.5), -11.6, -10.8, -4, -1, .6); deco(box(.12, 1, 2.2, '#2a2238', -11.5, 1.1, -2.5));
-  solid(box(3, .08, .7, '#b07a4a', -.5, .9, -8.25), -2, 1, -8.6, -7.9, .95); deco(box(3, .08, .7, '#b07a4a', -.5, 1.75, -8.25)); deco(box(.08, 1.8, .7, '#8a5a33', -2, .9, -8.25)); deco(box(.08, 1.8, .7, '#8a5a33', 1, .9, -8.25));
-  surfaces.push({ x0: -1.8, x1: .8, z0: -8.4, z1: -8.1, y: 1.8, room: 'living' });
-  // だいどころ
-  solid(box(7, .9, .8, '#ffffff', 6.5, .45, -8.2), 3, 10, -8.6, -7.8, .9); deco(box(7, .05, .85, '#c9b8a8', 6.5, .92, -8.2));
+
+  // リビング：テレビ
+  deco(box(6, .03, 5, '#9ad3ff', -7, .02, -5.6));
+  solid(box(4, .5, .6, '#c98b52', -7, .25, -8.3), -9, -5, -8.6, -8.0);
+  deco(box(2.4, 1.3, .1, '#2a2238', -7, 1.2, -8.45)); deco(box(2.2, 1.1, .02, '#4a5a7a', -7, 1.2, -8.39));
+  spot(-8.5, -8.3, .5, FS, SMALL); spot(-5.5, -8.3, .5, FS, SMALL);
+  // ソファ（テレビを向いている。うしろからは ざせきが 見えない）
+  solid(box(4, .45, 1, '#6c8ef5', -7, .225, -3.9), -9.15, -4.85, -4.4, -3.3);
+  deco(box(4, 1.05, .25, '#5a7be0', -7, .525, -3.42)); deco(box(.3, .7, 1, '#5a7be0', -9, .35, -3.9)); deco(box(.3, .7, 1, '#5a7be0', -5, .35, -3.9));
+  spot(-8, -4.0, .45, FN, ['cushion', 'teddy'], true); spot(-6, -4.0, .45, FN, ['cushion', 'teddy'], true);
+  spot(-9.8, -3.9, 0, FN, FLOOR); spot(-4.2, -3.9, 0, FN, FLOOR);
+  // ローテーブル
+  solid(box(2.2, .08, 1, '#c98b52', -7, .4, -6.2), -8.1, -5.9, -6.7, -5.7); legs(-8, -6, -6.6, -5.8, .4);
+  spot(-7.5, -6.2, .44, FS, SMALL, true); spot(-6.5, -6.2, .44, FS, SMALL, true);
+  // 本だな（しきり）と そのうらの 読書コーナー
+  solid(box(.06, 2, 4.2, '#8a5a33', -2.33, 1, -6.5), -2.9, -2.3, -8.6, -4.4);
+  [.02, .7, 1.38, 2].forEach(y => deco(box(.6, .05, 4.2, '#b07a4a', -2.6, y, -6.5)));
+  deco(box(.6, 2, .06, '#8a5a33', -2.6, 1, -4.43));
+  [.05, .73, 1.41].forEach(y => row(-2.62, -8.0, -2.62, -5.0, y, 4, FW, SMALL));
+  const bean = ball(.55, '#ff8fb1', -.2, .3, -6.6); bean.scale.set(1, .55, 1); solid(bean, -.7, .3, -7.1, -6.1);
+  spot(-1.6, -8.0, 0, FE, ['teddy', 'box', 'plant'], true); spot(1.0, -8.0, 0, FW, ['plant', 'lamp', 'box'], true); spot(-1.6, -5.1, 0, FE, ['teddy', 'cushion', 'ball'], true);
+  // おもちゃだな（西のかべ）
+  solid(box(.6, .6, 3.6, '#ffd6a0', -11.3, .3, -.2), -11.6, -11, -2, 1.6);
+  row(-11.3, -1.4, -11.3, 1.0, .6, 3, FE, SMALL);
+  spot(-11, -8, 0, FE, ['plant', 'lamp']); spot(-11, -5.6, 0, FE, FLOOR); spot(-11, 2.6, 0, FE, ['plant', 'lamp', 'teddy']);
+  spot(-9, 2.7, 0, FN, FLOOR); spot(-2.4, 2.7, 0, FN, FLOOR); spot(.9, 2.7, 0, FN, FLOOR);
+
+  // だいどころ：ながし台
+  solid(box(7, .9, .8, '#ffffff', 6.5, .45, -8.2), 3, 10, -8.6, -7.8); deco(box(7, .05, .85, '#c9b8a8', 6.5, .92, -8.2));
   deco(cyl(.35, .3, .1, '#9ad3ff', 5.2, .95, -8.2)); deco(box(.06, .35, .06, '#9aa0a6', 5.2, 1.1, -8.5)); sinks.push({ x: 5.2, z: -7.2 });
+  spot(3.6, -8.2, .94, FS, KIT); row(6.6, -8.2, 9.4, -8.2, .94, 3, FS, KIT);
   solid(box(1, 2, 1.1, '#e6f3ff', 11.1, 1, -8), 10.6, 11.6, -8.6, -7.4);
-  solid(box(2.4, .08, 1.4, '#e0a96d', 7, .76, -4), 5.8, 8.2, -4.7, -3.3, .8);
-  [[6, -4.6], [8, -4.6], [6, -3.4], [8, -3.4]].forEach(([x, z]) => deco(box(.08, .74, .08, '#8a5a33', x, .37, z)));
-  // こどもべや
-  deco(cyl(2, 2, .03, '#ffe08a', 6, .02, 4, 32));
-  solid(box(2.6, .5, 3, '#ffb3c7', 10.3, .25, 7.1), 9, 11.6, 5.6, 8.6, .55); deco(box(2.6, .9, .2, '#c98b52', 10.3, .45, 8.5)); deco(box(.9, .15, .6, '#ffffff', 10.4, .58, 8));
-  solid(box(2, .08, .8, '#c98b52', 4, .76, 8.2), 3, 5, 7.8, 8.6, .8); deco(box(.08, .76, .7, '#8a5a33', 3.1, .38, 8.2)); deco(box(.08, .76, .7, '#8a5a33', 4.9, .38, 8.2));
-  solid(box(1, .6, .7, '#3ecf8e', 11, .3, 1.3), 10.5, 11.6, .9, 1.7, .6);
-  // ろうか
-  solid(box(.8, .6, 2.5, '#b07a4a', -11.2, .3, 6), -11.6, -10.8, 4.75, 7.25, .6);
+  // アイランドカウンター（おくの通路は 南からは見えない）
+  solid(box(4.2, 1, 1, '#f4d9b0', 6.7, .5, -5.1), 4.6, 8.8, -5.6, -4.6); deco(box(4.4, .06, 1.1, '#c9b8a8', 6.7, 1.03, -5.1));
+  row(5.4, -5.1, 8.0, -5.1, 1.06, 3, FS, KIT);
+  spot(5.4, -6.05, 0, FS, ['pot', 'box', 'stool', 'duck'], true); spot(8.0, -6.05, 0, FS, ['pot', 'box', 'stool', 'duck'], true);
+  // たかい食器だな
+  solid(box(.6, 2.1, 2.6, '#c98b52', 11.3, 1.05, -4.7), 11, 11.6, -6, -3.4);
+  spot(11.1, -2.6, 0, FW, ['plant', 'box', 'stool']); spot(11.1, -1.1, 0, FW, ['plant', 'box', 'stool']);
+  // ダイニング
+  solid(box(2, .08, 1.3, '#e0a96d', 4.4, .76, -1.9), 3.4, 5.4, -2.55, -1.25); legs(3.5, 5.3, -2.45, -1.35, .76);
+  spot(3.9, -1.9, .8, FS, SMALL.concat(KIT)); spot(4.9, -1.9, .8, FS, SMALL.concat(KIT));
+  spot(2.9, -6.9, 0, FE, ['plant', 'stool', 'box']);
+
+  // こどもべや：ベッド
+  solid(box(2.6, .5, 3, '#ffb3c7', 10.3, .25, 7.1), 9, 11.6, 5.6, 8.6); deco(box(2.6, .9, .2, '#c98b52', 10.3, .45, 8.5));
+  spot(10.3, 7.7, .5, FN, ['teddy', 'cushion', 'duck']); spot(10.3, 6.3, .5, FN, ['teddy', 'cushion', 'ball']);
+  // たかい たんす（かべから つきでている。そのうらに すきま）
+  solid(box(.6, 2.1, 2.6, '#a8d5ba', 4.7, 1.05, 1.3), 4.4, 5.0, 0, 2.6);
+  spot(3.1, .9, 0, FS, TOY, true); spot(3.1, 2.1, 0, FE, TOY, true); spot(5.6, .8, 0, FS, TOY);
+  // つくえ・おもちゃばこ・ひくい たな
+  solid(box(3, .08, .6, '#c98b52', 4.5, .78, 8.3), 3, 6, 8.0, 8.6); legs(3.05, 5.95, 8.05, 8.55, .78);
+  row(3.5, 8.3, 5.5, 8.3, .82, 3, FN, SMALL);
+  solid(box(1.4, .55, .6, '#ffc93c', 7.3, .275, 8.3), 6.6, 8.0, 8.0, 8.6); spot(7.3, 8.3, .55, FN, TOY);
+  solid(box(.6, .6, 2.4, '#3ecf8e', 11.3, .3, 2.2), 11, 11.6, 1, 3.4); row(11.3, 1.5, 11.3, 2.9, .6, 2, FW, SMALL);
+  deco(cyl(1.8, 1.8, .03, '#ffe08a', 7, .02, 4.6, 32));
+  spot(6.4, 4.2, 0, FS, ['block', 'ball', 'duck']); spot(7.7, 5.1, 0, FN, ['block', 'ball', 'duck']); spot(11.1, 4.6, 0, FW, ['plant', 'lamp', 'teddy']);
+
+  // ろうか：くつばこ・ベンチ・コートかけの しきり
+  solid(box(.8, .6, 2.5, '#b07a4a', -11.2, .3, 6), -11.6, -10.8, 4.75, 7.25); row(-11.2, 5.3, -11.2, 6.7, .6, 2, FE, ['plant', 'duck', 'cup', 'books']);
+  spot(-11.0, 8.0, 0, FE, ['umbrella']); spot(-10.1, 8.1, 0, FN, ['umbrella']);
+  solid(box(2, .45, .6, '#c98b52', -7, .225, 8.3), -8, -6, 8.0, 8.6); row(-7.5, 8.3, -6.5, 8.3, .45, 2, FN, ['cushion', 'books', 'box']);
+  solid(box(.6, 2.2, 2.8, '#f4d9b0', -3.1, 1.1, 7.2), -3.4, -2.8, 5.8, 8.6);
+  spot(-3.9, 8.1, 0, FN, ['box', 'plant', 'stool'], true); spot(-2.3, 8.1, 0, FN, ['box', 'plant', 'umbrella'], true);
   solid(cyl(.4, .25, .9, '#ffffff', -.5, .45, 8.2), -.9, -.1, 7.8, 8.6); deco(cyl(.45, .4, .12, '#9ad3ff', -.5, .92, 8.2)); sinks.push({ x: -.5, z: 7.3 });
+  spot(1.1, 8.1, 0, FW, ['plant', 'box']); spot(-9, 4.3, 0, FS, FLOOR); spot(-1, 4.3, 0, FS, FLOOR);
   deco(box(1.4, .05, 2.2, '#c86b5a', -9.5, .03, 6.2));
-  // 小物
-  for (const [k, r] of Object.entries(ROOMS)) {
-    let made = 0, tries = 0;
-    const surf = surfaces.filter(s => s.room === k);
-    while (made < r.n && tries++ < 600) {
-      const type = Kit.pick(r.types), def = PROPS[type];
-      const s = Math.random() < .62 ? surf.find(q => q.floor) : Kit.pick(surf);
-      if (!s.floor && (type === 'lamp' || type === 'umbrella' || type === 'stool')) continue;
-      const x = Kit.rand(s.x0, s.x1), z = Kit.rand(s.z0, s.z1);
-      if (!fits(x, z, def.r, s)) continue;
-      addProp({ type, color: Kit.pick(def.colors), x, y: s.y, z, rot: Kit.rand(0, 6.28), scale: Kit.rand(.9, 1.1), room: k }); made++;
-    }
-  }
-  [[7, -5.2, 0], [7, -2.8, Math.PI]].forEach(([x, z, r]) => addProp({ type: 'chair', color: '#c98b52', x, y: 0, z, rot: r, scale: 1, room: 'kitchen' }));
-}
-function fits(x, z, r, s, ignore) {
-  if (s.floor && rects.some(b => x > b.x0 - r && x < b.x1 + r && z > b.z0 - r && z < b.z1 + r)) return false;
-  if (s.floor && DOORS.some(([dx, dz]) => Math.hypot(dx - x, dz - z) < 1.6)) return false; // ドアの前はあける
-  if (s.floor && sinks.some(k => Math.hypot(k.x - x, k.z - z) < 1.3)) return false;
-  return !props.some(p => p !== ignore && Math.hypot(p.x - x, p.z - z) < (PROPS[p.type].r * p.scale + r) * .9 && Math.abs(p.y - s.y) < .4);
+
+  // かたづいた へや：ばしょの 6わりに 物をおく
+  for (const s of spots) if (Math.random() < .6) { const type = Kit.pick(s.types); s.prop = addProp({ type, color: Kit.pick(PROPS[type].colors), x: s.x, y: s.y, z: s.z, rot: s.rot, scale: 1, spot: s }); }
+  [[4.4, -3.0, FN], [4.4, -.8, FS]].forEach(([x, z, r]) => addProp({ type: 'chair', color: '#c98b52', x, y: 0, z, rot: r, scale: 1 }));
 }
 function addProp(o) {
-  const p = Object.assign({ ghost: null, jig: null }, o);
+  const p = Object.assign({ ghost: null, jig: null, spot: null }, o);
   p.g = new THREE.Group(); world.add(p.g);
   p.g.add(PROPS[p.type].build(p.color));
   p.g.position.set(p.x, p.y, p.z); p.g.rotation.y = p.rot; p.g.scale.setScalar(p.scale);
   p.g.traverse(m => { m.userData.prop = p; });
   props.push(p); return p;
 }
-function removeProp(p) { world.remove(p.g); props = props.filter(q => q !== p); }
+function removeProp(p) { world.remove(p.g); props = props.filter(q => q !== p); if (p.spot && p.spot.prop === p) p.spot.prop = null; }
 
 /* ---------- おばけ ---------- */
 const GCOL = ['#ffd6e7', '#d6ecff', '#e2ffd6', '#fff2c2', '#ecdcff'];
@@ -229,30 +266,59 @@ function ghostModel(c) {
   const m = ball(.06, '#2a2238', 0, .82, .35); m.scale.set(1.4, 1, .6); g.add(m);
   return g;
 }
-/* へやにある物を まねして、そのちかくに かくれる */
-function disguise(gh) {
-  for (let i = 0; i < 400; i++) {
-    const model = Kit.pick(props.filter(p => !p.ghost && p.type !== 'chair'));
-    if (!model || Math.hypot(model.x - player.x, model.z - player.z) < 5) continue;
-    const s = surfaces.find(q => Math.abs(q.y - model.y) < .05 && model.x >= q.x0 - .3 && model.x <= q.x1 + .3 && model.z >= q.z0 - .3 && model.z <= q.z1 + .3) || surfaces.find(q => q.floor && q.room === model.room);
-    const a = Kit.rand(0, 6.28), d = Kit.rand(.7, 1.8);
-    const x = Kit.clamp(model.x + Math.cos(a) * d, s.x0, s.x1), z = Kit.clamp(model.z + Math.sin(a) * d, s.z0, s.z1);
-    if (!fits(x, z, PROPS[model.type].r * model.scale, s, gh.prop)) continue;
-    if (Math.hypot(x - player.x, z - player.z) < 3) continue;
-    if (gh.prop) removeProp(gh.prop);
-    gh.prop = addProp({ type: model.type, color: model.color, x, y: s.y, z, rot: Kit.rand(0, 6.28), scale: model.scale, room: roomAt(x, z), ghost: gh });
-    gh.state = 'hide'; gh.moveAt = Kit.rand(...LV[O.level].move); gh.giggleAt = Kit.rand(1, LV[O.level].giggle[1]);
-    return true;
-  }
-  return false;
+const pdist = s => Math.hypot(s.x - player.x, s.z - player.z);
+/* あいている ばしょを えらぶ（見られていない・かげの ばしょが すき） */
+function pickSpot({ from = null, min = 0, max = 99, far = 5, unseen = false } = {}) {
+  let c = spots.filter(s => !s.prop && !s.reserved && pdist(s) >= far);
+  if (from) c = c.filter(s => { const d = Math.hypot(s.x - from.x, s.z - from.z); return d >= min && d <= max; });
+  const hid = c.filter(s => !seen(s.x, s.y + .3, s.z));
+  if (hid.length || unseen) c = hid;
+  if (!c.length) return null;
+  const w = c.map(s => s.hidden ? 2.5 : 1), tot = w.reduce((a, b) => a + b, 0);
+  let r = Math.random() * tot;
+  for (let i = 0; i < c.length; i++) if ((r -= w[i]) <= 0) return c[i];
+  return c[c.length - 1];
 }
+function disguiseAt(gh, s) {
+  if (gh.prop) removeProp(gh.prop);
+  if (s.reserved === gh) s.reserved = null;
+  const type = Kit.pick(s.types);
+  gh.prop = addProp({ type, color: Kit.pick(PROPS[type].colors), x: s.x, y: s.y, z: s.z, rot: s.rot, scale: 1, ghost: gh, spot: s });
+  s.prop = gh.prop;
+  Object.assign(gh, { state: 'hide', moveAt: Kit.rand(...LV[O.level].move), giggleAt: Kit.rand(1, LV[O.level].giggle[1]), dwell: 0, guardT: 0, gcd: 1.5, target: null });
+}
+function disguise(gh, opt) { const s = pickSpot(opt); if (s) { disguiseAt(gh, s); return true; } return false; }
+/* 正体がバレた → にげて、すこしはなれた ばしょで また へんしん */
 function reveal(gh) {
   const p = gh.prop;
-  gh.state = 'flee'; gh.t = LV[O.level].fleeT; gh.x = p.x; gh.z = p.z; gh.y = p.y;
+  gh.state = 'flee'; gh.wait = .5; gh.x = p.x; gh.z = p.z; gh.y = p.y;
   removeProp(p); gh.prop = null;
+  puff(gh.x, gh.y, gh.z);
+  gh.target = pickSpot({ from: gh, min: 5, max: 10, far: 4 }) || pickSpot({ far: 4 });
+  if (gh.target) gh.target.reserved = gh;
   gh.g = ghostModel(gh.color); gh.g.position.set(gh.x, gh.y, gh.z); world.add(gh.g);
   gh.g.traverse(m => { m.userData.gh = gh; });
-  Kit.sfx('jump'); say('きゃー！'); flash('みつけた！もう1回 あてよう', 1600);
+  Kit.sfx('jump'); say('きゃー！'); flash('みつけた！にげる前に もう1回！', 1600);
+}
+/* ガード：ふつうの物に みずが あたった時と おなじ「ぷるん」 */
+function propReact(p) {
+  p.jig = 0;
+  const out = at(p.x, p.y + .3, p.z);
+  if (out) { Kit.tone(760, .09, { type: 'sine', vol: .3, out, slide: -380 }); Kit.tone(520, .08, { type: 'sine', vol: .2, out, delay: .08, slide: -200 }); }
+}
+function falseGuard(gh) {
+  if (gh.state !== 'hide' || !gh.prop) return;
+  propReact(gh.prop); G.panics++;
+  gh.gcd = 2.8; gh.guardT = .7;
+  gh.moveAt = Math.min(gh.moveAt, Kit.rand(3, 6)); // あわてたら ばしょを かえたくなる
+}
+const puffs = [], puffGeo = new THREE.SphereGeometry(.35, 10, 8);
+function puff(x, y, z) {
+  for (let i = 0; i < 7; i++) {
+    const m = new THREE.Mesh(puffGeo, new THREE.MeshLambertMaterial({ color: '#ffffff', transparent: true, opacity: .85, depthWrite: false }));
+    m.position.set(x + Kit.rand(-.3, .3), y + Kit.rand(.2, .9), z + Kit.rand(-.3, .3)); m.scale.setScalar(.2);
+    scene.add(m); puffs.push({ m, t: 0 });
+  }
 }
 
 /* ---------- プレイヤーと みずでっぽう ---------- */
@@ -342,8 +408,8 @@ function start() {
   buildHouse();
   Object.assign(player, { x: -4, z: 1.5, yaw: 0, pitch: -.05, water: MAXW });
   const L = LV[O.level];
-  for (let i = 0; i < L.ghosts; i++) { const gh = { i, color: GCOL[i], state: 'hide', caught: false }; ghosts.push(gh); disguise(gh); }
-  G = { running: true, paused: false, t: O.time, used: 0, hits: 0, caught: 0, fireCd: 0, el: 0 };
+  G = { running: true, paused: false, t: O.time, used: 0, hits: 0, caught: 0, guards: 0, panics: 0, fireCd: 0, el: 0 };
+  for (let i = 0; i < L.ghosts; i++) { const gh = { i, color: GCOL[i], state: 'hide', caught: false }; ghosts.push(gh); disguise(gh, { far: 6 }); }
   ['startOv', 'resultOv', 'pauseOv'].forEach(id => $(id).hidden = true);
   ['hud', 'cross', 'pauseBtn'].forEach(id => $(id).hidden = false);
   $('fire').hidden = !touchy; $('helpMove').hidden = !touchy;
@@ -375,17 +441,34 @@ function shoot() {
     if (d < 9 && tmp.normalize().dot(dir) > .985 && (!hit || hit.distance > d - .5)) { gh = g; break; }
   }
   const end = hit ? hit.point.clone() : camera.position.clone().addScaledVector(dir, 9);
+  const tp = !gh && hit && hit.object.userData.prop;
   const from = new THREE.Vector3(.32, -.25, -.9).applyMatrix4(camera.matrixWorld);
   const dur = Math.max(.1, from.distanceTo(end) / 22);
+  // おばけは 水が とんでくるのを見て ガードするかも
+  let guarded = false;
+  if (tp && tp.ghost && tp.ghost.state === 'hide') {
+    const g = tp.ghost;
+    if (g.guardT > 0) guarded = true;
+    else if (g.gcd <= 0 && Math.random() < LV[O.level].guard) { guarded = true; g.gcd = 2.8; g.moveAt = Math.min(g.moveAt, Kit.rand(4, 8)); }
+    if (guarded) g.guardT = Math.max(g.guardT, dur + .4);
+  }
   for (let i = 0; i < 3; i++) { const m = ball(.05, '#7cc8ff', from.x, from.y, from.z); scene.add(m); drops.push({ m, a: from.clone(), b: end.clone().add(new THREE.Vector3(Kit.rand(-.1, .1), Kit.rand(-.1, .1), Kit.rand(-.1, .1))), t: -i * .03, d: dur }); }
   Kit.tone(1400, .06, { type: 'square', vol: .04, slide: -900 });
   setTimeout(() => {
     if (!G || !G.running) return;
     splash(end);
     if (gh && gh.state === 'flee') return catchGhost(gh);
-    const p = hit && hit.object.userData.prop;
-    if (p && p.ghost && p.ghost.state === 'hide' && p.ghost.prop === p) { G.hits++; return reveal(p.ghost); }
-    if (p) { p.jig = 0; Kit.sfx('tap'); }
+    const p = tp;
+    if (p && p.ghost && p.ghost.state === 'hide' && p.ghost.prop === p) {
+      if (guarded) { G.guards++; propReact(p); return; } // ふつうの物と おなじ見た目
+      G.hits++; return reveal(p.ghost);
+    }
+    if (p && props.includes(p)) propReact(p);
+    // そばで 水が はねると、びくっと ガードしてしまう
+    for (const g of ghosts) {
+      if (g.state !== 'hide' || !g.prop || g.prop === p || g.gcd > 0) continue;
+      if (Math.hypot(g.prop.x - end.x, g.prop.y + .3 - end.y, g.prop.z - end.z) < 1.5 && Math.random() < LV[O.level].flinch) setTimeout(() => falseGuard(g), Kit.rand(120, 300));
+    }
   }, dur * 1000);
 }
 function splash(pt) {
@@ -393,6 +476,8 @@ function splash(pt) {
 }
 function catchGhost(gh) {
   gh.state = 'caught'; gh.caught = true; G.caught++; gh.poof = 0;
+  if (gh.target) { gh.target.reserved = null; gh.target = null; }
+  puff(gh.x, gh.y, gh.z);
   Kit.sfx('win'); Kit.vibrate(80); say('つかまっちゃった〜');
   flash(`つかまえた！ ${G.caught}/${ghosts.length}`, 1500);
   paintHud();
@@ -410,23 +495,23 @@ function pushOut(x, z, r) {
   return [x, z];
 }
 function moveGhostFlee(gh, dt) {
-  let ax = gh.x - player.x, az = gh.z - player.z;
-  const d = Math.hypot(ax, az) || 1; ax /= d; az /= d;
-  const ok = (dx, dz) => !hitsRect(gh.x + dx * .8, gh.z + dz * .8, .4);
-  let best = [ax, az];
-  if (!ok(ax, az)) best = [[-az, ax], [az, -ax], [(ax - az) * .7, (az + ax) * .7], [(ax + az) * .7, (az - ax) * .7]].find(([x, z]) => ok(x, z)) || [-ax, -az];
-  const sp = LV[O.level].flee * dt;
-  gh.x += best[0] * sp; gh.z += best[1] * sp;
-  [gh.x, gh.z] = pushOut(gh.x, gh.z, .4);
-  gh.t -= dt;
-  gh.g.position.set(gh.x, gh.y + .2 + Math.sin(performance.now() / 180) * .12, gh.z);
-  gh.g.rotation.y = Math.atan2(player.x - gh.x, player.z - gh.z);
-  if (gh.t <= 0 && !seen(gh.x, gh.y + .5, gh.z)) {
-    world.remove(gh.g); gh.g = null; whoosh(gh.x, 0, gh.z);
-    disguise(gh);
+  const bobY = gh.y + .2 + Math.sin(performance.now() / 180) * .12;
+  if (gh.wait > 0) { gh.wait -= dt; gh.g.position.set(gh.x, bobY, gh.z); gh.g.rotation.y = Math.atan2(player.x - gh.x, player.z - gh.z); return; }
+  const t = gh.target;
+  if (!t) { gh.target = pickSpot({ far: 4 }); if (gh.target) gh.target.reserved = gh; else return; }
+  // おばけなので かべも すりぬけて にげる
+  const dx = gh.target.x - gh.x, dz = gh.target.z - gh.z, d = Math.hypot(dx, dz), sp = LV[O.level].flee * dt;
+  if (d <= sp) {
+    world.remove(gh.g); gh.g = null; puff(gh.target.x, gh.target.y, gh.target.z); whoosh(gh.target.x, gh.target.y, gh.target.z);
+    if (gh.target.prop) { gh.target.reserved = null; gh.target = null; gh.g = ghostModel(gh.color); world.add(gh.g); gh.g.traverse(m => { m.userData.gh = gh; }); return; }
+    return disguiseAt(gh, gh.target);
   }
+  gh.x += dx / d * sp; gh.z += dz / d * sp;
+  gh.y += (gh.target.y - gh.y) * Math.min(1, dt * 2);
+  gh.g.position.set(gh.x, bobY, gh.z);
+  gh.g.rotation.y = Math.atan2(dx, dz);
 }
-const frustum = new THREE.Frustum(), pm = new THREE.Matrix4();
+const frustum = new THREE.Frustum(), pm = new THREE.Matrix4(), aimV = new THREE.Vector3();
 function seen(x, y, z) { return Math.hypot(x - player.x, z - player.z) < 16 && frustum.containsPoint(tmp.set(x, y, z)); }
 function finish(win) {
   if (!G || G.over) return;
@@ -442,7 +527,9 @@ function finish(win) {
   $('resultCard').innerHTML = `<h2>${win ? '👻 ぜんぶ つかまえた！' : '⏰ おしまい'}</h2>
     <div class="res"><div><span>つかまえた おばけ</span><b>${G.caught} / ${ghosts.length}</b></div>
     ${win ? `<div><span>かかった じかん</span><b>${time}びょう</b></div>` : ''}
-    <div><span>みずの めいちゅう</span><b>${acc}%</b></div></div>
+    <div><span>みずの めいちゅう</span><b>${acc}%</b></div>
+    <div><span>🛡 おばけの ガード</span><b>${G.guards}かい</b></div>
+    <div><span>💦 あわてて ぷるん</span><b>${G.panics}かい</b></div></div>
     <p style="margin:0;font-weight:900">${best}</p>
     ${!win ? '<p class="k-muted" style="margin:0">のこった おばけは、ぴょんぴょん はねて いるよ（👀で見られる）</p>' : ''}
     <div class="k-row" style="justify-content:center"><button class="k-btn is-grape is-big" id="again">もういっかい</button>${!win ? '<button class="k-btn" id="look">👀 見る</button>' : ''}<button class="k-btn" id="toStart">せっていへ</button></div>`;
@@ -468,6 +555,8 @@ function drawMini() {
   const W = 144, H = 108, s = 5.6, cx = W / 2, cz = H / 2;
   mini.clearRect(0, 0, W, H);
   for (const r of Object.values(ROOMS)) { mini.fillStyle = r.floor; mini.fillRect(cx + r.x0 * s, cz + r.z0 * s, (r.x1 - r.x0) * s, (r.z1 - r.z0) * s); }
+  mini.fillStyle = 'rgba(138,90,51,.45)';
+  for (const b of rects) if (!b.wall) mini.fillRect(cx + b.x0 * s, cz + b.z0 * s, (b.x1 - b.x0) * s, (b.z1 - b.z0) * s);
   mini.fillStyle = '#2a2238';
   for (const b of rects) if (b.wall) mini.fillRect(cx + b.x0 * s, cz + b.z0 * s, Math.max(1.5, (b.x1 - b.x0) * s), Math.max(1.5, (b.z1 - b.z0) * s));
   mini.font = '12px sans-serif'; mini.textAlign = 'center'; mini.textBaseline = 'middle';
@@ -493,6 +582,7 @@ function frame(now) {
   gun.position.set(.32, -.3 + Math.abs(Math.sin(player.bob)) * .015, input.fire ? -.57 : -.6);
   for (let i = drops.length - 1; i >= 0; i--) { const d = drops[i]; d.t += dt; const k = Kit.clamp(d.t / d.d, 0, 1); d.m.position.lerpVectors(d.a, d.b, k); d.m.position.y += Math.sin(k * Math.PI) * .15; if (k >= 1) { scene.remove(d.m); drops.splice(i, 1); } }
   for (let i = splashes.length - 1; i >= 0; i--) { const s = splashes[i]; s.t += dt; s.v.y -= 9 * dt; s.m.position.addScaledVector(s.v, dt); if (s.t > .6) { scene.remove(s.m); splashes.splice(i, 1); } }
+  for (let i = puffs.length - 1; i >= 0; i--) { const f = puffs[i]; f.t += dt; f.m.scale.setScalar(.2 + f.t * 1.6); f.m.position.y += dt * .6; f.m.material.opacity = .85 * Math.max(0, 1 - f.t / .8); if (f.t > .8) { scene.remove(f.m); f.m.material.dispose(); puffs.splice(i, 1); } }
   props.forEach(p => { if (p.jig != null) { p.jig += dt; p.g.rotation.z = Math.sin(p.jig * 40) * .15 * Math.max(0, 1 - p.jig / .4); if (p.jig > .4) { p.g.rotation.z = 0; p.jig = null; } } });
   ghosts.forEach(gh => {
     if (gh.state === 'caught' && gh.g) { gh.poof += dt; gh.g.position.y += dt * 2; gh.g.scale.setScalar(Math.max(.01, 1 - gh.poof)); if (gh.poof > 1) { world.remove(gh.g); gh.g = null; } }
@@ -529,15 +619,21 @@ function step(dt) {
   // おばけ
   pm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); frustum.setFromProjectionMatrix(pm);
   const L = LV[O.level];
+  camera.getWorldDirection(aimV);
   for (const gh of ghosts) {
     if (gh.state === 'hide' && gh.prop) {
       const p = gh.prop;
+      gh.gcd -= dt; gh.guardT -= dt;
+      // ずっと ねらわれると あわてて ガード（＝あやしい ぷるん）
+      tmp.set(p.x, p.y + .35, p.z).sub(camera.position);
+      if (tmp.length() < 9 && tmp.normalize().dot(aimV) > .992) gh.dwell += dt; else gh.dwell = Math.max(0, gh.dwell - dt * .5);
+      if (gh.dwell > .9 && gh.gcd <= 0 && Math.random() < L.panic * dt) { falseGuard(gh); gh.dwell = 0; }
       gh.giggleAt -= dt;
       if (gh.giggleAt <= 0) { giggle(p.x, p.y, p.z); gh.giggleAt = Kit.rand(...L.giggle) * (Math.hypot(p.x - player.x, p.z - player.z) < 5 ? .6 : 1); }
       gh.moveAt -= dt;
       if (gh.moveAt <= 0) {
         // 見られていない時だけ こっそり ひっこし
-        if (!seen(p.x, p.y + .4, p.z) && Math.hypot(p.x - player.x, p.z - player.z) > 4) { whoosh(p.x, p.y, p.z); disguise(gh); }
+        if (!seen(p.x, p.y + .4, p.z) && Math.hypot(p.x - player.x, p.z - player.z) > 4) { const s2 = pickSpot({ far: 5, unseen: true }); if (s2) { whoosh(p.x, p.y, p.z); disguiseAt(gh, s2); } else gh.moveAt = 2; }
         else gh.moveAt = 2;
       }
     } else if (gh.state === 'flee' && gh.g) moveGhostFlee(gh, dt);
@@ -550,11 +646,15 @@ Kit.bar({ id: 'kakurenbo', title: '👻 おばけかくれんぼ', help: `
   <p>いえの中に、物に へんしんした <b>おばけ</b> が かくれています。みずでっぽうで ぜんぶ つかまえよう！</p>
   <ul>
     <li><b>うごかしかた</b>：タブレットは 左がわを さわって あるく・右がわを なぞって みまわす・💧ボタンで うつ。パソコンは WASDで あるく・マウスで みまわす・クリックで うつ（Escで とまる）。</li>
-    <li>おばけに みずが あたると 正体をあらわして にげる。<b>にげている間に もう1回</b> あてると つかまえられる。にがすと また どこかに へんしんするよ。</li>
-    <li>🤭 <b>わらいごえ</b> が きこえる方向に いる（イヤホンだと よくわかる）。</li>
+    <li>おばけに みずが あたると 正体をあらわして にげる（かべも すりぬける）。<b>にげている間に もう1回</b> あてると つかまえられる。にがすと 数びょうで また 物に へんしんするよ。</li>
+    <li>🛡 おばけは みずが とんでくると <b>ガード</b>することがある。ガードされると ふつうの物と おなじように「ぷるん」と ゆれるだけ。もう一度 すぐ うってみよう。</li>
+    <li>💦 でも、おばけは あわてんぼう。じっと ねらったり、すぐそばに みずを はねさせたりすると、<b>あたっていないのに ぷるん</b>と してしまう。それが おばけの しょうこ！</li>
+    <li>🤭 <b>わらいごえ</b> が きこえる方向に いる（イヤホンだと よくわかる）。ソファの まえ・本だなの うら・カウンターの おく・たんすの かげ など、まわりこまないと 見えない ばしょも あるよ。</li>
+    <li>🧹 へやは きちんと かたづいている。<b>さっきは なかった物</b>が あったら あやしい。</li>
     <li>👀 おばけは、こちらが <b>見ていない間に ばしょをかえる</b>。「ふわっ」という音がしたら、どこかの物が きえたり ふえたり しているかも。</li>
     <li>💧 みずには かぎりがある。だいどころ・せんめんじょの <b>じゃぐち🚰</b> の前に立つと ほきゅう。</li>
   </ul>` });
+if (location.hash === '#debug') window.__obake = { get G() { return G; }, get ghosts() { return ghosts; }, get spots() { return spots; }, get rects() { return rects; }, player, LV, PROPS, DOORS, probe() { camera.position.set(player.x, 1.25, player.z); camera.rotation.set(player.pitch, player.yaw, 0); camera.updateMatrixWorld(); camera.getWorldDirection(dir); ray.set(camera.position, dir); ray.far = 11; const h = ray.intersectObjects(world.children, true)[0]; const q = h && h.object.userData.prop; return q && q.ghost ? q.ghost.i : h && h.object.userData.gh ? 'g' + h.object.userData.gh.i : h ? 'other' : 'none'; } };
 renderStart();
 buildHouse(); resize();
 requestAnimationFrame(frame);
