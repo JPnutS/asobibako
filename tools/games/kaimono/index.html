@@ -74,6 +74,22 @@
     background: var(--accent); color: var(--on-accent); box-shadow: 0 8px 24px rgba(0,0,0,.25); white-space: nowrap; font-size: .85rem; }
   .peek b { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
   main.k-wrap { padding-bottom: 90px; }
+  .mi { display: grid; gap: 2px; }
+  .eq { font-size: .85rem; color: var(--muted); text-align: right; min-height: 0; font-variant-numeric: tabular-nums; }
+  .eq:empty { display: none; }
+  .calc { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--soft); border-top: 1px solid var(--line);
+    padding: 8px max(8px, env(safe-area-inset-left, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -8px 24px rgba(0,0,0,.12); }
+  .calc-in { max-width: 520px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .calc-ans { max-width: 520px; margin: 0 auto 8px; display: flex; justify-content: space-between; align-items: baseline; padding: 0 4px; font-size: .85rem; color: var(--muted); }
+  .calc-ans:empty { display: none; }
+  .calc-ans b { font-size: 1.3rem; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .calc button { min-height: 46px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); font-size: 1.3rem; font-weight: 500; cursor: pointer; touch-action: manipulation; font-variant-numeric: tabular-nums; }
+  .calc button.op { background: color-mix(in srgb, var(--sun) 18%, var(--card)); font-weight: 700; }
+  .calc button.fn { color: var(--muted); font-size: 1.1rem; }
+  .calc .eqk { grid-column: span 2; font-size: 1rem; font-weight: 700; }
+  .calc .done { grid-column: span 2; font-size: 1rem; background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  body.pad-open main.k-wrap { padding-bottom: 420px; }
+  body.pad-open .peek { display: none; }
 </style>
 </head>
 <body>
@@ -92,6 +108,7 @@ Kit.bar({ id: 'kaimono', title: 'お買い物計算', help: `
   <p><b>比較</b>：容量と値段がちがう商品を、同じ量あたりの値段で比べます。</p>
   <p><b>ポイント</b>：ポイント還元が、実際には何%引きと同じなのかを出します。</p>
   <p><b>税</b>：税込と税抜を行き来します。</p>
+  <p>数字の欄は電卓のように「1980×2−500」と式でも入れられます。スマホでは電卓のキーが出ます。</p>
   <p>計算の手順は、答えの下の「計算の仕方」を開くと見られます。入力した内容はこの端末に残ります。</p>` });
 
 const $ = id => document.getElementById(id);
@@ -105,7 +122,27 @@ const DEF = {
 const S = Object.assign(structuredClone(DEF), Kit.store.get('kaimono:s', {}));
 const save = () => Kit.store.set('kaimono:s', S);
 
-const num = s => { const n = parseFloat(String(s).replace(/[,，円%％\s]/g, '').replace(/[０-９．]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))); return isFinite(n) ? n : NaN; };
+/* 電卓のような式（1980×2−500 など）も読む。数字・＋−×÷・かっこ・小数点だけを受けつける */
+function evalExpr(src) {
+  const t = String(src).replace(/[０-９．（）＋－ー−×÷＊／]/g, c => ({ '（': '(', '）': ')', '＋': '+', '－': '-', 'ー': '-', '−': '-', '×': '*', '÷': '/', '＊': '*', '／': '/' }[c] || String.fromCharCode(c.charCodeAt(0) - 0xFEE0)))
+    .replace(/[xX]/g, '*').replace(/[,，円%％\s]/g, '');
+  if (!t || /[^0-9.+\-*/()]/.test(t)) return NaN;
+  let i = 0;
+  const peek = () => t[i];
+  function expr() { let v = term(); while (peek() === '+' || peek() === '-') { const op = t[i++]; const r = term(); v = op === '+' ? v + r : v - r; } return v; }
+  function term() { let v = factor(); while (peek() === '*' || peek() === '/') { const op = t[i++]; const r = factor(); v = op === '*' ? v * r : v / r; } return v; }
+  function factor() {
+    if (peek() === '-') { i++; return -factor(); }
+    if (peek() === '+') { i++; return factor(); }
+    if (peek() === '(') { i++; const v = expr(); if (peek() === ')') i++; return v; }
+    const m = /^\d*\.?\d+|^\d+\.?/.exec(t.slice(i)); if (!m) return NaN;
+    i += m[0].length; return parseFloat(m[0]);
+  }
+  const v = expr();
+  return i === t.length && isFinite(v) ? v : NaN;
+}
+const num = s => evalExpr(s);
+const hasOp = s => /[+\-*/×÷−＋－()（）xX]/.test(String(s).replace(/^[-−－]/, ''));
 const yen = n => Math.round(n).toLocaleString('ja-JP');
 const yen1 = n => (Math.round(n * 10) / 10).toLocaleString('ja-JP', { maximumFractionDigits: 1 });
 const pct = n => (Math.round(n * 10) / 10).toLocaleString('ja-JP', { maximumFractionDigits: 1 });
@@ -130,10 +167,43 @@ function seg(list, cur, on) {
   return d;
 }
 function moneyInput(val, unit, on, ph = '', sm = false) {
-  const w = Kit.el(`<div class="money ${sm ? 'sm' : ''}" data-u="${unit}"><input class="k-input" inputmode="decimal" placeholder="${ph}" value="${esc(val)}" style="padding-right:calc(${unit.length}em + 24px)"></div>`);
-  w.firstChild.addEventListener('input', e => { on(e.target.value); save(); calc(); });
+  const w = Kit.el(`<div class="mi"><div class="money ${sm ? 'sm' : ''}" data-u="${unit}"><input class="k-input" inputmode="none" autocomplete="off" placeholder="${ph}" value="${esc(val)}" style="padding-right:calc(${unit.length}em + 24px)"></div><span class="eq"></span></div>`);
+  const inp = w.querySelector('input'), eq = w.querySelector('.eq');
+  const paintEq = () => { const v = inp.value; const n = num(v); eq.textContent = hasOp(v) ? (isNaN(n) ? '式が途中です' : '＝ ' + (Math.round(n * 100) / 100).toLocaleString('ja-JP')) : ''; };
+  inp.addEventListener('input', () => { on(inp.value); save(); calc(); paintEq(); });
+  inp.addEventListener('focus', () => pad.open(inp));
+  paintEq();
   return w;
 }
+
+/* ---------- 電卓キー ---------- */
+const pad = (() => {
+  const el = Kit.el(`<div class="calc" hidden><div class="calc-ans" id="calcAns"></div><div class="calc-in">
+    ${['AC', '(', ')', '÷', '7', '8', '9', '×', '4', '5', '6', '−', '1', '2', '3', '+', '0', '00', '.', '⌫'].map(k => `<button data-k="${k}" class="${/[÷×−+()]/.test(k) ? 'op' : k === 'AC' || k === '⌫' ? 'fn' : ''}">${k}</button>`).join('')}
+    <button data-k="=" class="eqk">＝ 計算</button><button data-k="done" class="done">閉じる</button></div></div>`);
+  document.body.appendChild(el);
+  let cur = null;
+  el.addEventListener('pointerdown', e => e.preventDefault());   // 入力欄からフォーカスを外さない
+  el.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || !cur) return;
+    const k = b.dataset.k; let v = cur.value;
+    if (k === 'done') return close();
+    if (k === 'AC') v = '';
+    else if (k === '⌫') v = v.slice(0, -1);
+    else if (k === '=') { const n = num(v); if (!isNaN(n)) v = String(Math.round(n * 100) / 100); }
+    else v += k;
+    Kit.sfx('tap');
+    cur.value = v; cur.dispatchEvent(new Event('input'));
+  });
+  function open(inp) {
+    if (matchMedia('(pointer: fine)').matches && !('ontouchstart' in window)) return; // パソコンはふつうのキーボードで
+    cur = inp; el.hidden = false; document.body.classList.add('pad-open');
+    setTimeout(() => inp.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50);
+  }
+  function close() { el.hidden = true; document.body.classList.remove('pad-open'); if (cur) cur.blur(); cur = null; }
+  document.addEventListener('pointerdown', e => { if (cur && !el.contains(e.target) && e.target !== cur) close(); });
+  return { open, close };
+})();
 function field(label, child) { const f = Kit.el(`<div class="f"><span class="k-label">${label}</span></div>`); f.appendChild(child); return f; }
 
 /* ---------- 入力フォーム ---------- */
@@ -215,7 +285,7 @@ function bar(parts) {
 }
 let peekText = '', ansVisible = true;
 function peek(label, value) { peekText = label ? `<span>${label}</span><b>${value}</b><span>↓</span>` : ''; paintPeek(); }
-function paintPeek() { $('peek').innerHTML = peekText; $('peek').hidden = !peekText || ansVisible; }
+function paintPeek() { const ca = document.getElementById('calcAns'); if (ca) ca.innerHTML = peekText.replace('<span>↓</span>', ''); $('peek').innerHTML = peekText; $('peek').hidden = !peekText || ansVisible; }
 new IntersectionObserver(es => { ansVisible = es[0].isIntersecting; paintPeek(); }).observe($('ans'));
 $('peek').onclick = () => $('ans').scrollIntoView({ behavior: 'smooth', block: 'center' });
 function empty(msg) { peek(); $('ans').innerHTML = `<p class="muted" style="margin:0">${msg}</p>`; }
