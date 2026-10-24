@@ -65,6 +65,12 @@
   .foot h3 { font-size: 1.1rem; }
   .switch { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
   .install ol { margin: 0; padding-left: 1.2em; }
+  .grown { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-radius: 16px; text-decoration: none;
+    background: #1f2328; color: #f4f1ea; border: 3px solid var(--line); }
+  .grown svg { flex: none; }
+  .grown span { display: grid; gap: 2px; flex: 1; min-width: 0; }
+  .grown small { font-size: .78rem; opacity: .75; letter-spacing: .1em; }
+  .grown b { font-family: "Shippori Mincho B1", "Hiragino Mincho ProN", serif; font-size: 1.15rem; letter-spacing: .06em; }
 </style>
 </head>
 <body>
@@ -103,6 +109,12 @@
       <button class="k-btn is-small is-grass" id="installBtn" hidden>ホーム画面に追加</button>
     </div>
   </section>
+
+  <a class="grown" href="tools/index.html">
+    <svg viewBox="0 0 100 100" width="44" height="44" aria-hidden="true"><g fill="none" stroke="#d2a457" stroke-width="5" stroke-linejoin="round"><path d="M18 40 L50 25 L82 40 L50 55 Z"/><path d="M18 40 V68 L50 83 V55"/><path d="M82 40 V68 L50 83"/></g></svg>
+    <span><small>おうちの人むけ</small><b>あそびばこ　道具と遊び</b></span>
+    <span aria-hidden="true" style="flex:none">›</span>
+  </a>
 </main>
 
 <script src="common/kit.js"></script>

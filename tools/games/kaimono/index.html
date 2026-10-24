@@ -10,7 +10,7 @@
 <link rel="icon" href="../../icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="../../../common/kit.css">
-<link rel="stylesheet" href="../../otona.css">
+<link rel="stylesheet" href="../../style.css">
 <style>
   .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px; background: var(--soft); border-radius: 12px; }
   .tabs button { min-height: 42px; border: 0; border-radius: 9px; background: transparent; font-weight: 500; font-size: clamp(.8rem, 3.4vw, .95rem); cursor: pointer; padding: 4px 2px; }
@@ -21,7 +21,7 @@
   .money::after { content: attr(data-u); position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
   .money.sm .k-input { font-size: 1.1rem; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .three { display: grid; grid-template-columns: 1.2fr 1fr .8fr; gap: 8px; }
+  .three { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .disc { display: grid; gap: 10px; padding: 12px; border: 1px dashed var(--line); border-radius: 12px; }
   .disc-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .disc-head b { font-size: .9rem; }
@@ -98,7 +98,7 @@ const $ = id => document.getElementById(id);
 const DEF = {
   tab: 'off',
   off: { price: '', taxIn: 'in', discs: [{ kind: 'pct', v: '20' }], tax: 10 },
-  cmp: { unit: 'g', items: [{ price: '', amt: '', n: '1' }, { price: '', amt: '', n: '1' }] },
+  cmp: { unit: 'g', items: [{ price: '', amt: '' }, { price: '', amt: '' }] },
   pt: { price: '', rates: ['10'], cmpPct: '' },
   tax: { price: '', dir: 'ex2in', rate: 10 },
 };
@@ -172,14 +172,13 @@ function renderForm() {
       if (c.items.length > 2) { const x = Kit.el('<button class="x" aria-label="消す">×</button>'); x.onclick = () => { c.items.splice(i, 1); save(); renderForm(); calc(); }; box.firstChild.appendChild(x); }
       const row = Kit.el('<div class="three"></div>');
       row.appendChild(field('値段', moneyInput(it.price, '円', v => it.price = v, '398', true)));
-      row.appendChild(field('1つの量', moneyInput(it.amt, c.unit, v => it.amt = v, '500', true)));
-      row.appendChild(field('入数', moneyInput(it.n, '個', v => it.n = v, '1', true)));
+      row.appendChild(field('量', moneyInput(it.amt, c.unit, v => it.amt = v, '500', true)));
       box.appendChild(row);
       F.appendChild(box);
     });
     if (c.items.length < 5) {
       const add = Kit.el('<button class="k-btn is-small">＋ 比べる商品を足す</button>');
-      add.onclick = () => { c.items.push({ price: '', amt: '', n: '1' }); save(); renderForm(); calc(); };
+      add.onclick = () => { c.items.push({ price: '', amt: '' }); save(); renderForm(); calc(); };
       F.appendChild(add);
     }
   }
@@ -266,7 +265,7 @@ function calcOff() {
 function calcCmp() {
   const c = S.cmp;
   const rows = c.items.map((it, i) => {
-    const p = num(it.price), a = num(it.amt), n = num(it.n) || 1;
+    const p = num(it.price), a = num(it.amt), n = 1;
     return { i, p, total: a * n, ok: p > 0 && a > 0 && n > 0 };
   });
   const ok = rows.filter(r => r.ok);
@@ -291,7 +290,7 @@ function calcCmp() {
       if (!r) return `<div class="row"><span class="tag">${'ABCDE'[i]}</span><span class="muted">未入力</span><span></span></div>`;
       return `<div class="row ${r === best && !same ? 'win' : ''}"><span class="tag">${L(r)}</span>
         <div class="meter"><i style="width:${r.u / worst.u * 100}%"></i></div><span class="u">${yen1(r.u)}円</span>
-        <span class="sub">${ul}　合計 ${yen1(r.total)}${c.unit} で ${yen(r.p)}円</span></div>`;
+        <span class="sub">${ul}　${yen1(r.total)}${c.unit} で ${yen(r.p)}円</span></div>`;
     }).join('')}</div>
     ${same ? '' : `<div class="facts"><div class="fact good"><span>${L(second)}と同じ量（${yen1(sameAmt)}${c.unit}）を${L(best)}で買うと</span><b>${yen(best.u * sameAmt / base)}円（${yen(second.p - best.u * sameAmt / base)}円おトク）</b></div></div>`}
     ${how(steps, tip)}`;
