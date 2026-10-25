@@ -18,22 +18,30 @@
   .res { display: grid; gap: 6px; width: 100%; }
   .res div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 2px dashed var(--soft); padding: 4px 0; }
   .how { margin: 0; padding-left: 1.2em; line-height: 1.7; }
+  .boom { position: absolute; right: 20px; bottom: 24px; width: 104px; height: 104px; border-radius: 50%; border: 4px solid var(--line); background: #ff8a3d; font-size: 2.8rem; z-index: 4; box-shadow: 0 6px 0 var(--line); touch-action: none; }
+  .boom.on { transform: translateY(4px); box-shadow: 0 2px 0 var(--line); background: #ffb36b; }
+  .stick { position: absolute; width: 110px; height: 110px; margin: -55px 0 0 -55px; border-radius: 50%; border: 3px solid rgba(42,34,56,.35); background: rgba(255,255,255,.35); z-index: 3; pointer-events: none; }
+  .stick i { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px; border-radius: 50%; background: rgba(255,255,255,.9); border: 3px solid rgba(42,34,56,.5); }
+  .hint { position: absolute; left: 16px; bottom: 26px; z-index: 3; font-weight: 900; color: #2a2238; opacity: .6; pointer-events: none; }
 </style>
 </head>
 <body>
 <div class="stage" id="stage">
   <canvas id="cv"></canvas>
   <button class="k-btn k-icon pauseBtn" id="pauseBtn" aria-label="一時停止" hidden>⏸</button>
+  <div class="stick" id="stick" hidden><i></i></div>
+  <div class="hint" id="hint" hidden>← ひだりがわを なぞって いどう</div>
+  <button class="boom" id="boom" hidden aria-label="しょうげきは">💥</button>
   <div class="over" id="setupOv">
     <div class="k-card k-stack">
       <h2 style="text-align:center">🦐 ぷちぷちエビ</h2>
-      <p style="margin:0">ねこの <b>ぷっちー</b> に、ぷちぷちが あつまってくるよ。</p>
+      <p style="margin:0">ねこの <b>ぷっちー</b> を うごかして、ぷちぷちの むれに とびこもう！</p>
       <ul class="how">
-        <li>👆 がめんを <b>おしつづけて ためて、はなす</b>と しょうげきはが ドーン！</li>
-        <li>🫧 なみに あたった ぷちぷちは ぷちぷちぷちっと つぶれて、とびあがって <b>🦐エビ</b> に へんしん。ぷっちーが パクパク たべるよ。</li>
-        <li>✨ <b>いっぺんに たくさん</b> つぶすほど 1ぴきの とくてんが どんどん ふえる。ぎりぎりまで あつめるのが コツ！</li>
-        <li>😾 でも ぷっちーに くっついたまま だと かじられて ❤️ が へる。</li>
-        <li>🍽 たべると まんぷくゲージが たまって、いっぱいで <b>フィーバー</b>（とくてん2ばい）！</li>
+        <li>🕹 ひだりがわを なぞって いどう。<b>ぷちぷちが おおい ほう</b>へ いくと、みんな よってくるよ（みぎうえの レーダーで さがせる）。</li>
+        <li>💥 ボタンを <b>おしつづけて ためて、はなす</b>と しょうげきは。あたった ぷちぷちは ぷちぷちぷちっと つぶれて、とびあがって <b>🦐エビ</b> に へんしん。</li>
+        <li>🦐 ちかくの エビは かってに たべる。とおくに おちた エビは <b>とりに いこう</b>（しばらくすると きえちゃう）。</li>
+        <li>✨ 1回の なみで たくさん つぶすほど、エビの とくてんが あがる。</li>
+        <li>😾 ぷちぷちに <b>くっつかれている あいだ HPが へる</b>。0に なったら おしまい。</li>
       </ul>
       <span class="k-label">じかん</span>
       <div class="k-chips" id="optTime"></div>
@@ -58,7 +66,7 @@ if (![60, 90].includes(O.time)) O.time = 60;
 function renderSetup() {
   const root = $('optTime'); root.innerHTML = '';
   [[60, '60びょう'], [90, '90びょう']].forEach(([v, l]) => { const b = Kit.el(`<button class="k-chip" aria-pressed="${v === O.time}">${l}</button>`); b.onclick = () => { Kit.sfx('select'); O.time = v; Kit.store.set('ebi:opt', O); renderSetup(); }; root.appendChild(b); });
-  const b = Kit.getBest(`ebi${O.time}`);
+  const b = Kit.getBest(`ebi2_${O.time}`);
   $('bestLine').textContent = b ? `ベスト（${O.time}びょう）：${b}てん` : '';
 }
 
@@ -86,144 +94,202 @@ function chomp(gold) {
 }
 
 /* ---------- ゲーム ---------- */
-let W = 0, H = 0, g = null, u = 1, cx = 0, cy = 0, CR = 40;
+// u：がめんの みじかい辺の 1/100。フィールドは がめんより ずっと ひろい
+let W = 0, H = 0, g = null, u = 1, CR = 40, FW = 0, FH = 0;
 function resize() {
   const f = Kit.fitCanvas(cv); W = f.w; H = f.h; g = f.g;
-  u = Math.min(W, H) / 100; cx = W / 2; cy = H / 2 + 14; CR = 9 * u;
+  const ou = u; u = Math.min(W, H) / 100; CR = 7 * u;
+  if (G && ou !== u) { const k = u / ou; const sc = o => { o.x *= k; o.y *= k; }; sc(G.cat); G.enemies.forEach(e => { sc(e); e.r *= k; e.sp *= k; }); G.herds.forEach(sc); G.shrimps.forEach(sc); }
+  FW = 300 * u; FH = 230 * u;
 }
 addEventListener('resize', resize);
 let G = null;
 const KINDS = {
-  n:     { r: 2.7, sp: [9, 13], col: ['rgba(255,255,255,.95)', 'rgba(170,210,250,.8)'], hp: 1 },
-  small: { r: 2.0, sp: [17, 22], col: ['rgba(255,255,255,.95)', 'rgba(140,230,190,.8)'], hp: 1 },
-  big:   { r: 4.2, sp: [5.5, 7], col: ['rgba(255,255,255,.95)', 'rgba(190,160,240,.85)'], hp: 2 },
-  gold:  { r: 2.8, sp: [12, 15], col: ['#fffbe0', '#ffc93c'], hp: 1 },
+  n:     { r: 2.5, sp: [11, 15], col: ['rgba(255,255,255,.95)', 'rgba(170,210,250,.8)'], hp: 1 },
+  small: { r: 1.9, sp: [18, 23], col: ['rgba(255,255,255,.95)', 'rgba(140,230,190,.8)'], hp: 1 },
+  big:   { r: 3.9, sp: [7, 9], col: ['rgba(255,255,255,.95)', 'rgba(190,160,240,.85)'], hp: 2 },
+  gold:  { r: 2.6, sp: [14, 17], col: ['#fffbe0', '#ffc93c'], hp: 1 },
 };
+const HPMAX = 100, AGGRO = 30, MAGNET = 2.6;
 function start() {
   resize();
-  G = { running: true, paused: false, over: false, t: O.time, el: 0, score: 0, hearts: 3, enemies: [], shrimps: [], waves: [], fx: [], floats: [],
-    spawnT: .5, charge: 0, charging: false, cd: 0, mouth: 0, hurt: 0, full: 0, fever: 0, eaten: 0, bestChain: 0, waveNo: 0, shake: 0 };
-  for (let i = 0; i < 10; i++) spawn(true);
+  G = { running: true, paused: false, over: false, t: O.time, el: 0, score: 0, hp: HPMAX, cat: { x: FW / 2, y: FH / 2, vx: 0, vy: 0, face: 1 },
+    enemies: [], herds: [], shrimps: [], waves: [], fx: [], floats: [],
+    herdT: 0, charge: 0, charging: false, cd: 0, mouth: 0, hurt: 0, full: 0, fever: 0, eaten: 0, missed: 0, bestChain: 0, waveNo: 0, shake: 0 };
+  for (let i = 0; i < 7; i++) addHerd(true);
   ['setupOv', 'resultOv', 'pauseOv'].forEach(id => $(id).hidden = true);
-  $('pauseBtn').hidden = false;
+  ['pauseBtn', 'boom', 'hint'].forEach(id => $(id).hidden = false);
   Kit.keepAwake(true);
   Kit.music.play({ bpm: 128, lead: [784, 0, 659, 0, 784, 880, 0, 784, 659, 0, 587, 0, 523, 0, 0, 0], bass: [131, 0, 196, 0, 131, 0, 196, 0], vol: .018, type: 'triangle' });
 }
-function spawn(near) {
-  const r = Math.random(), lvl = Math.min(1, G.el / 50);
-  const kind = r < .05 ? 'gold' : r < .14 + lvl * .08 ? 'big' : r < .3 + lvl * .1 ? 'small' : 'n';
-  const K = KINDS[kind], a = Math.random() * Math.PI * 2;
-  const R = near ? Kit.rand(32, 50) * u : Math.hypot(W, H) / 2 + 6 * u;
-  G.enemies.push({ kind, x: cx + Math.cos(a) * R, y: cy + Math.sin(a) * R, r: K.r * u, sp: Kit.rand(...K.sp) * u * (1 + lvl * .35), hp: K.hp, bite: 0, wob: Math.random() * 6, hitBy: -1, look: Math.random() });
+/* むれで うろうろ。ねこが ちかづくと よってくる */
+function addHerd(first) {
+  const C = G.cat;
+  let x, y;
+  for (let i = 0; i < 30; i++) { x = Kit.rand(20 * u, FW - 20 * u); y = Kit.rand(20 * u, FH - 20 * u); if (Math.hypot(x - C.x, y - C.y) > (first ? 55 : 70) * u) break; }
+  const lvl = Math.min(1, G.el / 50);
+  const h = { x, y, vx: 0, vy: 0, t: 0, n: Kit.randInt(7, 12) + Math.floor(lvl * 8) };
+  G.herds.push(h);
+  for (let i = 0; i < h.n; i++) {
+    const r = Math.random();
+    const kind = r < .06 ? 'gold' : r < .16 + lvl * .08 ? 'big' : r < .32 + lvl * .1 ? 'small' : 'n';
+    const K = KINDS[kind], a = Math.random() * 6.28, d = Math.random() * 10 * u;
+    G.enemies.push({ kind, herd: h, x: x + Math.cos(a) * d, y: y + Math.sin(a) * d, r: K.r * u, sp: Kit.rand(...K.sp) * u * (1 + lvl * .3), hp: K.hp, wob: Math.random() * 6, hitBy: -1, ox: Kit.rand(-8, 8) * u, oy: Kit.rand(-8, 8) * u, chase: false });
+  }
 }
-/* ためて はなすと しょうげきは */
-function press() { if (!G || !G.running || G.paused) return; G.charging = true; G.charge = G.fever > 0 ? 1 : 0; }
+/* そうさ：ひだり＝スティック、💥＝ためて はなす */
+const input = { mx: 0, my: 0, keys: {} };
+let stickId = null, stickO = null;
+function press() { if (!G || !G.running || G.paused) return; G.charging = true; G.charge = G.fever > 0 ? 1 : 0; $('boom').classList.add('on'); }
 function release() {
+  $('boom').classList.remove('on');
   if (!G || !G.charging) return;
   G.charging = false;
   if (!G.running || G.paused || G.cd > 0) return;
   const c = G.fever > 0 ? 1 : Math.max(.15, G.charge);
-  const maxR = CR + (14 + 40 * c) * u;
-  G.waves.push({ id: ++G.waveNo, r: CR, maxR, n: 0, pts: 0, power: c >= .99 ? 2 : 1 });
+  G.waves.push({ id: ++G.waveNo, x: G.cat.x, y: G.cat.y, r: CR, maxR: CR + (12 + 30 * c) * u, n: 0, power: c >= .99 ? 2 : 1 });
   G.cd = .3; G.charge = 0; G.shake = .15 + c * .2;
   Kit.tone(110, .25, { type: 'sine', vol: .35, slide: -50 }); Kit.noise(.25, { freq: 300 + c * 500, vol: .25 });
   Kit.vibrate(20 + c * 30);
 }
-cv.addEventListener('pointerdown', e => { e.preventDefault(); press(); });
-addEventListener('pointerup', release); addEventListener('pointercancel', release);
-addEventListener('keydown', e => { if (e.code === 'Space' && !e.repeat) { e.preventDefault(); press(); } });
-addEventListener('keyup', e => { if (e.code === 'Space') release(); });
+const boom = $('boom');
+boom.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); try { boom.setPointerCapture(e.pointerId); } catch (_) {} press(); });
+boom.addEventListener('pointerup', release); boom.addEventListener('pointercancel', release);
+cv.addEventListener('pointerdown', e => {
+  if (!G || !G.running || G.paused) return;
+  const r = stage.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+  if (x < r.width * .6 && stickId == null) {
+    stickId = e.pointerId; stickO = { x, y }; try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+    const s = $('stick'); s.style.left = x + 'px'; s.style.top = y + 'px'; s.hidden = false; s.firstElementChild.style.transform = ''; $('hint').hidden = true;
+  } else { press(); cv.chargeId = e.pointerId; }
+});
+cv.addEventListener('pointermove', e => {
+  if (e.pointerId !== stickId) return;
+  const r = stage.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+  let dx = (x - stickO.x) / 45, dy = (y - stickO.y) / 45; const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; }
+  input.mx = dx; input.my = dy; $('stick').firstElementChild.style.transform = `translate(${dx * 30}px,${dy * 30}px)`;
+});
+const up = e => {
+  if (e.pointerId === stickId) { stickId = null; input.mx = input.my = 0; $('stick').hidden = true; }
+  if (e.pointerId === cv.chargeId) { cv.chargeId = null; release(); }
+};
+cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+addEventListener('keydown', e => { input.keys[e.code] = true; if (e.code === 'Space' && !e.repeat) { e.preventDefault(); press(); } });
+addEventListener('keyup', e => { input.keys[e.code] = false; if (e.code === 'Space') release(); });
 
 function popEnemy(e, w) {
   e.dead = true; w.n++;
   const idx = w.n;
   G.bestChain = Math.max(G.bestChain, w.n);
-  popSound(idx);
-  Kit.vibrate(6);
-  for (let k = 0; k < 6; k++) { const a = Math.random() * 6.28, s = Kit.rand(30, 90) * u / 6; G.fx.push({ x: e.x, y: e.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, t: 0, col: e.kind === 'gold' ? '#ffc93c' : 'rgba(255,255,255,.95)' }); }
+  popSound(idx); Kit.vibrate(6);
+  for (let k = 0; k < 6; k++) { const a = Math.random() * 6.28, s = Kit.rand(5, 15) * u; G.fx.push({ x: e.x, y: e.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, t: 0, col: e.kind === 'gold' ? '#ffc93c' : 'rgba(255,255,255,.95)' }); }
   G.fx.push({ ring: true, x: e.x, y: e.y, r: e.r, t: 0 });
-  // とびあがって エビに へんしん
-  const ax = e.x - cx, ay = e.y - cy, d = Math.hypot(ax, ay) || 1;
-  G.shrimps.push({ x: e.x, y: e.y, vx: ax / d * 8 * u, vy: -Kit.rand(38, 50) * u, rot: Math.atan2(ay, ax), spin: Kit.rand(8, 14) * (Math.random() < .5 ? -1 : 1), t: 0, state: 'jump', gold: e.kind === 'gold', size: e.kind === 'big' ? 1.35 : e.kind === 'small' ? .85 : 1, idx, wave: w, delay: .55 + Math.min(idx, 40) * .035 });
+  // とびあがって エビに へんしん → じめんに おちる
+  const ax = e.x - w.x, ay = e.y - w.y, d = Math.hypot(ax, ay) || 1, out = Kit.rand(4, 12) * u;
+  const value = Math.round((e.kind === 'gold' ? 50 : 10) * (1 + (idx - 1) * .15) * (e.kind === 'big' ? 1.5 : 1));
+  G.shrimps.push({ x: e.x, y: e.y, vx: ax / d * out / .55, vy: ay / d * out / .55, h: 0, vh: Kit.rand(26, 34) * u, rot: Math.atan2(ay, ax), spin: Kit.rand(8, 14) * (Math.random() < .5 ? -1 : 1), t: 0, state: 'jump', gold: e.kind === 'gold', size: e.kind === 'big' ? 1.3 : e.kind === 'small' ? .85 : 1, value, life: 7 });
 }
 function eat(s) {
-  const w = s.wave;
-  let p = Math.round((s.gold ? 50 : 10) * (1 + (s.idx - 1) * .15) * (s.size > 1 ? 1.5 : 1));
-  if (G.fever > 0) p *= 2;
-  G.score += p; w.pts += p; G.eaten++; G.mouth = .18;
-  if (G.fever <= 0) { G.full += s.gold ? 5 : 1; if (G.full >= 45) { G.full = 0; G.fever = 7; Kit.sfx('win'); G.floats.push({ x: cx, y: cy - CR * 2.4, text: '🎉 フィーバー！', color: '#ff5d8f', size: 34, t: -.3 }); } }
+  let p = s.value; if (G.fever > 0) p *= 2;
+  G.score += p; G.eaten++; G.mouth = .18;
+  G.hp = Math.min(HPMAX, G.hp + (s.gold ? 4 : 1));
+  if (G.fever <= 0) { G.full += s.gold ? 5 : 1; if (G.full >= 40) { G.full = 0; G.fever = 7; Kit.sfx('win'); G.floats.push({ x: G.cat.x, y: G.cat.y - CR * 2.6, text: '🎉 フィーバー！', color: '#ff5d8f', size: 34, t: -.2 }); } }
   chomp(s.gold);
-  G.floats.push({ x: cx + Kit.rand(-CR, CR), y: cy - CR * 1.2, text: `+${p}`, color: s.gold ? '#d99a00' : '#ff7a45', size: 16 + Math.min(14, s.idx * .4), t: 0 });
+  G.floats.push({ x: G.cat.x + Kit.rand(-CR, CR), y: G.cat.y - CR * 1.3, text: `+${p}`, color: s.gold ? '#d99a00' : '#ff7a45', size: 15 + Math.min(14, p / 6), t: 0 });
 }
 function update(dt) {
   if (G && G.running && !G.paused) step(dt);
   draw();
 }
 function step(dt) {
+  const C = G.cat;
   G.el += dt; G.t -= dt;
   if (G.t <= 0) { G.t = 0; return finish(); }
-  G.cd -= dt; G.inv = (G.inv || 0) - dt; G.mouth = Math.max(0, G.mouth - dt); G.hurt = Math.max(0, G.hurt - dt); G.shake = Math.max(0, G.shake - dt);
+  G.cd -= dt; G.mouth = Math.max(0, G.mouth - dt); G.hurt = Math.max(0, G.hurt - dt); G.shake = Math.max(0, G.shake - dt);
   if (G.fever > 0) G.fever -= dt;
-  if (G.charging) G.charge = Math.min(1, G.charge + dt / 1.1);
-  // でてくる
-  G.spawnT -= dt;
-  if (G.spawnT <= 0) { spawn(false); if (G.fever > 0) spawn(false); G.spawnT = Math.max(.16, .5 - G.el * .006) * Kit.rand(.6, 1.3); }
-  // あつまる
+  if (G.charging) G.charge = Math.min(1, G.charge + dt / 1.0);
+  // ねこが うごく
+  let mx = input.mx, my = input.my; const k = input.keys;
+  if (k.KeyW || k.ArrowUp) my -= 1; if (k.KeyS || k.ArrowDown) my += 1; if (k.KeyA || k.ArrowLeft) mx -= 1; if (k.KeyD || k.ArrowRight) mx += 1;
+  const m = Math.hypot(mx, my); if (m > 1) { mx /= m; my /= m; }
+  const sp = 30 * u * (G.charging ? .55 : 1);
+  C.vx += (mx * sp - C.vx) * Math.min(1, dt * 10); C.vy += (my * sp - C.vy) * Math.min(1, dt * 10);
+  C.x = Kit.clamp(C.x + C.vx * dt, CR, FW - CR); C.y = Kit.clamp(C.y + C.vy * dt, CR, FH - CR);
+  if (Math.abs(mx) > .1) C.face = Math.sign(mx);
+  C.walk = (C.walk || 0) + Math.hypot(C.vx, C.vy) * dt / u;
+  // むれを ふやす
+  G.herdT -= dt;
+  const want = Math.min(160, 70 + G.el * 1.4);
+  if (G.herdT <= 0 && G.enemies.length < want) { addHerd(false); G.herdT = Math.max(1.2, 3 - G.el * .03); }
+  for (const h of G.herds) { h.t -= dt; if (h.t <= 0) { const a = Math.random() * 6.28; h.vx = Math.cos(a) * 5 * u; h.vy = Math.sin(a) * 5 * u; h.t = Kit.rand(2, 4); } h.x = Kit.clamp(h.x + h.vx * dt, 15 * u, FW - 15 * u); h.y = Kit.clamp(h.y + h.vy * dt, 15 * u, FH - 15 * u); }
+  // ぷちぷち：ちかいと よってくる、とおいと むれで うろうろ
   const es = G.enemies;
-  let danger = false;
+  let touching = 0;
   for (const e of es) {
-    const dx = cx - e.x, dy = cy - e.y, d = Math.hypot(dx, dy) || 1, stop = CR + e.r * .9;
-    if (d > stop) { const m = Math.min(e.sp * dt, d - stop); e.x += dx / d * m; e.y += dy / d * m; }
-    e.wob += dt * (d <= stop + 2 ? 9 : 5);
-    if (d <= stop + 1.5 * u && G.inv <= 0) { e.bite += dt; if (e.bite > 2.5) danger = true; } else e.bite = Math.max(0, e.bite - dt);
-    if (e.bite > 4) { // かじられた！
-      e.dead = true; G.hearts--; G.hurt = .6; G.inv = 2; G.shake = .4; Kit.sfx('bad'); Kit.vibrate([40, 30, 40]);
-      // おこって まわりを はじきとばす
-      for (const q of es) { const qx = q.x - cx, qy = q.y - cy, qd = Math.hypot(qx, qy) || 1; if (qd < CR + 12 * u) { q.x += qx / qd * 12 * u; q.y += qy / qd * 12 * u; } q.bite = 0; }
-      G.floats.push({ x: cx, y: cy - CR * 1.6, text: '😾 いたっ！', color: '#e04040', size: 26, t: 0 });
-      if (G.hearts <= 0) return finish();
-    }
+    const dx = C.x - e.x, dy = C.y - e.y, d = Math.hypot(dx, dy) || 1, stop = CR + e.r * .9;
+    if (d < AGGRO * u) e.chase = true; else if (d > AGGRO * u * 1.8) e.chase = false;
+    let tx, ty, s;
+    if (e.chase) { tx = C.x; ty = C.y; s = e.sp; }
+    else { tx = e.herd.x + e.ox; ty = e.herd.y + e.oy; s = e.sp * .35; }
+    const ex = tx - e.x, ey = ty - e.y, ed = Math.hypot(ex, ey) || 1, lim = e.chase ? d - stop : ed;
+    if (lim > 0) { const mm = Math.min(s * dt, lim); e.x += ex / ed * mm; e.y += ey / ed * mm; }
+    e.wob += dt * (d <= stop + 2 * u ? 10 : 5);
+    e.touch = d <= stop + 1.2 * u;
+    if (e.touch) touching++;
   }
-  // おしあい
-  for (let i = 0; i < es.length; i++) for (let j = i + 1; j < es.length; j++) {
-    const a = es[i], b = es[j], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy), m = a.r + b.r;
-    if (d < m && d > .01) { const p = (m - d) / 2, nx = dx / d, ny = dy / d; a.x -= nx * p; a.y -= ny * p; b.x += nx * p; b.y += ny * p; }
+  // くっつかれている間 HPが へる
+  if (touching) {
+    G.hp -= Math.min(18, touching * 2.5) * dt; G.hurt = .15;
+    if (Math.floor(G.el * 3) !== Math.floor((G.el - dt) * 3)) { Kit.tone(220, .05, { type: 'square', vol: .04 }); Kit.vibrate(8); }
+    if (G.hp <= 0) { G.hp = 0; return finish(); }
   }
-  G.danger = danger;
-  // しょうげきは
+  G.touching = touching;
+  // おしあい（ちかくの ものだけ）
+  for (let i = 0; i < es.length; i++) { const a = es[i]; if (Math.abs(a.x - C.x) > W || Math.abs(a.y - C.y) > H) continue;
+    for (let j = i + 1; j < es.length; j++) {
+      const b = es[j], dx = b.x - a.x; if (dx > 9 * u || dx < -9 * u) continue;
+      const dy = b.y - a.y, d = Math.hypot(dx, dy), mm = a.r + b.r;
+      if (d < mm && d > .01) { const p = (mm - d) / 2, nx = dx / d, ny = dy / d; a.x -= nx * p; a.y -= ny * p; b.x += nx * p; b.y += ny * p; }
+    } }
+  // しょうげきは（ねこに ついていく）
   for (const w of G.waves) {
+    w.x = C.x; w.y = C.y;
     w.r += (55 + w.maxR / u * .9) * u * dt;
     for (const e of es) {
       if (e.dead || e.hitBy === w.id) continue;
-      const d = Math.hypot(e.x - cx, e.y - cy);
+      const d = Math.hypot(e.x - w.x, e.y - w.y);
       if (d - e.r <= w.r && d - e.r <= w.maxR) {
         e.hitBy = w.id;
-        if (e.hp > w.power) { e.hp--; e.r *= .75; const k = 5 * u / (d || 1); e.x += (e.x - cx) * k; e.y += (e.y - cy) * k; popSound(1); }
+        if (e.hp > w.power) { e.hp--; e.r *= .75; const kk = 5 * u / (d || 1); e.x += (e.x - w.x) * kk; e.y += (e.y - w.y) * kk; popSound(1); }
         else popEnemy(e, w);
       }
     }
     if (w.r >= w.maxR && !w.done) {
       w.done = true;
-      if (w.n >= 5) G.floats.push({ x: cx, y: cy - CR * 2.2, text: `${w.n}ひき いっぺんに！`, color: '#ff5d8f', size: 20 + Math.min(16, w.n * .5), t: -.2 });
+      if (w.n >= 5) G.floats.push({ x: C.x, y: C.y - CR * 2.4, text: `${w.n}ひき いっぺんに！`, color: '#ff5d8f', size: 20 + Math.min(16, w.n * .5), t: -.2 });
       if (w.n >= 15) Kit.sfx('good');
     }
   }
-  G.waves = G.waves.filter(w => w.r < w.maxR + 12 * u);
+  G.waves = G.waves.filter(w => w.r < w.maxR + 10 * u);
   G.enemies = es.filter(e => !e.dead);
-  // エビ
+  G.herds = G.herds.filter(h => G.enemies.some(e => e.herd === h));
+  // エビ：とんで おちる → ちかければ たべる
+  const mag = CR * (G.fever > 0 ? MAGNET * 1.6 : MAGNET);
   for (const s of G.shrimps) {
     s.t += dt;
     if (s.state === 'jump') {
-      s.vy += 110 * u * dt; s.x += s.vx * dt; s.y += s.vy * dt; s.rot += s.spin * dt;
-      if (s.t > s.delay) { s.state = 'fly'; s.fx = s.x; s.fy = s.y; s.k = 0; }
+      s.vh -= 95 * u * dt; s.h += s.vh * dt; s.x += s.vx * dt; s.y += s.vy * dt; s.rot += s.spin * dt;
+      if (s.h <= 0) { s.h = 0; s.state = 'ground'; s.t = 0; }
+    } else if (s.state === 'ground') {
+      if (Math.hypot(s.x - C.x, s.y - C.y) < mag) { s.state = 'fly'; s.k = 0; s.fx = s.x; s.fy = s.y; }
+      else if (s.t > s.life) { s.state = 'gone'; G.missed++; G.fx.push({ ring: true, x: s.x, y: s.y, r: 2 * u, t: 0 }); }
     } else if (s.state === 'fly') {
-      s.k += dt / .28;
-      const e = Math.min(1, s.k), q = e * e;
-      s.x = s.fx + (cx - s.fx) * q; s.y = s.fy + (cy + CR * .25 - s.fy) * q - Math.sin(e * Math.PI) * 6 * u; s.rot += dt * 8;
+      s.k += dt / .22; const e = Math.min(1, s.k), q = e * e;
+      s.x = s.fx + (C.x - s.fx) * q; s.y = s.fy + (C.y + CR * .25 - s.fy) * q; s.h = Math.sin(e * Math.PI) * 4 * u; s.rot += dt * 10;
       if (s.k >= 1) { s.state = 'eaten'; eat(s); }
     }
   }
-  G.shrimps = G.shrimps.filter(s => s.state !== 'eaten');
+  G.shrimps = G.shrimps.filter(s => s.state !== 'eaten' && s.state !== 'gone');
   G.fx = G.fx.filter(f => { f.t += dt; if (!f.ring) { f.x += f.vx * dt; f.y += f.vy * dt; } return f.t < .4; });
   G.floats = G.floats.filter(f => { f.t += dt; f.y -= 30 * dt; return f.t < 1; });
 }
@@ -235,41 +301,38 @@ function drawEnemy(e) {
   const gr = g.createRadialGradient(-r * .35, -r * .4, r * .1, 0, 0, r);
   gr.addColorStop(0, K.col[0]); gr.addColorStop(1, K.col[1]);
   g.fillStyle = gr; g.beginPath(); g.arc(0, 0, r, 0, 7); g.fill();
-  g.strokeStyle = e.bite > 1.6 ? '#ff5d5d' : 'rgba(90,120,170,.55)'; g.lineWidth = e.kind === 'big' && e.hp > 1 ? 3 : 1.5; g.stroke();
+  g.strokeStyle = e.touch ? '#ff5d5d' : 'rgba(90,120,170,.55)'; g.lineWidth = e.kind === 'big' && e.hp > 1 ? 3 : 1.5; g.stroke();
   g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.ellipse(-r * .38, -r * .45, r * .22, r * .12, -.6, 0, 7); g.fill();
-  // かお（ぷっちーの ほうを みる）
-  const a = Math.atan2(cy - e.y, cx - e.x), ex = Math.cos(a) * r * .25, ey = Math.sin(a) * r * .25;
+  const C = G.cat, a = e.chase ? Math.atan2(C.y - e.y, C.x - e.x) : e.wob * .2, ex = Math.cos(a) * r * .25, ey = Math.sin(a) * r * .25;
   g.fillStyle = '#2a2238';
   g.beginPath(); g.arc(ex - r * .25, ey - r * .05, r * .11, 0, 7); g.arc(ex + r * .25, ey - r * .05, r * .11, 0, 7); g.fill();
-  if (e.bite > .5) { g.strokeStyle = '#2a2238'; g.lineWidth = 1.5; g.beginPath(); g.arc(ex, ey + r * .2, r * .14, 0, Math.PI); g.stroke(); }
+  if (e.touch) { g.strokeStyle = '#2a2238'; g.lineWidth = 1.5; g.beginPath(); g.arc(ex, ey + r * .2, r * .14, 0, Math.PI); g.stroke(); }
   g.restore();
 }
 function drawShrimp(x, y, size, rot, gold) {
-  const s = 3.2 * u * size;
+  const s = 2.6 * u * size;
   g.save(); g.translate(x, y); g.rotate(rot);
   const body = gold ? '#ffcf3c' : '#ff8a5c', light = gold ? '#fff2b0' : '#ffd0b8';
-  // こしを まげた からだ
   g.lineCap = 'round';
   g.strokeStyle = body; g.lineWidth = s * .62;
   g.beginPath(); g.arc(0, 0, s, Math.PI * .15, Math.PI * 1.35); g.stroke();
   g.strokeStyle = light; g.lineWidth = s * .14;
   for (let i = 0; i < 5; i++) { const a = Math.PI * (.35 + i * .2); g.beginPath(); g.moveTo(Math.cos(a) * s * .72, Math.sin(a) * s * .72); g.lineTo(Math.cos(a) * s * 1.28, Math.sin(a) * s * 1.28); g.stroke(); }
-  // しっぽ
   const ta = Math.PI * 1.35, tx = Math.cos(ta) * s, ty = Math.sin(ta) * s;
   g.fillStyle = body; g.beginPath(); g.moveTo(tx, ty); g.lineTo(tx + s * .7, ty - s * .45); g.lineTo(tx + s * .55, ty + s * .15); g.lineTo(tx + s * .8, ty + s * .5); g.closePath(); g.fill();
-  // あたま・め・ひげ
   const ha = Math.PI * .15, hx = Math.cos(ha) * s, hy = Math.sin(ha) * s;
   g.fillStyle = body; g.beginPath(); g.arc(hx, hy, s * .42, 0, 7); g.fill();
   g.fillStyle = '#2a2238'; g.beginPath(); g.arc(hx + s * .12, hy - s * .1, s * .1, 0, 7); g.fill();
   g.strokeStyle = body; g.lineWidth = 1.5; g.beginPath(); g.moveTo(hx + s * .3, hy - s * .2); g.quadraticCurveTo(hx + s * 1.2, hy - s * .9, hx + s * 1.5, hy - s * .3); g.stroke();
   g.restore();
 }
-function drawCat() {
-  const r = CR, t = performance.now() / 1000;
-  const puff = G && G.charging ? 1 + G.charge * .12 + Math.sin(t * 40) * .01 * G.charge : 1;
-  g.save(); g.translate(cx, cy); g.scale(puff, puff);
+function drawCat(x, y) {
+  const r = CR, t = performance.now() / 1000, C = G ? G.cat : { face: 1, walk: 0 };
+  const puff = G && G.charging ? 1 + G.charge * .14 + Math.sin(t * 40) * .01 * G.charge : 1;
+  const bob = Math.abs(Math.sin((C.walk || 0) * .35)) * r * .08;
+  g.save(); g.translate(x, y - bob); g.scale(puff * (C.face || 1), puff);
   if (G && G.fever > 0) { g.fillStyle = `hsla(${t * 200 % 360},90%,70%,.35)`; g.beginPath(); g.arc(0, 0, r * 1.45, 0, 7); g.fill(); }
-  const col = G && G.hurt > 0 ? '#ffb0a0' : '#ffd9a0';
+  const col = G && G.hurt > 0 && Math.sin(t * 30) > 0 ? '#ffb0a0' : '#ffd9a0';
   g.fillStyle = col; g.strokeStyle = '#2a2238'; g.lineWidth = 3;
   [-1, 1].forEach(sx => { g.beginPath(); g.moveTo(sx * r * .85, -r * .35); g.lineTo(sx * r * .75, -r * 1.15); g.lineTo(sx * r * .25, -r * .8); g.closePath(); g.fill(); g.stroke(); });
   g.beginPath(); g.arc(0, 0, r, 0, 7); g.fill(); g.stroke();
@@ -277,61 +340,86 @@ function drawCat() {
   g.fillStyle = '#2a2238';
   if (G && G.hurt > 0) { g.font = `900 ${r * .45}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('＞　＜', 0, -r * .15); }
   else if (G && G.charging) { [-1, 1].forEach(sx => { g.beginPath(); g.arc(sx * r * .35, -r * .15, r * .1, 0, 7); g.fill(); }); }
-  else { [-1, 1].forEach(sx => { g.beginPath(); g.arc(sx * r * .35, -r * .15, r * .13, 0, 7); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(sx * r * .35 + r * .04, -r * .2, r * .045, 0, 7); g.fill(); g.fillStyle = '#2a2238'; }); }
+  else { [-1, 1].forEach(sx => { g.beginPath(); g.arc(sx * r * .35 + r * .06, -r * .15, r * .13, 0, 7); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(sx * r * .35 + r * .1, -r * .2, r * .045, 0, 7); g.fill(); g.fillStyle = '#2a2238'; }); }
   const m = G ? G.mouth / .18 : 0;
   if (m > 0) { g.fillStyle = '#c2405a'; g.beginPath(); g.ellipse(0, r * .32, r * .26, r * .22 * m + r * .04, 0, 0, 7); g.fill(); }
   else { g.lineWidth = 2.5; g.beginPath(); g.arc(-r * .1, r * .22, r * .1, 0, Math.PI); g.arc(r * .1, r * .22, r * .1, 0, Math.PI); g.stroke(); }
   g.lineWidth = 2; g.strokeStyle = 'rgba(42,34,56,.7)';
   [-1, 1].forEach(sx => [-.08, .08].forEach(dy => { g.beginPath(); g.moveTo(sx * r * .5, r * (.12 + dy)); g.lineTo(sx * r * 1.15, r * (.05 + dy * 2.2)); g.stroke(); }));
-  if (G && G.danger && G.hurt <= 0) { g.font = `${r * .5}px sans-serif`; g.textAlign = 'center'; g.fillText('💦', r * .9, -r * .8); }
   g.restore();
 }
 function draw() {
   if (!g) return;
   g.clearRect(0, 0, W, H);
+  if (!G) { g.fillStyle = '#e6f3ff'; g.fillRect(0, 0, W, H); return; }
+  const C = G.cat;
+  const camX = Kit.clamp(C.x, Math.min(W / 2, FW / 2), Math.max(FW - W / 2, FW / 2)), camY = Kit.clamp(C.y, Math.min(H / 2, FH / 2), Math.max(FH - H / 2, FH / 2));
   g.save();
-  if (G && G.shake) g.translate(Kit.rand(-4, 4) * G.shake * 3, Kit.rand(-4, 4) * G.shake * 3);
-  // ゆか
-  g.fillStyle = '#e6f3ff'; g.fillRect(-20, -20, W + 40, H + 40);
-  g.strokeStyle = 'rgba(150,190,235,.25)'; g.lineWidth = 2;
-  for (let r = CR * 2; r < Math.hypot(W, H); r += 9 * u) { g.beginPath(); g.arc(cx, cy, r, 0, 7); g.stroke(); }
-  if (!G) { drawCat(); g.restore(); return; }
-  // ためている なみの おおきさ
+  g.translate(W / 2 - camX, H / 2 - camY);
+  if (G.shake) g.translate(Kit.rand(-4, 4) * G.shake * 3, Kit.rand(-4, 4) * G.shake * 3);
+  // フィールド
+  g.fillStyle = '#c9dff2'; g.fillRect(camX - W, camY - H, W * 2, H * 2);
+  g.fillStyle = '#eaf5ff'; g.fillRect(0, 0, FW, FH);
+  g.fillStyle = 'rgba(150,190,235,.35)';
+  const step = 12 * u, x0 = Math.max(0, Math.floor((camX - W / 2) / step) * step), y0 = Math.max(0, Math.floor((camY - H / 2) / step) * step);
+  for (let x = x0; x <= Math.min(FW, camX + W / 2); x += step) for (let y = y0; y <= Math.min(FH, camY + H / 2); y += step) { g.beginPath(); g.arc(x + ((y / step) % 2 ? step / 2 : 0), y, 1.6 * u, 0, 7); g.fill(); }
+  g.strokeStyle = '#2a2238'; g.lineWidth = 4; g.strokeRect(0, 0, FW, FH);
+  const vis = (x, y, m = 10 * u) => Math.abs(x - camX) < W / 2 + m && Math.abs(y - camY) < H / 2 + m;
+  // ためている なみ・たべられる はんい
+  g.setLineDash([4, 8]); g.strokeStyle = 'rgba(255,138,61,.35)'; g.lineWidth = 2; g.beginPath(); g.arc(C.x, C.y, CR * (G.fever > 0 ? MAGNET * 1.6 : MAGNET), 0, 7); g.stroke();
   if (G.charging) {
-    const c = G.fever > 0 ? 1 : Math.max(.15, G.charge), R = CR + (14 + 40 * c) * u;
-    g.setLineDash([8, 8]); g.strokeStyle = c >= .99 ? '#ff5d8f' : 'rgba(255,138,61,.8)'; g.lineWidth = 3;
-    g.beginPath(); g.arc(cx, cy, R, 0, 7); g.stroke(); g.setLineDash([]);
+    const c = G.fever > 0 ? 1 : Math.max(.15, G.charge), R = CR + (12 + 30 * c) * u;
+    g.setLineDash([8, 8]); g.strokeStyle = c >= .99 ? '#ff5d8f' : 'rgba(255,138,61,.85)'; g.lineWidth = 3; g.beginPath(); g.arc(C.x, C.y, R, 0, 7); g.stroke();
   }
+  g.setLineDash([]);
   for (const w of G.waves) {
-    const k = Math.min(1, w.r / w.maxR), a = w.r > w.maxR ? Math.max(0, 1 - (w.r - w.maxR) / (12 * u)) : 1;
-    g.fillStyle = `rgba(255,255,255,${.18 * a})`; g.beginPath(); g.arc(cx, cy, w.r, 0, 7); g.fill();
+    const k = Math.min(1, w.r / w.maxR), a = w.r > w.maxR ? Math.max(0, 1 - (w.r - w.maxR) / (10 * u)) : 1;
+    g.fillStyle = `rgba(255,255,255,${.18 * a})`; g.beginPath(); g.arc(w.x, w.y, w.r, 0, 7); g.fill();
     g.strokeStyle = w.power > 1 ? `rgba(255,93,143,${.9 * a})` : `rgba(255,255,255,${.95 * a})`; g.lineWidth = 6 + 6 * (1 - k);
-    g.beginPath(); g.arc(cx, cy, w.r, 0, 7); g.stroke();
+    g.beginPath(); g.arc(w.x, w.y, w.r, 0, 7); g.stroke();
   }
-  for (const e of G.enemies) drawEnemy(e);
+  // じめんの エビ（かげ つき）
+  for (const s of G.shrimps) {
+    if (!vis(s.x, s.y)) continue;
+    g.fillStyle = 'rgba(42,34,56,.12)'; g.beginPath(); g.ellipse(s.x, s.y + 2 * u, 2.4 * u * s.size, u * s.size, 0, 0, 7); g.fill();
+    if (s.state === 'ground' && s.t > s.life - 2 && Math.sin(s.t * 18) > 0) continue; // きえそうで ちかちか
+    drawShrimp(s.x, s.y - s.h, s.size * (s.state === 'fly' ? 1 - s.k * .4 : Math.min(1, s.t / .12 + (s.state === 'ground' ? 1 : 0))), s.state === 'ground' ? s.rot : s.rot, s.gold);
+  }
+  for (const e of G.enemies) if (vis(e.x, e.y)) drawEnemy(e);
   for (const f of G.fx) {
     if (f.ring) { g.strokeStyle = `rgba(255,255,255,${.9 * (1 - f.t / .4)})`; g.lineWidth = 2.5; g.beginPath(); g.arc(f.x, f.y, f.r * (1 + f.t * 3), 0, 7); g.stroke(); }
     else { g.fillStyle = f.col; g.globalAlpha = 1 - f.t / .4; g.beginPath(); g.arc(f.x, f.y, 2.5, 0, 7); g.fill(); g.globalAlpha = 1; }
   }
-  drawCat();
-  for (const s of G.shrimps) drawShrimp(s.x, s.y, s.size * (s.state === 'fly' ? 1 - s.k * .4 : Math.min(1, s.t / .12)), s.rot, s.gold);
+  drawCat(C.x, C.y);
   for (const f of G.floats) { if (f.t < 0) continue; g.globalAlpha = 1 - f.t; g.font = `900 ${f.size}px 'Zen Maru Gothic', sans-serif`; g.textAlign = 'center'; g.lineWidth = 4; g.strokeStyle = '#fff'; g.strokeText(f.text, f.x, f.y); g.fillStyle = f.color; g.fillText(f.text, f.x, f.y); g.globalAlpha = 1; }
   g.restore();
   // うえの じょうほう
   g.fillStyle = 'rgba(255,255,255,.9)'; g.fillRect(0, 0, W, 50);
   g.fillStyle = '#ff8a3d'; g.fillRect(0, 46, W * G.t / O.time, 4);
   g.textBaseline = 'middle';
-  g.textAlign = 'left'; g.font = '20px sans-serif'; g.fillText('❤️'.repeat(Math.max(0, G.hearts)) + '🤍'.repeat(3 - Math.max(0, G.hearts)), 10, 24);
-  g.textAlign = 'center'; g.font = `26px 'Dela Gothic One', sans-serif`; g.fillStyle = '#ff7a45'; g.fillText(G.score, W / 2, 24);
+  // HPバー
+  const hw = Math.min(150, W * .28), hp = G.hp / HPMAX;
+  g.fillStyle = '#fff'; g.strokeStyle = '#2a2238'; g.lineWidth = 2.5; g.beginPath(); g.roundRect ? g.roundRect(34, 15, hw, 18, 9) : g.rect(34, 15, hw, 18); g.fill(); g.stroke();
+  g.fillStyle = hp < .3 ? '#ff5d5d' : hp < .6 ? '#ffc93c' : '#3ecf8e'; g.beginPath(); g.roundRect ? g.roundRect(36, 17, (hw - 4) * hp, 14, 7) : g.rect(36, 17, (hw - 4) * hp, 14); g.fill();
+  g.font = '17px sans-serif'; g.textAlign = 'left'; g.fillText(G.touching ? '😾' : '😺', 8, 25);
+  g.textAlign = 'center'; g.font = `26px 'Dela Gothic One', sans-serif`; g.fillStyle = '#ff7a45'; g.fillText(G.score, W / 2 + (W < 500 ? 40 : 0), 24);
   g.textAlign = 'right'; g.font = `900 17px 'Zen Maru Gothic', sans-serif`; g.fillStyle = '#2a2238'; g.fillText(`⏱${Math.ceil(G.t)}`, W - 12, 24);
   // まんぷくゲージ
-  const gw = Math.min(260, W * .5), gx = W / 2 - gw / 2, gy = 58;
+  const gw = Math.min(220, W * .4), gx = W / 2 - gw / 2, gy = 58;
   g.fillStyle = 'rgba(255,255,255,.85)'; g.strokeStyle = '#2a2238'; g.lineWidth = 2.5;
   g.beginPath(); g.roundRect ? g.roundRect(gx, gy, gw, 14, 7) : g.rect(gx, gy, gw, 14); g.fill(); g.stroke();
-  const fill = G.fever > 0 ? G.fever / 7 : G.full / 45;
+  const fill = G.fever > 0 ? G.fever / 7 : G.full / 40;
   g.fillStyle = G.fever > 0 ? `hsl(${performance.now() / 5 % 360},90%,65%)` : '#ffb36b';
   g.beginPath(); g.roundRect ? g.roundRect(gx + 2, gy + 2, (gw - 4) * fill, 10, 5) : g.rect(gx + 2, gy + 2, (gw - 4) * fill, 10); g.fill();
   g.font = `900 12px 'Zen Maru Gothic', sans-serif`; g.textAlign = 'right'; g.fillStyle = '#2a2238'; g.fillText(G.fever > 0 ? 'フィーバー！' : '🍽 まんぷく', gx - 6, gy + 8);
+  // レーダー（ぷちぷちの おおい ばしょ）
+  const RW = Math.min(130, W * .26), RH = RW * FH / FW, rx = W - RW - 10, ry = 58, sc = RW / FW;
+  g.fillStyle = 'rgba(255,255,255,.85)'; g.fillRect(rx, ry, RW, RH); g.strokeStyle = '#2a2238'; g.lineWidth = 2; g.strokeRect(rx, ry, RW, RH);
+  g.fillStyle = 'rgba(90,140,220,.7)';
+  for (const e of G.enemies) g.fillRect(rx + e.x * sc - 1, ry + e.y * sc - 1, 2.2, 2.2);
+  g.fillStyle = '#ff8a5c'; for (const s of G.shrimps) if (s.state === 'ground') g.fillRect(rx + s.x * sc - 1, ry + s.y * sc - 1, 2.5, 2.5);
+  g.strokeStyle = 'rgba(42,34,56,.5)'; g.lineWidth = 1; g.strokeRect(rx + (camX - W / 2) * sc, ry + (camY - H / 2) * sc, W * sc, H * sc);
+  g.fillStyle = '#ff5d8f'; g.beginPath(); g.arc(rx + C.x * sc, ry + C.y * sc, 3.5, 0, 7); g.fill();
 }
 const loop = Kit.loop(update);
 
@@ -342,16 +430,18 @@ function title(s) {
 }
 function finish() {
   if (!G || G.over) return;
-  G.over = true; G.running = false; G.charging = false; Kit.music.stop(); Kit.keepAwake(false); $('pauseBtn').hidden = true;
-  const r = Kit.best(`ebi${O.time}`, G.score);
+  G.over = true; G.running = false; G.charging = false; Kit.music.stop(); Kit.keepAwake(false);
+  ['pauseBtn', 'boom', 'stick', 'hint'].forEach(id => $(id).hidden = true); stickId = null; input.mx = input.my = 0;
+  const alive = G.hp > 0;
+  const r = Kit.best(`ebi2_${O.time}`, G.score);
   if (r.isNew) Kit.confetti();
-  Kit.sfx(G.hearts > 0 ? 'win' : 'lose');
-  $('resultCard').innerHTML = `<h2>${G.hearts > 0 ? title(G.score) : '😾 かじられすぎた…'}</h2>
+  Kit.sfx(alive ? 'win' : 'lose');
+  $('resultCard').innerHTML = `<h2>${alive ? title(G.score) : '😾 HPが なくなった…'}</h2>
     <p style="margin:0;font-size:2.4rem;font-family:var(--display)">${G.score}てん</p>
     <p style="margin:0;font-weight:900">${r.isNew ? '🎉 ベストきろく！' : `ベスト：${r.best}てん`}</p>
     <div class="res"><div><span>🦐 たべた エビ</span><b>${G.eaten}ひき</b></div>
-    <div><span>💥 いっぺんに つぶした さいこう</span><b>${G.bestChain}ひき</b></div>
-    <div><span>❤️ のこり</span><b>${Math.max(0, G.hearts)}</b></div></div>
+    <div><span>💨 とりのがした エビ</span><b>${G.missed}ひき</b></div>
+    <div><span>💥 いっぺんに つぶした さいこう</span><b>${G.bestChain}ひき</b></div></div>
     <div class="k-row" style="justify-content:center"><button class="k-btn is-orange is-big" id="again">もういっかい</button><button class="k-btn" id="toSetup">せっていへ</button></div>`;
   setTimeout(() => { $('resultOv').hidden = false; }, 700);
   $('again').onclick = () => { Kit.sfx('tap'); start(); };
@@ -365,14 +455,15 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) pause
 $('startBtn').onclick = () => { Kit.sfx('tap'); Kit.audio(); start(); };
 
 Kit.bar({ id: 'puchi', title: '🦐 ぷちぷちエビ', help: `
-  <p>ねこの ぷっちーに あつまってくる ぷちぷちを、しょうげきはで つぶして エビに かえよう。</p>
+  <p>ねこの ぷっちーを うごかして、ぷちぷちを しょうげきはで つぶし、エビに かえて たべよう。</p>
   <ul>
-    <li>👆 がめんの どこかを <b>おしつづけると ためる</b>（点線の わが ひろがる）。<b>はなすと しょうげきは</b>。ためるほど とおくまで とどく。スペースキーでも できるよ。</li>
-    <li>🫧 なみに あたった ぷちぷちは つぎつぎ つぶれて、とびあがって 🦐エビに へんしん。ぷっちーが パクパク たべる。</li>
-    <li>✨ 1回の なみで つぶした数が おおいほど、あとの エビほど とくてんが ふえる（1ぴきめ 10てん → 10ぴきめ 24てん → 30ぴきめ 54てん…）。</li>
-    <li>🟣 おおきい ぷちぷちは ふつうの なみだと ちいさく なるだけ。<b>まんたんまで ためた なみ</b>（ピンク）なら いっぱつ。⭐ きんいろは 50てんの きんの エビに なる。</li>
-    <li>😾 ぷっちーに くっついて しばらく たつと かじられて ❤️ が へる（💦 が でたら あぶない）。❤️ が なくなるか、じかん ぎれで おしまい。</li>
-    <li>🍽 エビを たべると まんぷくゲージが たまり、いっぱいで 7びょうかん フィーバー（とくてん2ばい・すぐ まんたん）。</li>
+    <li>🕹 <b>いどう</b>：がめんの ひだりがわを なぞる（パソコンは WASD・やじるし）。みぎうえの レーダーの <b>あおい てん</b> が ぷちぷち、<b>オレンジ</b> が おちている エビ。</li>
+    <li>💥 <b>しょうげきは</b>：💥ボタンを おしつづけて ためて、はなす（パソコンは スペース）。ためるほど とおくまで とどく。ためている間は あるくのが おそくなる。</li>
+    <li>🫧 ぷちぷちは むれで うろうろ していて、ぷっちーが ちかづくと よってくる。たくさん あつめてから なみを だすと、1回で つぶした数が おおいほど エビの とくてんが あがる（1ぴきめ 10てん → 10ぴきめ 24てん…）。</li>
+    <li>🦐 エビは とびあがって じめんに おちる。<b>点線の わの 中</b> なら かってに たべる。そとの エビは とりに いこう。7びょうで きえちゃう。</li>
+    <li>🟣 おおきい ぷちぷちは まんたんまで ためた なみ（ピンク）で いっぱつ。⭐ きんいろは 50てんの きんの エビに なる。</li>
+    <li>😾 ぷちぷちに くっつかれている あいだ HPが へる（くっついている数が おおいほど はやい）。エビを たべると すこし かいふく。HPが 0か、じかん ぎれで おしまい。</li>
+    <li>🍽 たべると まんぷくゲージが たまり、いっぱいで 7びょうかん フィーバー（とくてん2ばい・すぐ まんたん・とおくの エビも すいこむ）。</li>
   </ul>` });
 { const ex = document.querySelector('.kbar-extra'); if (ex) ex.appendChild($('pauseBtn')); }
 renderSetup();
