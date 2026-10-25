@@ -29,6 +29,12 @@
   .mini { position: absolute; left: 10px; top: 8px; z-index: 4; border: 3px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.85); pointer-events: none; }
   .msg { position: absolute; left: 50%; top: 28%; transform: translateX(-50%); font-family: var(--display); font-size: clamp(1.3rem, 5vw, 2.1rem); z-index: 5; pointer-events: none; text-align: center; color: #fff; text-shadow: 0 3px 0 #2a2238, 0 -2px 0 #2a2238, 2px 0 0 #2a2238, -2px 0 0 #2a2238; transition: opacity .3s; width: max-content; max-width: 94%; }
   .refill { position: absolute; left: 50%; bottom: 140px; transform: translateX(-50%); z-index: 4; pointer-events: none; }
+  .fire.guard { background: #ffc93c; }
+  .fire.guard.cool { filter: grayscale(.8); opacity: .7; }
+  .fire.morph { bottom: 136px; right: 34px; width: 74px; height: 74px; font-size: 2rem; background: #c9a7ff; }
+  .morphTag { position: absolute; right: 12px; bottom: 216px; z-index: 4; pointer-events: none; font-size: .9rem; }
+  .warn { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); z-index: 5; pointer-events: none; background: #ff5d5d; color: #fff; border-color: #2a2238; animation: k-pop .4s; }
+  .smark { position: absolute; transform: translate(-50%, -100%); font-size: 1.8rem; z-index: 3; pointer-events: none; text-shadow: 0 2px 0 #fff; }
   .pauseBtn { position: absolute; right: 10px; top: 8px; z-index: 4; }
   .res { display: grid; gap: 6px; width: 100%; }
   .res div { display: flex; justify-content: space-between; border-bottom: 2px dashed var(--soft); padding: 4px 0; }
@@ -46,10 +52,17 @@
   <div class="stick" id="stick" hidden><i></i></div>
   <div class="help-move" id="helpMove" hidden>← ここで あるく　　みぎがわで みまわす →</div>
   <button class="fire" id="fire" hidden aria-label="みずでっぽう">💧</button>
+  <button class="fire guard" id="guardBtn" hidden aria-label="ガード">🛡</button>
+  <button class="fire morph" id="morphBtn" hidden aria-label="へんしん">🪄</button>
+  <span class="pill morphTag" id="morphTag" hidden></span>
+  <span class="pill warn" id="warn" hidden>❗ ねらわれてる…かも？</span>
 
   <div class="over" id="startOv">
     <div class="k-card k-stack">
       <h2 style="text-align:center">👻 おばけかくれんぼ</h2>
+      <span class="k-label">あそびかた</span>
+      <div class="k-chips" id="optMode"></div>
+      <div id="rulesSeek" class="k-stack" style="gap:6px">
       <p style="margin:0">いえの中に おばけが <b>へんしん</b>して かくれているよ。<b>みずでっぽう</b>で ぜんぶ つかまえよう！</p>
       <ul style="margin:0;padding-left:1.2em;line-height:1.7">
         <li>あやしい物に みずをかけると、おばけが にげだす。<b>にげている間に もう1回</b> あてたら つかまえた！</li>
@@ -57,13 +70,21 @@
         <li>🤭 <b>わらいごえ</b> の方向に いるよ。ソファや 本だなの <b>うら</b>にも まわりこもう。</li>
         <li>👀 へやは かたづいている。<b>さっき なかった物</b>は あやしい！</li>
         <li>💧 みずが なくなったら 台所か せんめんじょの <b>じゃぐち🚰</b> へ。</li>
-      </ul>
+      </ul></div>
+      <div id="rulesHide" class="k-stack" style="gap:6px" hidden>
+      <p style="margin:0">こんどは きみが <b>おばけ</b>！ みずでっぽうを もった <b>おに</b> から、じかんまで にげきろう。</p>
+      <ul style="margin:0;padding-left:1.2em;line-height:1.7">
+        <li>🪄 まんなかの ○ で 物を ねらって へんしん。その物の <b>まねっこ</b> ができる。<b>✨ぴったり</b> と出たら、たなや かべぎわの きまった ばしょに おける（あやしまれにくい）。</li>
+        <li>👀 おには じっと見て あやしい物を うってくる。<b>❗ねらわれてる</b> と出たら 🛡<b>ガード</b>！ せいこうすると ふつうの物の ふりが できる。</li>
+        <li>😱 でも、うたれてないのに ガードして ぷるんと ゆれると、見られていたら あやしまれる。見られている時に うごくのも だめ。</li>
+        <li>💦 バレたら にげろ！ おばけの すがたは 家具を すりぬけられる。3びょうたったら また へんしんできる。おばけの すがたで うたれたら おしまい。</li>
+      </ul></div>
       <span class="k-label">むずかしさ</span>
       <div class="k-chips" id="optLv"></div>
       <span class="k-label">じかん</span>
       <div class="k-chips" id="optTime"></div>
       <p class="k-muted" id="bestLine" style="margin:0"></p>
-      <p class="k-muted" style="margin:0;font-size:.85rem">タブレット：左で あるく・右で みまわす・💧で うつ ／ パソコン：WASD＋マウス（クリックで うつ）</p>
+      <p class="k-muted" style="margin:0;font-size:.85rem" id="ctrlLine"></p>
       <button class="k-btn is-grape is-big is-wide" id="startBtn">スタート</button>
     </div>
   </div>
@@ -86,17 +107,23 @@ const LV = {
   2: { name: 'ふつう', ghosts: 4, giggle: [6, 10], move: [18, 28], flee: 2.7, guard: .4, flinch: .5, panic: .6 },
   3: { name: 'むずかしい', ghosts: 5, giggle: [8, 13], move: [12, 18], flee: 3.2, guard: .55, flinch: .35, panic: .4 },
 };
-const O = Object.assign({ level: 1, time: 180 }, Kit.store.get('obake:opt', {}));
+const O = Object.assign({ mode: 'seek', level: 1, time: 180 }, Kit.store.get('obake:opt', {}));
 function chips(root, items, cur, on) {
   root.innerHTML = '';
   items.forEach(([v, l]) => { const b = Kit.el(`<button class="k-chip" aria-pressed="${v === cur}">${l}</button>`); b.onclick = () => { Kit.sfx('select'); on(v); }; root.appendChild(b); });
 }
 function renderStart() {
   const save = () => Kit.store.set('obake:opt', O);
-  chips($('optLv'), Object.entries(LV).map(([k, v]) => [+k, `${v.name}（👻${v.ghosts}）`]), O.level, v => { O.level = v; save(); renderStart(); });
-  chips($('optTime'), [[120, '2ふん'], [180, '3ぷん'], [300, '5ふん']], O.time, v => { O.time = v; save(); renderStart(); });
-  const b = Kit.getBest(`obake${O.level}`);
-  $('bestLine').textContent = b ? `ベスト：${b}びょうで ぜんぶ つかまえた` : '';
+  const hide = O.mode === 'hide';
+  chips($('optMode'), [['seek', '🔫 さがす（みずでっぽう）'], ['hide', '👻 かくれる（おばけ）']], O.mode, v => { O.mode = v; save(); renderStart(); });
+  $('rulesSeek').hidden = hide; $('rulesHide').hidden = !hide;
+  chips($('optLv'), hide ? Object.entries(HL).map(([k, v]) => [+k, `${v.name}（おに${v.seekers}人）`]) : Object.entries(LV).map(([k, v]) => [+k, `${v.name}（👻${v.ghosts}）`]), O.level, v => { O.level = v; save(); renderStart(); });
+  chips($('optTime'), hide ? [[90, '1ぷん30'], [150, '2ふん30'], [240, '4ふん']] : [[120, '2ふん'], [180, '3ぷん'], [300, '5ふん']], O.time, v => { O.time = v; save(); renderStart(); });
+  if (hide && ![90, 150, 240].includes(O.time)) { O.time = 150; save(); return renderStart(); }
+  if (!hide && ![120, 180, 300].includes(O.time)) { O.time = 180; save(); return renderStart(); }
+  const b = Kit.getBest(`obake${hide ? 'H' : ''}${O.level}`);
+  $('bestLine').textContent = b ? (hide ? `ベスト：${b}びょう かくれた` : `ベスト：${b}びょうで ぜんぶ つかまえた`) : '';
+  $('ctrlLine').textContent = hide ? 'タブレット：左で うごく・右で みまわす・🪄で へんしん・🛡で ガード ／ パソコン：WASD＋マウス・Eで へんしん・クリック/スペースで ガード' : 'タブレット：左で あるく・右で みまわす・💧で うつ ／ パソコン：WASD＋マウス（クリックで うつ）';
 }
 
 /* ---------- 3D ---------- */
@@ -373,6 +400,13 @@ const fireBtn = $('fire');
 fireBtn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); try { fireBtn.setPointerCapture(e.pointerId); } catch (_) {} input.fire = true; fireBtn.classList.add('on'); });
 const fireUp = () => { input.fire = false; fireBtn.classList.remove('on'); };
 fireBtn.addEventListener('pointerup', fireUp); fireBtn.addEventListener('pointercancel', fireUp);
+for (const [id, f] of [['guardBtn', () => { input.fire = true; }], ['morphBtn', () => { input.morph = true; }]]) {
+  const b = $(id);
+  b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); f(); b.classList.add('on'); });
+  const up = () => { if (id === 'guardBtn') input.fire = false; b.classList.remove('on'); };
+  b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
+}
+addEventListener('keydown', e => { if (e.code === 'KeyE' && G && G.running && G.mode === 'hide') input.morph = true; });
 addEventListener('keydown', e => { input.keys[e.code] = true; if (e.code === 'Space' && G && G.running) { input.fire = true; e.preventDefault(); } });
 addEventListener('keyup', e => { input.keys[e.code] = false; if (e.code === 'Space') input.fire = false; });
 document.addEventListener('pointerlockchange', () => { if (document.pointerLockElement !== stage && G && G.running && !touchy) pause(); });
@@ -405,10 +439,14 @@ function flash(t, ms = 1200) { const m = $('msg'); m.textContent = t; m.style.op
 /* ---------- ゲーム ---------- */
 let G = null;
 function start() {
+  seekers.forEach(s => s.mark.remove()); seekers = []; shots = [];
+  ['guardBtn', 'morphBtn', 'morphTag', 'warn'].forEach(id => $(id).hidden = true);
+  gun.visible = O.mode !== 'hide';
+  if (O.mode === 'hide') return startHide();
   buildHouse();
   Object.assign(player, { x: -4, z: 1.5, yaw: 0, pitch: -.05, water: MAXW });
   const L = LV[O.level];
-  G = { running: true, paused: false, t: O.time, used: 0, hits: 0, caught: 0, guards: 0, panics: 0, fireCd: 0, el: 0 };
+  G = { mode: 'seek', running: true, paused: false, t: O.time, used: 0, hits: 0, caught: 0, guards: 0, panics: 0, fireCd: 0, el: 0 };
   for (let i = 0; i < L.ghosts; i++) { const gh = { i, color: GCOL[i], state: 'hide', caught: false }; ghosts.push(gh); disguise(gh, { far: 6 }); }
   ['startOv', 'resultOv', 'pauseOv'].forEach(id => $(id).hidden = true);
   ['hud', 'cross', 'pauseBtn'].forEach(id => $(id).hidden = false);
@@ -514,6 +552,7 @@ function moveGhostFlee(gh, dt) {
 const frustum = new THREE.Frustum(), pm = new THREE.Matrix4(), aimV = new THREE.Vector3();
 function seen(x, y, z) { return Math.hypot(x - player.x, z - player.z) < 16 && frustum.containsPoint(tmp.set(x, y, z)); }
 function finish(win) {
+  if (G && G.mode === 'hide') return finishHide(win);
   if (!G || G.over) return;
   G.over = true; G.running = false; G.paused = false; Kit.music.stop(); Kit.keepAwake(false);
   if (document.pointerLockElement) document.exitPointerLock();
@@ -549,6 +588,368 @@ $('quit').onclick = () => finish(false);
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
 $('startBtn').onclick = () => { Kit.sfx('tap'); Kit.audio(); start(); };
 
+/* ==========================================================
+   かくれるモード：じぶんが おばけ。CPUの おにから かくれる
+   ========================================================== */
+const HL = {
+  1: { name: 'やさしい', seekers: 1, eye: .05, aimT: 1.1, walk: 1.8, run: 2.6, fireGap: 1.3, count: 15, err: .5 },
+  2: { name: 'ふつう', seekers: 1, eye: .08, aimT: .85, walk: 2.1, run: 3.0, fireGap: 1.0, count: 12, err: .35 },
+  3: { name: 'むずかしい', seekers: 2, eye: .11, aimT: .7, walk: 2.2, run: 3.2, fireGap: .85, count: 10, err: .25 },
+};
+const NAMES = { box: 'はこ', ball: 'ボール', teddy: 'くま', plant: 'うえき', cushion: 'クッション', books: '本', lamp: 'ランプ', chair: 'いす', duck: 'アヒル', block: 'つみき', stool: 'まるいす', pot: 'なべ', cup: 'コップ', umbrella: 'かさ' };
+const ME = { me: true };
+const H = { form: 'ghost', y: 0, prop: null, g: null, spot: null, copy: 'box', copyColor: '#c99a5b', morphCd: 0, gcd: 0, guardT: 0, aimProp: null, aimT: 0, moving: false };
+let seekers = [], occluders = [], shots = [];
+const SCOL = ['#ff8a3d', '#4aa8ff'];
+function seekerModel(c) {
+  const g = new THREE.Group();
+  g.add(cyl(.26, .3, .8, c, 0, .75, 0)); g.add(ball(.24, '#ffd9b8', 0, 1.38, 0));
+  const cap = cyl(.26, .26, .1, c, 0, 1.55, 0); g.add(cap); g.add(box(.3, .04, .22, c, 0, 1.52, .26));
+  [-.09, .09].forEach(dx => g.add(ball(.04, '#2a2238', dx, 1.42, .21)));
+  g.add(cyl(.09, .09, .35, '#3a3a5a', -.12, .18, 0)); g.add(cyl(.09, .09, .35, '#3a3a5a', .12, .18, 0));
+  const gn = new THREE.Group(); gn.add(box(.1, .12, .45, '#ffc93c', 0, 0, .2)); gn.add(cyl(.07, .07, .2, '#4aa8ff', 0, .1, .15)); gn.position.set(.25, .95, .1); g.add(gn);
+  return g;
+}
+const DOORWAYS = [
+  { a: 'living', b: 'kitchen', pa: [1.1, -5.1], pb: [2.9, -5.1] },
+  { a: 'hall', b: 'kids', pa: [1.1, 4.9], pb: [2.9, 4.9] },
+  { a: 'kitchen', b: 'kids', pa: [7.4, -.9], pb: [7.4, .9] },
+  { a: 'living', b: 'hall', pa: [-5, 2.6], pb: [-5, 4.4] },
+];
+function roomPath(from, to) {
+  const prev = { [from]: null }, q = [from];
+  while (q.length) { const r = q.shift(); if (r === to) break; for (const d of DOORWAYS) { const n = d.a === r ? d.b : d.b === r ? d.a : null; if (n && !(n in prev)) { prev[n] = { r, d }; q.push(n); } } }
+  const pts = []; let r = to;
+  while (prev[r]) { const { r: pr, d } = prev[r]; const near = d.a === pr ? d.pa : d.pb, far = d.a === pr ? d.pb : d.pa; pts.unshift({ x: far[0], z: far[1] }); pts.unshift({ x: near[0], z: near[1] }); r = pr; }
+  return pts;
+}
+function hRoom(x, z) { // ろうか(3.9〜)と リビング(〜3.1)の すきまも ちゃんと わける
+  if (x < 2) return z > 3.5 ? 'hall' : 'living';
+  return z > 0 ? 'kids' : 'kitchen';
+}
+function goTo(s, x, z) { s.path = roomPath(hRoom(s.x, s.z), hRoom(x, z)); s.path.push({ x, z }); s.stuck = 0; }
+function randomGoal(s, room) {
+  const rs = room ? spots.filter(p => p.room === room) : spots;
+  const sp = Kit.pick(rs.length ? rs : spots), r = ROOMS[sp.room];
+  let cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2, dx = cx - sp.x, dz = cz - sp.z, d = Math.hypot(dx, dz) || 1;
+  let [x, z] = pushOut(sp.x + dx / d * 1.4, sp.z + dz / d * 1.4, .45);
+  return { x, z };
+}
+const eyeV = new THREE.Vector3(), seeRay = new THREE.Raycaster();
+function canSee(s, x, y, z, range = 11) {
+  const dx = x - s.x, dz = z - s.z, d = Math.hypot(dx, dz);
+  if (d > range) return false;
+  const lyaw = s.yaw + s.head;
+  if (d > .8 && (dx * Math.sin(lyaw) + dz * Math.cos(lyaw)) / d < .64) return false; // しやは ±50°
+  eyeV.set(s.x, 1.35, s.z); tmp.set(x - s.x, y - 1.35, z - s.z); const L = tmp.length(); tmp.normalize();
+  seeRay.set(eyeV, tmp); seeRay.far = L - .25;
+  return seeRay.intersectObjects(occluders, false).length === 0;
+}
+const myPt = () => H.form === 'prop' ? [player.x, H.y + .3, player.z] : [player.x, .9, player.z];
+
+function startHide() {
+  buildHouse();
+  occluders = world.children.filter(c => c.isMesh);
+  const L = HL[O.level];
+  Object.assign(player, { x: -8, z: 6.2, yaw: Math.PI * .75, pitch: -.3, water: 0 });
+  const start = Kit.pick(props.filter(p => p.spot));
+  Object.assign(H, { form: 'ghost', y: 0, prop: null, spot: null, copy: start.type, copyColor: start.color, morphCd: 0, gcd: 0, guardT: 0, aimProp: null, moving: false });
+  H.g = ghostModel('#ecdcff'); world.add(H.g);
+  seekers = [];
+  for (let i = 0; i < L.seekers; i++) {
+    const s = { i, x: -6 + i * 1.5, z: -.5, yaw: Math.PI / 2, head: 0, state: 'count', t: L.count, path: [], sus: 0, shootCd: Kit.rand(4, 7), lostT: 0, seeT: 0, fireT: 0, said: 0 };
+    s.g = seekerModel(SCOL[i]); world.add(s.g);
+    s.mark = Kit.el('<div class="smark"></div>'); stage.appendChild(s.mark);
+    seekers.push(s);
+  }
+  shots = [];
+  G = { mode: 'hide', running: true, paused: false, t: O.time, el: 0, guards: 0, panics: 0, dodged: 0, seen: 0 };
+  ['startOv', 'resultOv', 'pauseOv'].forEach(id => $(id).hidden = true);
+  ['hud', 'cross', 'pauseBtn', 'guardBtn', 'morphBtn', 'morphTag'].forEach(id => $(id).hidden = false);
+  $('fire').hidden = true; $('helpMove').hidden = !touchy;
+  if (!touchy && stage.requestPointerLock) stage.requestPointerLock();
+  Kit.keepAwake(true);
+  Kit.music.play({ bpm: 92, lead: [523, 0, 659, 0, 587, 0, 0, 494, 523, 0, 440, 0, 0, 0, 0, 0], bass: [131, 0, 0, 0, 110, 0, 0, 0], vol: .02, type: 'triangle' });
+  flash(`おにが ${L.count}びょう かぞえるよ。はやく かくれて！`, 2600);
+  say('いーち、にーい、さーん');
+  paintHideHud();
+}
+function paintHideHud() {
+  const g = H.gcd > 0 ? `🛡 ${Math.ceil(H.gcd)}` : '🛡 OK';
+  const seen = seekers.some(s => s.seeMe);
+  $('hud').innerHTML = `<span class="pill k-num">⏱ ${Math.ceil(G.t)}</span><span class="pill">${H.form === 'prop' ? '🪄 ' + NAMES[H.copy] : '👻 おばけ'}</span><span class="pill">${g}</span>${seen ? '<span class="pill" style="background:#ffe08a">👀 見られてる</span>' : ''}`;
+  $('guardBtn').classList.toggle('cool', H.gcd > 0 || H.form !== 'prop');
+}
+function nearSpot() {
+  let best = null, bd = 1.3;
+  for (const s of spots) { if (s.prop || s.reserved) continue; const d = Math.hypot(s.x - player.x, s.z - player.z); if (d < bd) { bd = d; best = s; } }
+  return best;
+}
+function morph() {
+  if (H.form === 'ghost') {
+    if (H.morphCd > 0) { Kit.sfx('bad'); return; }
+    const sp = nearSpot();
+    if (sp) { player.x = sp.x; player.z = sp.z; }
+    H.spot = sp; H.y = sp ? sp.y : 0;
+    world.remove(H.g); H.g = null;
+    H.prop = addProp({ type: H.copy, color: H.copyColor, x: player.x, y: H.y, z: player.z, rot: sp ? sp.rot : player.yaw + Math.PI, scale: 1, ghost: ME, spot: sp });
+    if (sp) sp.prop = H.prop;
+    H.form = 'prop'; puff(player.x, H.y, player.z); Kit.tone(660, .15, { type: 'sine', vol: .2, slide: 400 });
+    flash(sp ? `✨ ${NAMES[H.copy]}に へんしん！` : `${NAMES[H.copy]}に へんしん`, 1100);
+    seekers.forEach(s => { if (s.state !== 'count' && canSee(s, player.x, .8, player.z)) { s.sus = 1; s.lastX = player.x; s.lastZ = player.z; mark(s, '❗'); } });
+  } else {
+    unmorph(); H.morphCd = .5;
+  }
+}
+function unmorph() {
+  if (H.prop) removeProp(H.prop);
+  H.prop = null; H.spot = null; H.form = 'ghost'; H.y = 0;
+  H.g = ghostModel('#ecdcff'); world.add(H.g);
+  puff(player.x, 0, player.z);
+}
+function guard() {
+  if (H.form !== 'prop' || H.gcd > 0) return;
+  H.guardT = 1.5; H.gcd = 2.2; propReact(H.prop);
+  seekers.forEach(s => { if (s.state !== 'count' && !(s.state === 'aim' && s.target === 'me') && canSee(s, ...myPt())) { s.sus = Math.min(1, s.sus + .45); G.panics++; mark(s, '❓'); say('あれ？'); } });
+  paintHideHud();
+}
+function caught() {
+  if (G.over) return;
+  Kit.sfx('lose'); Kit.vibrate(120); say('つかまえた！');
+  if (H.g) { world.remove(H.g); H.g = null; } puff(player.x, 0, player.z);
+  setTimeout(() => finishHide(false), 900); G.running = false; G.over0 = true;
+}
+function revealMe(s) {
+  unmorph(); H.morphCd = 3;
+  Kit.sfx('jump'); Kit.vibrate(60); say('みーつけた！');
+  flash('バレた！にげて！ 3びょうで また へんしんできる', 2000);
+  seekers.forEach(q => { q.sus = 1; q.lastX = player.x; q.lastZ = player.z; q.fireT = 1.2; if (canSee(q, player.x, .9, player.z, 14) || q === s) { q.state = 'chase'; q.lostT = 0; } });
+}
+function mark(s, t) { s.markTxt = t; s.markT = 1.4; }
+function fireAt(s, x, y, z, target) {
+  const from = new THREE.Vector3(s.x + Math.cos(s.yaw) * .25 + Math.sin(s.yaw) * .5, 1.0, s.z - Math.sin(s.yaw) * .25 + Math.cos(s.yaw) * .5);
+  const to = new THREE.Vector3(x, y, z), dur = Math.max(.15, from.distanceTo(to) / 14);
+  for (let i = 0; i < 4; i++) { const m = ball(.06, '#7cc8ff', from.x, from.y, from.z); scene.add(m); drops.push({ m, a: from.clone(), b: to.clone().add(new THREE.Vector3(Kit.rand(-.08, .08), Kit.rand(-.08, .08), Kit.rand(-.08, .08))), t: -i * .04, d: dur }); }
+  const out = at(from.x, from.y, from.z); if (out) Kit.tone(1200, .07, { type: 'square', vol: .1, out, slide: -700 });
+  shots.push({ s, x, y, z, target, t: dur }); s.inFlight = dur + .1;
+}
+function landShot(sh) {
+  if (!G.running) return;
+  splash(new THREE.Vector3(sh.x, sh.y, sh.z));
+  const s = sh.s;
+  if (H.form === 'prop' && Math.hypot(sh.x - player.x, sh.z - player.z) < .45) {
+    if (H.guardT > 0) { G.guards++; propReact(H.prop); s.sus = .1; s.fooled = 4; s.shootCd = Kit.rand(5, 8); mark(s, '❓'); flash('🛡 ガード せいこう！', 1100); Kit.sfx('good'); return; }
+    return revealMe(s);
+  }
+  if (H.form === 'ghost' && Math.hypot(sh.x - player.x, sh.z - player.z) < .6 && sh.y < 1.6) return caught();
+  if (sh.target && sh.target !== 'me' && props.includes(sh.target)) propReact(sh.target);
+  if (sh.target === 'ghost' || (H.form === 'ghost' && Math.hypot(sh.x - player.x, sh.z - player.z) < 2)) G.dodged++;
+}
+function moveSeeker(s, dt, speed) {
+  if (!s.path.length) return true;
+  const p = s.path[0], dx = p.x - s.x, dz = p.z - s.z, d = Math.hypot(dx, dz);
+  if (d < .35) { s.path.shift(); return !s.path.length; }
+  const ox = s.x, oz = s.z;
+  s.x += dx / d * speed * dt; s.z += dz / d * speed * dt;
+  for (const q of props) { if (q.y > .3) continue; const r = PROPS[q.type].r * q.scale * .7 + .3, ex = s.x - q.x, ez = s.z - q.z, e = Math.hypot(ex, ez); if (e < r && e > 0) { s.x = q.x + ex / e * r; s.z = q.z + ez / e * r; } }
+  [s.x, s.z] = pushOut(s.x, s.z, .35);
+  turnTo(s, Math.atan2(dx, dz), dt * 6);
+  const moved = Math.hypot(s.x - ox, s.z - oz);
+  s.stuck = moved < speed * dt * .3 ? s.stuck + dt : Math.max(0, s.stuck - dt);
+  if (s.stuck > 1.2) { s.path.shift(); s.stuck = 0; if (!s.path.length) return true; }
+  s.walk = (s.walk || 0) + dt * speed * 4;
+  return false;
+}
+function turnTo(s, a, k) { let d = a - s.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); s.yaw += d * Math.min(1, k); }
+function stepSeeker(s, dt, L) {
+  s.markT = (s.markT || 0) - dt; s.inFlight = (s.inFlight || 0) - dt; s.fooled = (s.fooled || 0) - dt;
+  if (s.state === 'count') {
+    s.t -= dt; s.yaw = -Math.PI / 2; // かべを むいて かぞえる
+    if (s.i === 0 && Math.floor(s.t) !== Math.floor(s.t + dt) && s.t > 0 && s.t < 4) say(['いち', 'にい', 'さん'][Math.floor(s.t)] || '');
+    if (s.t <= 0) { s.state = 'look'; s.t = 1.5; if (s.i === 0) { say('もういいかい？ さがすぞー！'); flash('おにが さがしはじめた！', 1500); } }
+    return;
+  }
+  // みる
+  const [mx, my, mz] = myPt();
+  const see = canSee(s, mx, my, mz);
+  s.seeMe = see;
+  if (see) {
+    s.lastX = player.x; s.lastZ = player.z;
+    if (H.form === 'ghost') { if (s.state !== 'chase') { s.state = 'chase'; mark(s, '❗'); say('おばけだ！'); } s.sus = 1; }
+    else {
+      const d = Math.hypot(mx - s.x, mz - s.z);
+      let f = (H.spot ? 1.6 : 2.5) * Math.max(.4, 1.5 - d / 11);
+      if (H.spot && !H.spot.types.includes(H.copy)) f *= 1.5;
+      if (s.fooled <= 0 || H.moving) s.sus = Math.min(1, s.sus + L.eye * f * dt + (H.moving ? 1.6 * dt : 0));
+      if (H.moving && s.sus > .5 && s.markTxt !== '❗') mark(s, '❗');
+    }
+  } else s.sus = Math.max(0, s.sus - .015 * dt);
+  s.shootCd -= dt;
+  if (s.state === 'chase') {
+    if (H.form === 'ghost') {
+      if (see) { s.lostT = 0; goTo(s, player.x, player.z); s.path = s.path.slice(-1); }
+      else { s.lostT += dt; if (!s.path.length) goTo(s, s.lastX, s.lastZ); }
+      moveSeeker(s, dt, L.run);
+      if (see) turnTo(s, Math.atan2(player.x - s.x, player.z - s.z), dt * 8);
+      s.fireT -= dt;
+      const d = Math.hypot(player.x - s.x, player.z - s.z);
+      if (see && d < 8 && s.fireT <= 0) {
+        s.fireT = L.fireGap;
+        const eta = d / 14, ex = player.x + (H.vx || 0) * eta + Kit.rand(-L.err, L.err), ez = player.z + (H.vz || 0) * eta + Kit.rand(-L.err, L.err);
+        fireAt(s, ex, .9, ez, 'ghost');
+      }
+      if (s.lostT > 4 && !s.path.length) { s.state = 'look'; s.t = 2.5; s.sus = .6; }
+    } else {
+      // めのまえで へんしんされた → その物を ねらう／見うしなったら さがす
+      if (s.sus > .9 && see) { s.state = 'aim'; s.t = L.aimT; s.target = 'me'; s.tx = player.x; s.ty = H.y + .3; s.tz = player.z; }
+      else { s.state = 'walk'; goTo(s, s.lastX, s.lastZ); }
+    }
+    return;
+  }
+  if (s.inFlight > 0 && s.state !== 'chase') return; // うった水が とどくまで まつ
+  if (s.state === 'aim') {
+    turnTo(s, Math.atan2(s.tx - s.x, s.tz - s.z), dt * 8); s.head *= .8;
+    s.t -= dt;
+    if (s.t <= 0) {
+      fireAt(s, s.tx, s.ty, s.tz, s.target);
+      s.state = 'look'; s.t = 1.2; s.shootCd = Kit.rand(4, 8);
+    }
+    return;
+  }
+  // あやしい物を ねらう
+  if (see && H.form === 'prop' && s.sus >= .55) {
+    const d = Math.hypot(player.x - s.x, player.z - s.z);
+    if (d < 6.5) { s.state = 'aim'; s.t = L.aimT; s.target = 'me'; s.tx = player.x; s.ty = H.y + .3; s.tz = player.z; s.path = []; return; }
+    if (!s.path.length || s.goalMe !== true) { goTo(s, player.x, player.z); s.goalMe = true; s.state = 'walk'; }
+  }
+  // ときどき 物を ためしうち（じぶんも ねらわれるかも）
+  if (s.shootCd <= 0 && s.state !== 'aim') {
+    s.shootCd = 1;
+    if (see && H.form === 'prop' && Math.hypot(player.x - s.x, player.z - s.z) < 7 && Math.random() < s.sus + .12) { s.state = 'aim'; s.t = L.aimT; s.target = 'me'; s.tx = player.x; s.ty = H.y + .3; s.tz = player.z; s.path = []; return; }
+    const vis = props.filter(q => q !== H.prop && q.spot && Math.hypot(q.x - s.x, q.z - s.z) < 7 && canSee(s, q.x, q.y + .3, q.z));
+    if (vis.length) { const q = Kit.pick(vis); s.state = 'aim'; s.t = L.aimT; s.target = q; s.tx = q.x; s.ty = q.y + .3; s.tz = q.z; s.path = []; return; }
+  }
+  if (s.state === 'look') {
+    s.t -= dt; s.head = Math.sin(s.t * 2.2) * 1.1;
+    if (s.t <= 0) {
+      s.head = 0; s.state = 'walk'; s.goalMe = false;
+      let g;
+      if (s.sus > .25 && s.lastX != null && Math.random() < .7) [g] = [{ x: s.lastX + Kit.rand(-1.5, 1.5), z: s.lastZ + Kit.rand(-1.5, 1.5) }];
+      else g = randomGoal(s, Math.random() < .5 ? null : Kit.pick(Object.keys(ROOMS)));
+      [g.x, g.z] = pushOut(Kit.clamp(g.x, -11.4, 11.4), Kit.clamp(g.z, -8.4, 8.4), .45);
+      goTo(s, g.x, g.z);
+    }
+    return;
+  }
+  if (s.state === 'walk') {
+    s.head = Math.sin(performance.now() / 700 + s.i) * .6;
+    if (moveSeeker(s, dt, L.walk)) { s.state = 'look'; s.t = Kit.rand(2, 3.5); }
+  }
+}
+function stepHide(dt) {
+  const L = HL[O.level];
+  G.t -= dt; G.el += dt;
+  if (G.t <= 0) { G.t = 0; return finishHide(true); }
+  // うごく
+  let mx = input.mx, my = input.my;
+  const k = input.keys;
+  if (k.KeyW || k.ArrowUp) my += 1; if (k.KeyS || k.ArrowDown) my -= 1; if (k.KeyA) mx -= 1; if (k.KeyD) mx += 1;
+  if (k.ArrowLeft) player.yaw += 2.2 * dt; if (k.ArrowRight) player.yaw -= 2.2 * dt;
+  const m = Math.hypot(mx, my); if (m > 1) { mx /= m; my /= m; }
+  const sp = H.form === 'ghost' ? 3.6 : 1.3, sy = Math.sin(player.yaw), cy = Math.cos(player.yaw);
+  const ox = player.x, oz = player.z;
+  player.x += (-sy * my + cy * mx) * sp * dt; player.z += (-cy * my - sy * mx) * sp * dt;
+  if (H.form === 'prop') {
+    for (const p of props) { if (p === H.prop || p.y > .3) continue; const r = PROPS[p.type].r * p.scale * .7 + .3, dx = player.x - p.x, dz = player.z - p.z, d = Math.hypot(dx, dz); if (d < r && d > 0) { player.x = p.x + dx / d * r; player.z = p.z + dz / d * r; } }
+    [player.x, player.z] = pushOut(player.x, player.z, .3);
+  } else { // おばけは 家具を すりぬける（かべは だめ）
+    const walls = rects; rects = rects.filter(b => b.wall); [player.x, player.z] = pushOut(player.x, player.z, .3); rects = walls;
+  }
+  H.vx = (player.x - ox) / dt; H.vz = (player.z - oz) / dt;
+  H.moving = m > .1;
+  if (H.form === 'prop' && H.moving) {
+    if (H.spot) { H.spot.prop = null; H.spot = null; H.prop.spot = null; }
+    H.y = 0; Object.assign(H.prop, { x: player.x, y: 0, z: player.z }); H.prop.g.position.set(player.x, 0, player.z);
+  }
+  if (H.g) { H.g.position.set(player.x, .15 + Math.sin(performance.now() / 200) * .08, player.z); H.g.rotation.y = player.yaw + Math.PI; }
+  // ボタン
+  if (input.fire && !H.fireWas) guard(); H.fireWas = input.fire;
+  if (input.morph) { input.morph = false; morph(); }
+  H.morphCd -= dt; H.gcd -= dt; H.guardT -= dt;
+  // まねっこする物（まんなかの ○ で ねらう）
+  H.aimT -= dt;
+  if (H.aimT <= 0) {
+    H.aimT = .15;
+    camera.getWorldDirection(dir); ray.set(camera.position, dir); ray.far = 12;
+    const hit = ray.intersectObjects(props.filter(p => p !== H.prop).map(p => p.g), true)[0];
+    const p = hit && hit.object.userData.prop;
+    H.aimProp = p && Math.hypot(p.x - player.x, p.z - player.z) < 8 ? p : null;
+    if (H.aimProp && H.form === 'ghost') { H.copy = p.type; H.copyColor = p.color; }
+    const ns = H.form === 'ghost' && nearSpot();
+    $('morphTag').textContent = H.form === 'prop' ? '🪄 おばけに もどる' : H.morphCd > 0 ? `🪄 あと ${Math.ceil(H.morphCd)}びょう` : `🪄 ${NAMES[H.copy]}に へんしん${ns ? ' ✨ぴったり' : ''}`;
+  }
+  // おに
+  for (const s of seekers) {
+    stepSeeker(s, dt, L);
+    s.g.position.set(s.x, s.state === 'walk' || s.state === 'chase' ? Math.abs(Math.sin(s.walk || 0)) * .06 : 0, s.z);
+    s.g.rotation.y = s.yaw + (s.state === 'aim' ? 0 : s.head * .5);
+  }
+  for (let i = shots.length - 1; i >= 0; i--) { shots[i].t -= dt; if (shots[i].t <= 0) { const sh = shots.splice(i, 1)[0]; landShot(sh); } }
+  // ねらわれ けいほう
+  const warn = seekers.some(s => s.state === 'aim' && Math.hypot(s.tx - player.x, s.tz - player.z) < 2.5);
+  $('warn').hidden = !warn;
+  if (warn && !H.warned) Kit.tone(1500, .08, { type: 'square', vol: .06 }); H.warned = warn;
+  updListener();
+  if (Math.floor(G.el * 4) !== Math.floor((G.el - dt) * 4)) paintHideHud();
+}
+const camT = new THREE.Vector3(), fwd = new THREE.Vector3();
+function hideCamera() {
+  camT.set(player.x, H.form === 'prop' ? Math.max(.7, H.y + .6) : 1.0, player.z);
+  // かたごし：じぶんを 左によせて、まんなかの ○ で 物を ねらいやすく
+  const rx = camT.x + Math.cos(player.yaw) * .75, rz = camT.z - Math.sin(player.yaw) * .75;
+  if (!rects.some(b => b.wall && rx > b.x0 - .2 && rx < b.x1 + .2 && rz > b.z0 - .2 && rz < b.z1 + .2)) { camT.x = rx; camT.z = rz; }
+  camera.rotation.set(player.pitch, player.yaw, 0); camera.updateMatrixWorld();
+  camera.getWorldDirection(fwd);
+  let D = 3.2;
+  for (let d = .4; d <= 3.2; d += .1) {
+    const x = camT.x - fwd.x * d, z = camT.z - fwd.z * d;
+    if (rects.some(b => b.wall && x > b.x0 - .15 && x < b.x1 + .15 && z > b.z0 - .15 && z < b.z1 + .15)) { D = d - .1; break; }
+  }
+  camera.position.copy(camT).addScaledVector(fwd, -D);
+  camera.position.y = Kit.clamp(camera.position.y, .25, 2.45);
+  camera.updateMatrixWorld();
+  // おにの頭の上の ❗❓
+  const r = stage.getBoundingClientRect();
+  for (const s of seekers) {
+    const t = s.markT > 0 ? s.markTxt : s.state === 'aim' ? '🔫' : s.state === 'count' ? '🙈' : '';
+    tmp.set(s.x, 1.95, s.z).project(camera);
+    const vis = t && tmp.z < 1 && Math.abs(tmp.x) < 1.1 && Math.abs(tmp.y) < 1.1;
+    s.mark.hidden = !vis;
+    if (vis) { s.mark.textContent = t; s.mark.style.left = ((tmp.x + 1) / 2 * r.width) + 'px'; s.mark.style.top = ((1 - tmp.y) / 2 * r.height) + 'px'; }
+  }
+}
+function finishHide(win) {
+  if (!G || G.over) return;
+  G.over = true; G.running = false; G.paused = false; Kit.music.stop(); Kit.keepAwake(false);
+  if (document.pointerLockElement) document.exitPointerLock();
+  ['hud', 'cross', 'fire', 'pauseBtn', 'refill', 'stick', 'helpMove', 'pauseOv', 'guardBtn', 'morphBtn', 'morphTag', 'warn'].forEach(id => $(id).hidden = true);
+  seekers.forEach(s => s.mark.hidden = true);
+  input.fire = false; input.mx = input.my = 0;
+  const time = Math.round(O.time - G.t);
+  const r = Kit.best(`obakeH${O.level}`, time);
+  if (win) { Kit.confetti(); Kit.sfx('win'); say('にげきった！'); }
+  $('resultCard').innerHTML = `<h2>${win ? '👻 にげきった！' : '💦 つかまっちゃった'}</h2>
+    <div class="res"><div><span>かくれた じかん</span><b>${time}びょう</b></div>
+    <div><span>🛡 ガード せいこう</span><b>${G.guards}かい</b></div>
+    <div><span>💦 よけた みず</span><b>${G.dodged}かい</b></div>
+    <div><span>❓ あやしまれた ぷるん</span><b>${G.panics}かい</b></div></div>
+    <p style="margin:0;font-weight:900">${r.isNew ? '🎉 ベストきろく！' : `ベスト：${r.best}びょう`}</p>
+    <div class="k-row" style="justify-content:center"><button class="k-btn is-grape is-big" id="again">もういっかい</button><button class="k-btn" id="toStart">せっていへ</button></div>`;
+  $('resultOv').hidden = false;
+  $('again').onclick = () => { Kit.sfx('tap'); start(); };
+  $('toStart').onclick = () => { $('resultOv').hidden = true; $('startOv').hidden = false; renderStart(); };
+}
+
 /* ---------- ミニマップ ---------- */
 const mini = $('mini').getContext('2d');
 function drawMini() {
@@ -561,6 +962,7 @@ function drawMini() {
   for (const b of rects) if (b.wall) mini.fillRect(cx + b.x0 * s, cz + b.z0 * s, Math.max(1.5, (b.x1 - b.x0) * s), Math.max(1.5, (b.z1 - b.z0) * s));
   mini.font = '12px sans-serif'; mini.textAlign = 'center'; mini.textBaseline = 'middle';
   for (const k of sinks) mini.fillText('🚰', cx + k.x * s, cz + k.z * s);
+  for (const q of seekers) { mini.fillStyle = SCOL[q.i]; mini.beginPath(); mini.arc(cx + q.x * s, cz + q.z * s, 4, 0, 7); mini.fill(); }
   mini.save(); mini.translate(cx + player.x * s, cz + player.z * s); mini.rotate(-player.yaw);
   mini.fillStyle = '#ff5d8f'; mini.beginPath(); mini.moveTo(0, -7); mini.lineTo(5, 5); mini.lineTo(-5, 5); mini.closePath(); mini.fill();
   mini.restore();
@@ -576,9 +978,12 @@ let last = performance.now();
 function frame(now) {
   const dt = Math.min(.1, (now - last) / 1000); last = now;
   if (G && ((G.running && !G.paused) || G.look)) step(dt);
-  camera.position.set(player.x, 1.25 + Math.sin(player.bob) * .03, player.z);
-  camera.rotation.set(player.pitch, player.yaw, 0);
-  camera.updateMatrixWorld();
+  if (G && G.mode === 'hide') hideCamera();
+  else {
+    camera.position.set(player.x, 1.25 + Math.sin(player.bob) * .03, player.z);
+    camera.rotation.set(player.pitch, player.yaw, 0);
+    camera.updateMatrixWorld();
+  }
   gun.position.set(.32, -.3 + Math.abs(Math.sin(player.bob)) * .015, input.fire ? -.57 : -.6);
   for (let i = drops.length - 1; i >= 0; i--) { const d = drops[i]; d.t += dt; const k = Kit.clamp(d.t / d.d, 0, 1); d.m.position.lerpVectors(d.a, d.b, k); d.m.position.y += Math.sin(k * Math.PI) * .15; if (k >= 1) { scene.remove(d.m); drops.splice(i, 1); } }
   for (let i = splashes.length - 1; i >= 0; i--) { const s = splashes[i]; s.t += dt; s.v.y -= 9 * dt; s.m.position.addScaledVector(s.v, dt); if (s.t > .6) { scene.remove(s.m); splashes.splice(i, 1); } }
@@ -593,6 +998,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 function step(dt) {
+  if (G.mode === 'hide') return stepHide(dt);
   if (!G.look) {
     G.t -= dt; G.el += dt;
     if (G.t <= 0) { G.t = 0; paintHud(); return finish(false); }
@@ -653,8 +1059,15 @@ Kit.bar({ id: 'kakurenbo', title: '👻 おばけかくれんぼ', help: `
     <li>🧹 へやは きちんと かたづいている。<b>さっきは なかった物</b>が あったら あやしい。</li>
     <li>👀 おばけは、こちらが <b>見ていない間に ばしょをかえる</b>。「ふわっ」という音がしたら、どこかの物が きえたり ふえたり しているかも。</li>
     <li>💧 みずには かぎりがある。だいどころ・せんめんじょの <b>じゃぐち🚰</b> の前に立つと ほきゅう。</li>
+  </ul>
+  <p><b>👻 かくれるモード</b>：きみが おばけ。おにが かぞえている間に かくれよう。</p>
+  <ul>
+    <li>🪄 まんなかの ○ で 物を ねらうと、その物に へんしんできる（Eキー）。<b>✨ぴったり</b> のときは たなや かべぎわの きまった ばしょに おけるので、あやしまれにくい。</li>
+    <li>おにに 見られている間は じっとして いよう。うごくと すぐ バレる。おにの 頭の ❓は「あやしいな」、🔫は「ねらっている」の しるし。</li>
+    <li>❗ が出たら 🛡ガード（スペース・クリック）。うたれた時に ガードしていれば セーフ。でも うたれていないのに ガードすると ぷるんと ゆれて あやしまれる。</li>
+    <li>バレたら おばけの すがたで にげよう。家具は すりぬけられる。3びょうで また へんしんできる。おばけの すがたで うたれたら おしまい。</li>
   </ul>` });
-if (location.hash === '#debug') window.__obake = { get G() { return G; }, get ghosts() { return ghosts; }, get spots() { return spots; }, get rects() { return rects; }, player, LV, PROPS, DOORS, probe() { camera.position.set(player.x, 1.25, player.z); camera.rotation.set(player.pitch, player.yaw, 0); camera.updateMatrixWorld(); camera.getWorldDirection(dir); ray.set(camera.position, dir); ray.far = 11; const h = ray.intersectObjects(world.children, true)[0]; const q = h && h.object.userData.prop; return q && q.ghost ? q.ghost.i : h && h.object.userData.gh ? 'g' + h.object.userData.gh.i : h ? 'other' : 'none'; } };
+if (location.hash === '#debug') window.__obake = { get G() { return G; }, get ghosts() { return ghosts; }, get spots() { return spots; }, get rects() { return rects; }, player, LV, HL, PROPS, DOORS, H, get seekers() { return seekers; }, morph, guard, probe() { camera.position.set(player.x, 1.25, player.z); camera.rotation.set(player.pitch, player.yaw, 0); camera.updateMatrixWorld(); camera.getWorldDirection(dir); ray.set(camera.position, dir); ray.far = 11; const h = ray.intersectObjects(world.children, true)[0]; const q = h && h.object.userData.prop; return q && q.ghost ? q.ghost.i : h && h.object.userData.gh ? 'g' + h.object.userData.gh.i : h ? 'other' : 'none'; } };
 renderStart();
 buildHouse(); resize();
 requestAnimationFrame(frame);
