@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ぷちぷちチャレンジ</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  .stage { flex: 1; position: relative; min-height: 0; touch-action: none; user-select: none; -webkit-user-select: none; background: #dceefc; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .over { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(40, 60, 100, .35); overflow: auto; z-index: 5; }
+  .over .k-card { width: min(500px, 100%); }
+  .pauseBtn { width: 40px; height: 40px; }
+  .res { display: grid; gap: 6px; width: 100%; }
+  .res div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 2px dashed var(--soft); padding: 4px 0; }
+  .legend { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: center; font-size: .92rem; }
+  .legend i { font-style: normal; font-size: 1.3rem; text-align: center; }
+  .vs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+  .vs > div { border: 3px solid var(--line); border-radius: 14px; padding: 8px; text-align: center; background: #fff; }
+  .vs > div.win { background: #fff2c2; }
+  .vs b { font-size: 1.8rem; display: block; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <canvas id="cv"></canvas>
+  <button class="k-btn k-icon pauseBtn" id="pauseBtn" aria-label="一時停止" hidden>⏸</button>
+  <div class="over" id="setupOv">
+    <div class="k-card k-stack">
+      <h2 style="text-align:center">🫧 ぷちぷちチャレンジ</h2>
+      <p style="margin:0">じかん内に ぷちぷちを つぶして、とくてんを きそおう！</p>
+      <span class="k-label">モード</span>
+      <div class="k-chips" id="optMode"></div>
+      <div id="cpuBox" class="k-stack" style="gap:6px"><span class="k-label">CPUの つよさ</span><div class="k-chips" id="optCpu"></div></div>
+      <span class="k-label">じかん</span>
+      <div class="k-chips" id="optTime"></div>
+      <div class="legend">
+        <i>🫧</i><span>ふつう：10てん。テンポよく つぶすと <b>コンボ</b>で とくてんアップ</span>
+        <i>⭐</i><span>きんいろ：50てん</span>
+        <i>🌈</i><span>にじいろ：まわりも まとめて われる</span>
+        <i>🛡</i><span>かたい：2回 おすと われる（30てん）</span>
+        <i>💀</i><span>ドクロ：おすと −50てん・コンボが きれる</span>
+        <i>➖</i><span>1れつ ぜんぶ つぶすと ラインボーナス、シートを ぜんぶで シートボーナス</span>
+      </div>
+      <p class="k-muted" id="bestLine" style="margin:0"></p>
+      <button class="k-btn is-sky is-big is-wide" id="startBtn">スタート</button>
+    </div>
+  </div>
+  <div class="over" id="pauseOv" hidden>
+    <div class="k-card k-stack k-center"><h2>ひとやすみ</h2>
+      <button class="k-btn is-sun is-big" id="resume">つづける</button>
+      <button class="k-btn" id="quit">やめる</button></div>
+  </div>
+  <div class="over" id="resultOv" hidden><div class="k-card k-stack k-center" id="resultCard"></div></div>
+</div>
+
+<script src="../../common/kit.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const stage = $('stage'), cv = $('cv');
+const O = Object.assign({ mode: 'solo', time: 30, cpu: 2 }, Kit.store.get('puchi:opt', {}));
+const CPU = {
+  1: { name: 'よわい', gap: .62, miss: .12, smart: .2 },
+  2: { name: 'ふつう', gap: .42, miss: .06, smart: .5 },
+  3: { name: 'つよい', gap: .29, miss: .025, smart: .85 },
+};
+const PTS = { n: 10, gold: 50, rain: 20, hard: 30, skull: -50 };
+function chips(root, items, cur, on) {
+  root.innerHTML = '';
+  items.forEach(([v, l]) => { const b = Kit.el(`<button class="k-chip" aria-pressed="${v === cur}">${l}</button>`); b.onclick = () => { Kit.sfx('select'); on(v); }; root.appendChild(b); });
+}
+const bestKey = () => `puchi${O.time}`;
+function renderSetup() {
+  const save = () => Kit.store.set('puchi:opt', O);
+  chips($('optMode'), [['solo', '🙋 ひとりで'], ['vs', '👫 ふたりで たいせん'], ['cpu', '🤖 CPUと たいせん']], O.mode, v => { O.mode = v; save(); renderSetup(); });
+  chips($('optCpu'), Object.entries(CPU).map(([k, v]) => [+k, v.name]), O.cpu, v => { O.cpu = v; save(); renderSetup(); });
+  chips($('optTime'), [[30, '30びょう'], [60, '60びょう']], O.time, v => { O.time = v; save(); renderSetup(); });
+  $('cpuBox').hidden = O.mode !== 'cpu';
+  const b = Kit.getBest(bestKey());
+  $('bestLine').textContent = O.mode === 'solo' && b ? `ベスト（${O.time}びょう）：${b}てん` : O.mode === 'cpu' ? `CPU（${CPU[O.cpu].name}）に かった回数：${Kit.getBest('puchiWin' + O.cpu) || 0}` : '';
+}
+
+/* ---------- 音：ぷちっ ---------- */
+let noiseBuf = null;
+function popSound(kind = 'n', pan = 0) {
+  const a = Kit.audio(); if (!a || !Kit.settings.sound) return;
+  if (!noiseBuf) { const len = Math.floor(a.sampleRate * .08); noiseBuf = a.createBuffer(1, len, a.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1; }
+  const t = a.currentTime;
+  const out = a.createStereoPanner ? a.createStereoPanner() : a.createGain();
+  if (out.pan) out.pan.value = pan; out.connect(a.destination);
+  // パチッ（ノイズ）
+  const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+  s.buffer = noiseBuf; s.playbackRate.value = Kit.rand(.8, 1.25);
+  f.type = 'bandpass'; f.frequency.value = Kit.rand(1600, 3600); f.Q.value = Kit.rand(.8, 1.6);
+  g.gain.setValueAtTime(kind === 'hard' ? .9 : .7, t); g.gain.exponentialRampToValueAtTime(.001, t + Kit.rand(.035, .06));
+  s.connect(f); f.connect(g); g.connect(out); s.start(t); s.stop(t + .09);
+  // ポッ（ひくい音）
+  const o = a.createOscillator(), og = a.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(Kit.rand(170, 260), t); o.frequency.exponentialRampToValueAtTime(60, t + .07);
+  og.gain.setValueAtTime(.35, t); og.gain.exponentialRampToValueAtTime(.001, t + .08);
+  o.connect(og); og.connect(out); o.start(t); o.stop(t + .1);
+  setTimeout(() => out.disconnect(), 400);
+  if (kind === 'gold') { Kit.tone(1568, .12, { type: 'triangle', vol: .12, delay: .02 }); Kit.tone(2093, .18, { type: 'triangle', vol: .1, delay: .08 }); }
+  if (kind === 'rain') [784, 988, 1175, 1568].forEach((fq, i) => Kit.tone(fq, .1, { type: 'triangle', vol: .08, delay: .03 + i * .045 }));
+}
+function squeak() { Kit.tone(Kit.rand(380, 460), .09, { type: 'sine', vol: .12, slide: -120 }); Kit.noise(.04, { freq: 600, vol: .12 }); }
+function buzz() { Kit.tone(150, .25, { type: 'sawtooth', vol: .1, slide: -60 }); }
+
+/* ---------- シート ---------- */
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const HUDH = 46;
+function layout(B) {
+  const pad = 10, aw = B.w - pad * 2, ah = B.h - HUDH - pad * 2;
+  let c = Kit.clamp(Math.min(aw / 6, ah / 6.5), 46, 78);
+  B.cols = Math.max(4, Math.floor(aw / c)); B.rows = Math.max(4, Math.floor(ah / (c * .9)));
+  c = Math.min(aw / B.cols, ah / (B.rows * .9 + .1));
+  B.c = c; B.r = c * .42;
+  B.ox = pad + (aw - B.cols * c) / 2 + c / 2; B.oy = HUDH + pad + (ah - (B.rows - 1) * c * .9) / 2;
+}
+function newSheet(B) {
+  const R = rng(B.seed + B.sheets * 7919);
+  B.cells = []; B.rowDone = [];
+  for (let row = 0; row < B.rows; row++) {
+    const n = row % 2 ? B.cols - 1 : B.cols;
+    for (let col = 0; col < n; col++) {
+      const r = R(), sheetLv = Math.min(B.sheets, 4);
+      const kind = r < .05 + sheetLv * .012 ? 'skull' : r < .11 + sheetLv * .012 ? 'gold' : r < .155 + sheetLv * .012 ? 'rain' : r < .25 + sheetLv * .02 ? 'hard' : 'n';
+      B.cells.push({ row, col, x: B.ox + col * B.c + (row % 2 ? B.c / 2 : 0), y: B.oy + row * B.c * .9, kind, hp: kind === 'hard' ? 2 : 1, popped: 0, t: 0, seed: R() * 1000, wob: 0 });
+    }
+    B.rowDone.push(false);
+  }
+  B.slide = 1; // 下から すべりこむ
+}
+function makeBoard(i, rect, opt) {
+  const B = Object.assign({ i, score: 0, combo: 0, maxCombo: 0, last: -9, pops: 0, lines: 0, sheets: 0, golds: 0, skulls: 0, fx: [], floats: [], shake: 0, busy: 0, cpu: null }, rect, opt);
+  layout(B); newSheet(B);
+  return B;
+}
+
+/* ---------- ゲーム ---------- */
+let G = null, W = 0, Hh = 0, g = null;
+function resize() {
+  const f = Kit.fitCanvas(cv); W = f.w; Hh = f.h; g = f.g;
+  if (G) placeBoards(true);
+}
+addEventListener('resize', resize);
+function placeBoards(keep) {
+  const n = G.boards.length, land = W >= Hh;
+  const rects = n === 1 ? [{ x: 0, y: 0, w: W, h: Hh, rot: 0 }]
+    : land ? [{ x: 0, y: 0, w: W / 2, h: Hh, rot: 0 }, { x: W / 2, y: 0, w: W / 2, h: Hh, rot: 0 }]
+    : [{ x: 0, y: Hh / 2, w: W, h: Hh / 2, rot: 0 }, { x: 0, y: 0, w: W, h: Hh / 2, rot: G.mode === 'vs' ? Math.PI : 0 }];
+  G.boards.forEach((B, k) => {
+    Object.assign(B, rects[k]);
+    if (keep) { // まわしたら いまの シートのまま ならべなおす
+      const old = B.cells; layout(B);
+      old.forEach(c => { c.x = B.ox + c.col * B.c + (c.row % 2 ? B.c / 2 : 0); c.y = B.oy + c.row * B.c * .9; });
+    }
+  });
+}
+const COLORS = ['#ff5d8f', '#4aa8ff'];
+function start() {
+  resize();
+  const seed = Math.floor(Math.random() * 1e9);
+  const names = O.mode === 'solo' ? ['あなた'] : O.mode === 'vs' ? ['1P', '2P'] : ['あなた', `🤖 CPU（${CPU[O.cpu].name}）`];
+  G = { mode: O.mode, t: O.time, count: 3.2, running: true, paused: false, over: false, el: 0, boards: [] };
+  const tmp = names.map((name, i) => ({ name, color: COLORS[i], seed }));
+  G.boards = tmp.map((o, i) => o);
+  placeBoards(false);
+  G.boards = G.boards.map((o, i) => makeBoard(i, { x: o.x, y: o.y, w: o.w, h: o.h, rot: o.rot }, { name: o.name, color: o.color, seed: o.seed }));
+  if (O.mode === 'cpu') { const C = G.boards[1]; C.cpu = { lv: CPU[O.cpu], t: 1, hx: C.w / 2, hy: C.h * .8, target: null, from: null, k: 0 }; }
+  ['setupOv', 'resultOv', 'pauseOv'].forEach(id => $(id).hidden = true);
+  $('pauseBtn').hidden = false;
+  Kit.keepAwake(true);
+}
+function toLocal(B, px, py) {
+  let x = px - B.x, y = py - B.y;
+  if (B.rot) { x = B.w - x; y = B.h - y; }
+  return [x, y];
+}
+cv.addEventListener('pointerdown', e => {
+  if (!G || !G.running || G.paused || G.count > 0) return;
+  const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+  for (const B of G.boards) {
+    if (B.cpu || px < B.x || px > B.x + B.w || py < B.y || py > B.y + B.h) continue;
+    const [x, y] = toLocal(B, px, py);
+    tapAt(B, x, y);
+  }
+});
+function tapAt(B, x, y) {
+  if (B.busy > 0) return;
+  let best = null, bd = B.r * 1.15;
+  for (const c of B.cells) { if (c.popped) continue; const d = Math.hypot(c.x - x, c.y - y); if (d < bd) { bd = d; best = c; } }
+  if (best) hit(B, best);
+}
+const panOf = B => G.boards.length > 1 && W >= Hh ? (B.i ? .5 : -.5) : 0;
+function addFloat(B, x, y, text, color, size = 22) { B.floats.push({ x, y, text, color, size, t: 0 }); }
+function hit(B, c, chain = false) {
+  if (c.popped) return;
+  if (c.kind === 'skull') {
+    if (chain) return;
+    c.popped = 1; c.t = 0; B.score += PTS.skull; B.combo = 0; B.skulls++; B.shake = .35;
+    buzz(); Kit.vibrate([30, 40, 30]);
+    addFloat(B, c.x, c.y, '−50', '#7a3cff', 26);
+    return;
+  }
+  if (c.kind === 'hard' && c.hp > 1 && !chain) { c.hp = 1; c.wob = 1; squeak(); Kit.vibrate(6); return; }
+  c.popped = 1; c.t = 0;
+  const now = G.el;
+  if (!chain) { B.combo = now - B.last < .75 ? B.combo + 1 : 1; B.last = now; B.maxCombo = Math.max(B.maxCombo, B.combo); }
+  const mult = 1 + Math.min(2, Math.floor(B.combo / 8) * .5);
+  const base = chain ? PTS.n : PTS[c.kind];
+  const pts = Math.round(base * mult);
+  B.score += pts; B.pops++;
+  if (c.kind === 'gold' && !chain) B.golds++;
+  popSound(chain ? 'n' : c.kind, panOf(B)); Kit.vibrate(c.kind === 'gold' ? 25 : 10);
+  for (let k = 0; k < (c.kind === 'n' ? 5 : 10); k++) { const a = Math.random() * 6.28, s = Kit.rand(40, 140); B.fx.push({ x: c.x, y: c.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, t: 0, col: c.kind === 'gold' ? '#ffc93c' : c.kind === 'rain' ? `hsl(${Math.random() * 360},90%,65%)` : 'rgba(255,255,255,.9)' }); }
+  B.fx.push({ ring: true, x: c.x, y: c.y, t: 0, r: B.r });
+  addFloat(B, c.x, c.y - B.r * .6, `+${pts}`, c.kind === 'gold' ? '#d99a00' : c.kind === 'rain' ? '#ff5d8f' : '#2a6fb5', c.kind === 'n' ? 18 : 24);
+  if (c.kind === 'rain' && !chain) {
+    const near = B.cells.filter(q => !q.popped && q.kind !== 'skull' && Math.hypot(q.x - c.x, q.y - c.y) < B.c * 1.6).sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y));
+    near.forEach((q, k) => setTimeout(() => { if (G && G.running) { hit(B, q, true); checkLines(B); } }, 50 + k * 45));
+  }
+  checkLines(B);
+}
+function checkLines(B) {
+  for (let row = 0; row < B.rows; row++) {
+    if (B.rowDone[row]) continue;
+    const cs = B.cells.filter(c => c.row === row);
+    if (cs.every(c => c.popped || c.kind === 'skull')) {
+      B.rowDone[row] = true; B.lines++; B.score += 100;
+      addFloat(B, B.w / 2, cs[0].y, 'ライン！ +100', '#ff8a3d', 26);
+      B.fx.push({ line: true, y: cs[0].y, t: 0 });
+      Kit.tone(880, .08, { type: 'triangle', vol: .1 }); Kit.tone(1320, .12, { type: 'triangle', vol: .1, delay: .06 });
+    }
+  }
+  if (B.busy <= 0 && B.cells.every(c => c.popped || c.kind === 'skull')) {
+    B.score += 300; B.sheets++; B.busy = .9;
+    addFloat(B, B.w / 2, B.h / 2, 'シート クリア！ +300', '#3ecf8e', 32);
+    Kit.sfx('win'); Kit.vibrate([20, 30, 20]);
+    setTimeout(() => { if (G && G.running) { newSheet(B); B.busy = 0; } }, 800);
+  }
+}
+/* CPU：ゆびが うごいて つぶしていく */
+function stepCpu(B, dt) {
+  const C = B.cpu, L = C.lv;
+  if (!C.target || C.target.popped && !(C.target.kind === 'hard' && C.k < 1)) {
+    const live = B.cells.filter(c => !c.popped);
+    if (!live.length || B.busy > 0) return;
+    let cand = live.filter(c => c.kind !== 'skull');
+    if (Math.random() < L.miss && live.some(c => c.kind === 'skull')) cand = live.filter(c => c.kind === 'skull');
+    if (!cand.length) return;
+    const special = cand.filter(c => c.kind === 'gold' || c.kind === 'rain');
+    if (special.length && Math.random() < L.smart) cand = special;
+    cand.sort((a, b) => Math.hypot(a.x - C.hx, a.y - C.hy) - Math.hypot(b.x - C.hx, b.y - C.hy));
+    C.target = cand[Math.floor(Math.random() * Math.min(3, cand.length))];
+    C.from = { x: C.hx, y: C.hy }; C.k = 0; C.dur = L.gap * Kit.rand(.75, 1.3);
+  }
+  C.k += dt / C.dur;
+  const e = Math.min(1, C.k), s = e * e * (3 - 2 * e);
+  C.hx = C.from.x + (C.target.x - C.from.x) * s; C.hy = C.from.y + (C.target.y - C.from.y) * s - Math.sin(e * Math.PI) * 18;
+  if (C.k >= 1) {
+    const t = C.target;
+    if (!t.popped) hit(B, t);
+    if (t.kind === 'hard' && !t.popped) { C.from = { x: C.hx, y: C.hy }; C.k = .55; C.dur = L.gap * .5; return; }
+    C.target = null; C.press = .12;
+  }
+}
+
+/* ---------- まいフレーム ---------- */
+function update(dt) {
+  if (G && G.running && !G.paused) {
+    if (G.count > 0) {
+      const before = Math.ceil(G.count); G.count -= dt;
+      if (Math.ceil(G.count) !== before) G.count > 0 ? Kit.tone(660, .1, { type: 'square', vol: .06 }) : Kit.tone(1320, .2, { type: 'square', vol: .08 });
+    } else {
+      G.el += dt;
+      const before = Math.ceil(G.t); G.t -= dt;
+      if (G.t <= 5 && Math.ceil(G.t) !== before && G.t > 0) Kit.tone(1000, .06, { type: 'square', vol: .06 });
+      for (const B of G.boards) { if (B.cpu) stepCpu(B, dt); }
+      if (G.t <= 0) { G.t = 0; finish(); }
+    }
+    for (const B of G.boards) {
+      B.busy -= dt; B.shake = Math.max(0, B.shake - dt); B.slide = Math.max(0, B.slide - dt * 3.5);
+      if (G.el - B.last > .75 && B.combo) B.combo = 0;
+      if (B.cpu && B.cpu.press) B.cpu.press = Math.max(0, B.cpu.press - dt);
+    }
+  }
+  for (const B of (G ? G.boards : [])) {
+    for (const c of B.cells) { if (c.popped) c.t += dt; if (c.wob) c.wob = Math.max(0, c.wob - dt * 4); }
+    B.fx = B.fx.filter(f => { f.t += dt; if (!f.ring && !f.line) { f.x += f.vx * dt; f.y += f.vy * dt; f.vy += 300 * dt; } return f.t < (f.line ? .5 : .45); });
+    B.floats = B.floats.filter(f => { f.t += dt; f.y -= 40 * dt; return f.t < .9; });
+  }
+  draw();
+}
+function drawBubble(B, c, time) {
+  const { x, y } = c; let r = B.r;
+  if (c.popped) {
+    // つぶれた あと：ひらたく しわしわ
+    const k = Math.min(1, c.t / .08);
+    g.save(); g.translate(x, y);
+    g.fillStyle = c.kind === 'skull' ? 'rgba(122,60,255,.18)' : 'rgba(255,255,255,.35)';
+    g.beginPath(); g.ellipse(0, 0, r * (1 - .15 * k), r * (1 - .25 * k), 0, 0, 7); g.fill();
+    g.strokeStyle = 'rgba(120,150,190,.45)'; g.lineWidth = 1.2;
+    const R = rng(Math.floor(c.seed));
+    for (let i = 0; i < 4; i++) { g.beginPath(); const a = R() * 6.28, l = r * (.3 + R() * .5); g.moveTo(Math.cos(a) * l * -.6, Math.sin(a) * l * -.6); g.quadraticCurveTo(R() * r * .4 - r * .2, R() * r * .4 - r * .2, Math.cos(a) * l, Math.sin(a) * l); g.stroke(); }
+    g.restore();
+    return;
+  }
+  const wob = c.wob ? 1 - Math.sin(c.wob * Math.PI) * .12 : 1;
+  const dent = c.kind === 'hard' && c.hp === 1 ? .9 : 1;
+  r *= wob * dent;
+  const gr = g.createRadialGradient(x - r * .35, y - r * .4, r * .08, x, y, r);
+  if (c.kind === 'gold') { gr.addColorStop(0, '#fffbe0'); gr.addColorStop(.6, '#ffd95a'); gr.addColorStop(1, '#e0a400'); }
+  else if (c.kind === 'rain') { const h = (time * 120 + c.seed) % 360; gr.addColorStop(0, '#ffffff'); gr.addColorStop(.5, `hsla(${h},95%,75%,.9)`); gr.addColorStop(1, `hsla(${(h + 120) % 360},90%,60%,.9)`); }
+  else if (c.kind === 'hard') { gr.addColorStop(0, '#ffffff'); gr.addColorStop(.6, '#c4d8ee'); gr.addColorStop(1, '#7f9fc4'); }
+  else if (c.kind === 'skull') { gr.addColorStop(0, '#f2e8ff'); gr.addColorStop(.7, '#b9a3e0'); gr.addColorStop(1, '#7a5cb0'); }
+  else { gr.addColorStop(0, 'rgba(255,255,255,.98)'); gr.addColorStop(.65, 'rgba(225,240,255,.75)'); gr.addColorStop(1, 'rgba(160,195,235,.75)'); }
+  g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+  g.strokeStyle = c.kind === 'hard' ? 'rgba(70,100,140,.8)' : 'rgba(110,150,200,.55)'; g.lineWidth = c.kind === 'hard' ? 3 : 1.5; g.stroke();
+  g.fillStyle = 'rgba(255,255,255,.85)'; g.beginPath(); g.ellipse(x - r * .35, y - r * .42, r * .22, r * .12, -.6, 0, 7); g.fill();
+  if (c.kind === 'skull' || c.kind === 'hard' && c.hp === 2) { g.font = `${r * .9}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.globalAlpha = c.kind === 'hard' ? .45 : 1; g.fillText(c.kind === 'skull' ? '💀' : '🛡', x, y + 2); g.globalAlpha = 1; }
+  if (c.kind === 'gold') { g.font = `${r * .7}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('⭐', x, y + 2); }
+}
+function drawBoard(B, time) {
+  g.save();
+  g.beginPath(); g.rect(B.x, B.y, B.w, B.h); g.clip();
+  g.translate(B.x, B.y);
+  if (B.rot) { g.translate(B.w, B.h); g.rotate(B.rot); }
+  if (B.shake) g.translate(Kit.rand(-5, 5) * B.shake * 2, Kit.rand(-5, 5) * B.shake * 2);
+  // シート
+  g.fillStyle = G.boards.length > 1 ? (B.i ? '#e3f0ff' : '#ffe9f1') : '#e8f4ff'; g.fillRect(0, 0, B.w, B.h);
+  g.save(); g.translate(0, B.slide * B.h);
+  g.fillStyle = 'rgba(255,255,255,.55)'; g.strokeStyle = 'rgba(150,180,220,.5)'; g.lineWidth = 2;
+  g.beginPath(); g.roundRect ? g.roundRect(6, HUDH + 4, B.w - 12, B.h - HUDH - 10, 14) : g.rect(6, HUDH + 4, B.w - 12, B.h - HUDH - 10); g.fill(); g.stroke();
+  for (const c of B.cells) drawBubble(B, c, time);
+  for (const f of B.fx) {
+    if (f.ring) { g.strokeStyle = `rgba(255,255,255,${.8 * (1 - f.t / .45)})`; g.lineWidth = 3; g.beginPath(); g.arc(f.x, f.y, f.r * (1 + f.t * 2.5), 0, 7); g.stroke(); }
+    else if (f.line) { g.fillStyle = `rgba(255,201,60,${.5 * (1 - f.t / .5)})`; g.fillRect(0, f.y - B.c * .45, B.w, B.c * .9); }
+    else { g.fillStyle = f.col; g.globalAlpha = 1 - f.t / .45; g.beginPath(); g.arc(f.x, f.y, 3, 0, 7); g.fill(); g.globalAlpha = 1; }
+  }
+  for (const f of B.floats) { g.globalAlpha = 1 - f.t / .9; g.font = `900 ${f.size}px 'Zen Maru Gothic', sans-serif`; g.textAlign = 'center'; g.lineWidth = 4; g.strokeStyle = '#fff'; g.strokeText(f.text, f.x, f.y); g.fillStyle = f.color; g.fillText(f.text, f.x, f.y); g.globalAlpha = 1; }
+  g.restore();
+  // CPUの ゆび
+  if (B.cpu && G.count <= 0) { g.font = '40px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText('👆', B.cpu.hx + 6, B.cpu.hy - 4 + (B.cpu.press ? 4 : 0)); }
+  // うえの じょうほう
+  g.fillStyle = 'rgba(255,255,255,.92)'; g.fillRect(0, 0, B.w, HUDH);
+  g.fillStyle = B.color; g.fillRect(0, HUDH - 4, B.w * Math.max(0, G.t / O.time), 4);
+  g.textBaseline = 'middle'; g.textAlign = 'left'; g.fillStyle = '#2a2238';
+  g.font = `900 15px 'Zen Maru Gothic', sans-serif`; g.fillText(B.name, 12, HUDH / 2);
+  g.textAlign = 'center'; g.font = `24px 'Dela Gothic One', sans-serif`; g.fillStyle = B.color; g.fillText(`${B.score}`, B.w / 2, HUDH / 2);
+  g.textAlign = 'right'; g.font = `900 16px 'Zen Maru Gothic', sans-serif`; g.fillStyle = '#2a2238';
+  const mult = 1 + Math.min(2, Math.floor(B.combo / 8) * .5);
+  g.fillText(`${B.combo >= 3 ? `🔥${B.combo}${mult > 1 ? ' ×' + mult : ''}　` : ''}⏱${Math.ceil(G.t)}`, B.w - 12, HUDH / 2);
+  // カウントダウン
+  if (G.count > 0) {
+    g.fillStyle = 'rgba(255,255,255,.6)'; g.fillRect(0, HUDH, B.w, B.h - HUDH);
+    g.textAlign = 'center'; g.font = `${Math.min(B.w, B.h) * .25}px 'Dela Gothic One', sans-serif`; g.fillStyle = B.color;
+    g.fillText(G.count > .2 ? Math.ceil(G.count - .2) : 'スタート！', B.w / 2, B.h / 2);
+  }
+  g.restore();
+}
+function draw() {
+  if (!g) return;
+  g.clearRect(0, 0, W, Hh);
+  if (!G) return;
+  const time = performance.now() / 1000;
+  G.boards.forEach(B => drawBoard(B, time));
+  if (G.boards.length > 1) { g.fillStyle = '#2a2238'; if (W >= Hh) g.fillRect(W / 2 - 2, 0, 4, Hh); else g.fillRect(0, Hh / 2 - 2, W, 4); }
+}
+const loop = Kit.loop(update);
+
+/* ---------- おわり ---------- */
+function title(score) {
+  const s = score * 30 / O.time;
+  return s < 250 ? '🌱 ぷちぷち みならい' : s < 500 ? '🫧 ぷちぷち じょうず' : s < 800 ? '⭐ ぷちぷち めいじん' : s < 1150 ? '👑 ぷちぷち たつじん' : '🌈 ぷちぷちの かみさま';
+}
+const statRows = B => `<div><span>つぶした数</span><b>${B.pops}</b></div><div><span>さいだいコンボ</span><b>${B.maxCombo}</b></div><div><span>ライン／シート</span><b>${B.lines} ／ ${B.sheets}</b></div><div><span>⭐ きんいろ／💀 ドクロ</span><b>${B.golds} ／ ${B.skulls}</b></div>`;
+function finish() {
+  if (!G || G.over) return;
+  G.over = true; G.running = false; Kit.keepAwake(false); $('pauseBtn').hidden = true;
+  let html;
+  if (G.mode === 'solo') {
+    const B = G.boards[0], r = Kit.best(bestKey(), B.score);
+    if (r.isNew) Kit.confetti();
+    Kit.sfx(r.isNew ? 'win' : 'good');
+    html = `<h2>${title(B.score)}</h2><p style="margin:0;font-size:2.4rem;font-family:var(--display)">${B.score}てん</p>
+      <p style="margin:0;font-weight:900">${r.isNew ? '🎉 ベストきろく！' : `ベスト：${r.best}てん`}</p><div class="res">${statRows(B)}</div>`;
+  } else {
+    const [a, b] = G.boards, win = a.score === b.score ? -1 : a.score > b.score ? 0 : 1;
+    let head;
+    if (G.mode === 'cpu') { head = win === 0 ? '🎉 CPUに かった！' : win === 1 ? '😣 CPUの かち…' : '🤝 ひきわけ'; if (win === 0) { Kit.addWin('puchiWin' + O.cpu); Kit.confetti(); } }
+    else head = win < 0 ? '🤝 ひきわけ' : `🎉 ${G.boards[win].name} の かち！`;
+    Kit.sfx(win === 1 && G.mode === 'cpu' ? 'lose' : 'win'); if (G.mode === 'vs' && win >= 0) Kit.confetti();
+    html = `<h2>${head}</h2><div class="vs">${G.boards.map((B, k) => `<div class="${k === win ? 'win' : ''}"><span>${B.name}</span><b>${B.score}</b><div class="res" style="font-size:.85rem">${statRows(B)}</div></div>`).join('')}</div>`;
+  }
+  $('resultCard').innerHTML = html + `<div class="k-row" style="justify-content:center"><button class="k-btn is-sky is-big" id="again">もういっかい</button><button class="k-btn" id="toSetup">せっていへ</button></div>`;
+  setTimeout(() => { $('resultOv').hidden = false; }, 500);
+  $('again').onclick = () => { Kit.sfx('tap'); start(); };
+  $('toSetup').onclick = () => { $('resultOv').hidden = true; $('setupOv').hidden = false; renderSetup(); };
+}
+function pause() { if (!G || !G.running || G.paused) return; G.paused = true; $('pauseOv').hidden = false; }
+$('pauseBtn').onclick = pause;
+$('resume').onclick = () => { G.paused = false; $('pauseOv').hidden = true; };
+$('quit').onclick = () => { $('pauseOv').hidden = true; G.paused = false; finish(); };
+document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+$('startBtn').onclick = () => { Kit.sfx('tap'); Kit.audio(); start(); };
+
+Kit.bar({ id: 'puchi', title: '🫧 ぷちぷちチャレンジ', help: `
+  <p>じかん内に ぷちぷちを つぶして、とくてんを きそうゲームです。</p>
+  <ul>
+    <li>🫧 ふつう 10てん。<b>0.75びょう以内</b>に つぎを つぶすと コンボが つづき、8コンボごとに とくてんが ×1.5、×2…（さいだい×3）。</li>
+    <li>⭐ きんいろ 50てん ／ 🌈 にじいろは まわりも まとめて われる ／ 🛡 かたいのは 2回 おす（30てん）。</li>
+    <li>💀 ドクロを おすと −50てんで コンボも きれる。あわてずに よく見よう。</li>
+    <li>よこ1れつを ぜんぶ つぶすと <b>ライン +100</b>、シートを ぜんぶ つぶすと <b>シート +300</b> で つぎの シートが くるよ。</li>
+    <li>👫 ふたりで：おなじ ならびの シートで たいせん。たてもちの時は むかいあって あそべるように 上がわが さかさまに なります。</li>
+    <li>🤖 CPUと：CPUの ゆびが となりの シートを つぶしていくよ。</li>
+  </ul>` });
+{ const ex = document.querySelector('.kbar-extra'); if (ex) ex.appendChild($('pauseBtn')); }
+renderSetup();
+resize();
+loop.start();
+</script>
+</body>
+</html>
