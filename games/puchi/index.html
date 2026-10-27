@@ -100,7 +100,7 @@ function resize() {
   const f = Kit.fitCanvas(cv); W = f.w; H = f.h; g = f.g;
   const ou = u; u = Math.min(W, H) / 100; CR = 7 * u;
   if (G && ou !== u) { const k = u / ou; const sc = o => { o.x *= k; o.y *= k; }; sc(G.cat); G.enemies.forEach(e => { sc(e); e.r *= k; e.sp *= k; }); G.herds.forEach(sc); G.shrimps.forEach(sc); }
-  FW = 300 * u; FH = 230 * u;
+  const nw = 300 * u; if (nw !== FW) { FW = nw; FH = 230 * u; makeField(); }
 }
 addEventListener('resize', resize);
 let G = null;
@@ -113,7 +113,7 @@ const KINDS = {
 const HPMAX = 100, AGGRO = 30, MAGNET = 2.6;
 function start() {
   resize();
-  G = { running: true, paused: false, over: false, t: O.time, el: 0, score: 0, hp: HPMAX, cat: { x: FW / 2, y: FH / 2, vx: 0, vy: 0, face: 1 },
+  G = { running: true, paused: false, over: false, t: O.time, el: 0, score: 0, hp: HPMAX, cat: { x: FW / 2, y: FH / 2, vx: 0, vy: 0, face: 1, dir: Math.PI / 2 },
     enemies: [], herds: [], shrimps: [], waves: [], fx: [], floats: [],
     herdT: 0, charge: 0, charging: false, cd: 0, mouth: 0, hurt: 0, full: 0, fever: 0, eaten: 0, missed: 0, bestChain: 0, waveNo: 0, shake: 0 };
   for (let i = 0; i < 7; i++) addHerd(true);
@@ -216,6 +216,7 @@ function step(dt) {
   C.vx += (mx * sp - C.vx) * Math.min(1, dt * 10); C.vy += (my * sp - C.vy) * Math.min(1, dt * 10);
   C.x = Kit.clamp(C.x + C.vx * dt, CR, FW - CR); C.y = Kit.clamp(C.y + C.vy * dt, CR, FH - CR);
   if (Math.abs(mx) > .1) C.face = Math.sign(mx);
+  if (m > .15) C.dir = Math.atan2(my, mx);
   C.walk = (C.walk || 0) + Math.hypot(C.vx, C.vy) * dt / u;
   // むれを ふやす
   G.herdT -= dt;
@@ -358,15 +359,14 @@ function draw() {
   g.translate(W / 2 - camX, H / 2 - camY);
   if (G.shake) g.translate(Kit.rand(-4, 4) * G.shake * 3, Kit.rand(-4, 4) * G.shake * 3);
   // フィールド
-  g.fillStyle = '#c9dff2'; g.fillRect(camX - W, camY - H, W * 2, H * 2);
-  g.fillStyle = '#eaf5ff'; g.fillRect(0, 0, FW, FH);
-  g.fillStyle = 'rgba(150,190,235,.35)';
-  const step = 12 * u, x0 = Math.max(0, Math.floor((camX - W / 2) / step) * step), y0 = Math.max(0, Math.floor((camY - H / 2) / step) * step);
-  for (let x = x0; x <= Math.min(FW, camX + W / 2); x += step) for (let y = y0; y <= Math.min(FH, camY + H / 2); y += step) { g.beginPath(); g.arc(x + ((y / step) % 2 ? step / 2 : 0), y, 1.6 * u, 0, 7); g.fill(); }
-  g.strokeStyle = '#2a2238'; g.lineWidth = 4; g.strokeRect(0, 0, FW, FH);
+  g.fillStyle = '#5f9e55'; g.fillRect(camX - W, camY - H, W * 2, H * 2);
+  if (fieldImg) { // みえている ところだけ はる
+    const sx = Kit.clamp(camX - W / 2 - 20, 0, FW), sy = Kit.clamp(camY - H / 2 - 20, 0, FH), sw = Math.min(FW - sx, W + 40), sh = Math.min(FH - sy, H + 40);
+    if (sw > 0 && sh > 0) g.drawImage(fieldImg, sx, sy, sw, sh, sx, sy, sw, sh);
+  }
   const vis = (x, y, m = 10 * u) => Math.abs(x - camX) < W / 2 + m && Math.abs(y - camY) < H / 2 + m;
   // ためている なみ・たべられる はんい
-  g.setLineDash([4, 8]); g.strokeStyle = 'rgba(255,138,61,.35)'; g.lineWidth = 2; g.beginPath(); g.arc(C.x, C.y, CR * (G.fever > 0 ? MAGNET * 1.6 : MAGNET), 0, 7); g.stroke();
+  g.setLineDash([4, 8]); g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 2; g.beginPath(); g.arc(C.x, C.y, CR * (G.fever > 0 ? MAGNET * 1.6 : MAGNET), 0, 7); g.stroke();
   if (G.charging) {
     const c = G.fever > 0 ? 1 : Math.max(.15, G.charge), R = CR + (12 + 30 * c) * u;
     g.setLineDash([8, 8]); g.strokeStyle = c >= .99 ? '#ff5d8f' : 'rgba(255,138,61,.85)'; g.lineWidth = 3; g.beginPath(); g.arc(C.x, C.y, R, 0, 7); g.stroke();
@@ -390,7 +390,7 @@ function draw() {
     if (f.ring) { g.strokeStyle = `rgba(255,255,255,${.9 * (1 - f.t / .4)})`; g.lineWidth = 2.5; g.beginPath(); g.arc(f.x, f.y, f.r * (1 + f.t * 3), 0, 7); g.stroke(); }
     else { g.fillStyle = f.col; g.globalAlpha = 1 - f.t / .4; g.beginPath(); g.arc(f.x, f.y, 2.5, 0, 7); g.fill(); g.globalAlpha = 1; }
   }
-  drawCat(C.x, C.y);
+  drawCatAny(C.x, C.y);
   for (const f of G.floats) { if (f.t < 0) continue; g.globalAlpha = 1 - f.t; g.font = `900 ${f.size}px 'Zen Maru Gothic', sans-serif`; g.textAlign = 'center'; g.lineWidth = 4; g.strokeStyle = '#fff'; g.strokeText(f.text, f.x, f.y); g.fillStyle = f.color; g.fillText(f.text, f.x, f.y); g.globalAlpha = 1; }
   g.restore();
   // うえの じょうほう
@@ -420,6 +420,127 @@ function draw() {
   g.fillStyle = '#ff8a5c'; for (const s of G.shrimps) if (s.state === 'ground') g.fillRect(rx + s.x * sc - 1, ry + s.y * sc - 1, 2.5, 2.5);
   g.strokeStyle = 'rgba(42,34,56,.5)'; g.lineWidth = 1; g.strokeRect(rx + (camX - W / 2) * sc, ry + (camY - H / 2) * sc, W * sc, H * sc);
   g.fillStyle = '#ff5d8f'; g.beginPath(); g.arc(rx + C.x * sc, ry + C.y * sc, 3.5, 0, 7); g.fill();
+}
+/* ---------- 3Dの ぷっちー（three.js で かいて、2Dの がめんに はりつける） ---------- */
+let cat3 = null;
+import('../../common/vendor/three.module.min.js').then(THREE => {
+  const SZ = 320, cnv = document.createElement('canvas');
+  const r = new THREE.WebGLRenderer({ canvas: cnv, alpha: true, antialias: true, preserveDrawingBuffer: true });
+  r.setPixelRatio(1); r.setSize(SZ, SZ, false); r.setClearColor(0x000000, 0);
+  const scene = new THREE.Scene();
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x7a6a50, 1.5));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(-2.5, 6, 3); scene.add(sun);
+  const cam = new THREE.PerspectiveCamera(23, 1, .1, 50); cam.position.set(0, 6.2, 5.2); cam.lookAt(0, .55, 0);
+  const M = c => new THREE.MeshLambertMaterial({ color: c });
+  const fur = M('#ffc98a'), cream = M('#fff3dd'), dark = M('#2a2238'), pink = M('#ff9fb8'), stripe = M('#f0a35a'), mouthM = M('#c2405a');
+  const sph = (rad, m, x, y, z, sx = 1, sy = 1, sz = 1) => { const o = new THREE.Mesh(new THREE.SphereGeometry(rad, 24, 18), m); o.position.set(x, y, z); o.scale.set(sx, sy, sz); return o; };
+  const root = new THREE.Group(), cat = new THREE.Group(); root.add(cat); scene.add(root);
+  // からだ
+  cat.add(sph(.5, fur, 0, .58, -.05, 1.05, .9, 1.35));
+  cat.add(sph(.36, cream, 0, .5, .2, 1, .85, 1.1));
+  [-.25, 0, .25].forEach(z => { const s = sph(.12, stripe, 0, 1.0, z - .1, 3.6, .35, .7); cat.add(s); });
+  // あたま
+  const head = new THREE.Group(); head.position.set(0, 1.12, .55); cat.add(head);
+  head.add(sph(.5, fur, 0, 0, 0, 1.08, .95, 1));
+  [-1, 1].forEach(sx => {
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(.17, .34, 16), fur); ear.position.set(sx * .3, .44, -.05); ear.rotation.z = -sx * .35; head.add(ear);
+    const inner = new THREE.Mesh(new THREE.ConeGeometry(.1, .22, 12), pink); inner.position.set(sx * .3, .42, .03); inner.rotation.z = -sx * .35; head.add(inner);
+    head.add(sph(.075, dark, sx * .19, .08, .44, 1, 1.25, .6));
+    head.add(sph(.025, M('#ffffff'), sx * .19 - .025, .13, .49));
+    head.add(sph(.08, pink, sx * .3, -.1, .38, 1.3, .6, .5));
+  });
+  head.add(sph(.15, cream, 0, -.13, .42, 1.4, .9, .8));
+  head.add(sph(.045, pink, 0, -.05, .53, 1.3, .9, 1));
+  const mouth = sph(.09, mouthM, 0, -.22, .48, 1.3, .1, .6); head.add(mouth);
+  // あし
+  const legs = [[-.27, .38], [.27, .38], [-.27, -.45], [.27, -.45]].map(([x, z]) => {
+    const p = new THREE.Group(); p.position.set(x, .42, z);
+    const l = new THREE.Mesh(new THREE.CylinderGeometry(.11, .12, .4, 12), fur); l.position.y = -.2; p.add(l);
+    p.add(sph(.13, cream, 0, -.4, .03, 1, .6, 1.2));
+    cat.add(p); return p;
+  });
+  // しっぽ
+  const tail = new THREE.Group(); tail.position.set(0, .7, -.68); cat.add(tail);
+  for (let i = 0; i < 7; i++) tail.add(sph(.085 - i * .004, i % 2 ? stripe : fur, 0, i * .11, -i * .05 + i * i * .012));
+  let dirNow = Math.PI / 2;
+  cat3 = {
+    canvas: cnv,
+    render(st) {
+      let d = st.dir - dirNow; d = Math.atan2(Math.sin(d), Math.cos(d)); dirNow += d * .25;
+      root.rotation.y = Math.atan2(Math.cos(dirNow), Math.sin(dirNow)); // がめんの 右＝+x、下＝+z
+      const w = st.moving ? Math.sin(st.walk * .45) : 0;
+      legs.forEach((p, i) => { p.rotation.x = (i === 0 || i === 3 ? w : -w) * .7; });
+      cat.position.y = st.moving ? Math.abs(Math.sin(st.walk * .45)) * .08 : 0;
+      tail.rotation.z = Math.sin(st.t * (st.charging ? 18 : 4)) * .35; tail.rotation.x = -.3;
+      head.rotation.z = st.moving ? Math.sin(st.walk * .45) * .05 : Math.sin(st.t * 1.5) * .04;
+      mouth.scale.y = .1 + st.mouth * 1.1;
+      const s = st.puff; cat.scale.set(s, s * (st.charging ? .94 : 1), s);
+      fur.emissive.setHex(st.hurt ? 0x661111 : st.fever ? 0x553300 : 0x000000);
+      r.render(scene, cam);
+    },
+  };
+}).catch(() => { /* うまく いかない ときは 2Dの ねこ */ });
+function drawCatAny(x, y) {
+  if (!cat3) return drawCat(x, y);
+  const C = G.cat, t = performance.now() / 1000;
+  const S = CR * 4.2;
+  g.fillStyle = 'rgba(42,34,56,.22)'; g.beginPath(); g.ellipse(x, y + CR * .55, CR * 1.05, CR * .45, 0, 0, 7); g.fill();
+  if (G.fever > 0) { g.fillStyle = `hsla(${t * 200 % 360},90%,70%,.35)`; g.beginPath(); g.arc(x, y, CR * 1.5, 0, 7); g.fill(); }
+  cat3.render({ dir: C.dir, walk: C.walk || 0, moving: Math.hypot(C.vx, C.vy) > 3 * u, t, mouth: G.mouth / .18, puff: G.charging ? 1 + G.charge * .14 : 1, charging: G.charging, hurt: G.hurt > 0 && Math.sin(t * 30) > 0, fever: G.fever > 0 });
+  g.drawImage(cat3.canvas, x - S / 2, y - S * .6, S, S);
+}
+
+/* ---------- はいけい：くさはらの こうえん ---------- */
+let fieldImg = null;
+function makeField() {
+  const c = document.createElement('canvas'); c.width = Math.ceil(FW); c.height = Math.ceil(FH);
+  const f = c.getContext('2d'), R = Kit.rand;
+  // しばふ（かりこみの しま）
+  f.fillStyle = '#9fd98a'; f.fillRect(0, 0, FW, FH);
+  f.save(); f.rotate(-.35);
+  for (let i = -FW; i < FW * 2; i += 24 * u) { f.fillStyle = (i / (24 * u)) % 2 ? 'rgba(255,255,255,.07)' : 'rgba(40,120,40,.05)'; f.fillRect(i, -FH, 12 * u, FH * 3); }
+  f.restore();
+  for (let i = 0; i < 260; i++) { f.fillStyle = Math.random() < .5 ? 'rgba(60,140,60,.08)' : 'rgba(220,255,200,.1)'; f.beginPath(); f.ellipse(R(0, FW), R(0, FH), R(6, 22) * u, R(4, 14) * u, R(0, 3), 0, 7); f.fill(); }
+  // すなの こみち
+  const path = [[-10 * u, R(.2, .4) * FH], [FW * .3, R(.1, .9) * FH], [FW * .65, R(.1, .9) * FH], [FW + 10 * u, R(.6, .8) * FH]];
+  const stroke = (w, col) => { f.strokeStyle = col; f.lineWidth = w; f.lineCap = 'round'; f.beginPath(); f.moveTo(...path[0]); f.bezierCurveTo(...path[1], ...path[2], ...path[3]); f.stroke(); };
+  stroke(13 * u, '#d9c08a'); stroke(10.5 * u, '#efdeb0');
+  for (let i = 0; i <= 120; i++) { // こいし
+    const t = i / 120, mt = 1 - t, bx = mt ** 3 * path[0][0] + 3 * mt * mt * t * path[1][0] + 3 * mt * t * t * path[2][0] + t ** 3 * path[3][0], by = mt ** 3 * path[0][1] + 3 * mt * mt * t * path[1][1] + 3 * mt * t * t * path[2][1] + t ** 3 * path[3][1];
+    f.fillStyle = 'rgba(160,130,90,.35)'; f.beginPath(); f.arc(bx + R(-4, 4) * u, by + R(-4, 4) * u, R(.4, 1) * u, 0, 7); f.fill();
+  }
+  // いけ
+  for (let k = 0; k < 2; k++) {
+    const px = R(.15, .85) * FW, py = R(.15, .85) * FH, rw = R(14, 22) * u, rh = rw * R(.55, .75);
+    f.fillStyle = '#7cc58a'; f.beginPath(); f.ellipse(px, py, rw + 2.5 * u, rh + 2.5 * u, 0, 0, 7); f.fill();
+    const gr = f.createRadialGradient(px - rw * .3, py - rh * .3, 2, px, py, rw);
+    gr.addColorStop(0, '#bfe9ff'); gr.addColorStop(1, '#5fb2e6');
+    f.fillStyle = gr; f.beginPath(); f.ellipse(px, py, rw, rh, 0, 0, 7); f.fill();
+    f.strokeStyle = 'rgba(255,255,255,.6)'; f.lineWidth = 2; f.beginPath(); f.ellipse(px - rw * .2, py - rh * .25, rw * .35, rh * .12, 0, 0, 7); f.stroke();
+    for (let i = 0; i < 4; i++) { const lx = px + R(-.6, .6) * rw, ly = py + R(-.5, .5) * rh, lr = R(2, 3.2) * u, a = R(0, 6); f.fillStyle = '#3fa96a'; f.beginPath(); f.moveTo(lx, ly); f.arc(lx, ly, lr, a, a + 5.6); f.closePath(); f.fill(); if (i === 0) { f.fillStyle = '#ffb3c7'; f.beginPath(); f.arc(lx, ly, lr * .4, 0, 7); f.fill(); } }
+    for (let a = 0; a < 6.28; a += R(.3, .6)) { f.fillStyle = Math.random() < .5 ? '#b9b3a8' : '#d6d0c4'; f.beginPath(); f.ellipse(px + Math.cos(a) * (rw + 2.5 * u), py + Math.sin(a) * (rh + 2.5 * u), R(1.4, 2.4) * u, R(1, 1.6) * u, R(0, 3), 0, 7); f.fill(); }
+  }
+  // はなばたけ
+  const PET = ['#ffffff', '#ffb3c7', '#ffe08a', '#c9a7ff', '#ff8fa3'];
+  for (let k = 0; k < 34; k++) {
+    const cx0 = R(0, FW), cy0 = R(0, FH), col = Kit.pick(PET), n = Kit.randInt(5, 11);
+    for (let i = 0; i < n; i++) {
+      const x = cx0 + R(-9, 9) * u, y = cy0 + R(-7, 7) * u, pr = R(.8, 1.3) * u;
+      f.strokeStyle = '#4fa85a'; f.lineWidth = 1.5; f.beginPath(); f.moveTo(x, y); f.lineTo(x + R(-.5, .5) * u, y + 2.5 * u); f.stroke();
+      f.fillStyle = col; for (let p = 0; p < 5; p++) { const a = p * 1.2566; f.beginPath(); f.arc(x + Math.cos(a) * pr, y + Math.sin(a) * pr, pr * .75, 0, 7); f.fill(); }
+      f.fillStyle = '#ffc93c'; f.beginPath(); f.arc(x, y, pr * .55, 0, 7); f.fill();
+    }
+  }
+  // くさの ふさ・クローバー・いし
+  for (let i = 0; i < 520; i++) { const x = R(0, FW), y = R(0, FH), h = R(1.2, 2.6) * u; f.strokeStyle = Math.random() < .5 ? '#6fbf63' : '#5aa953'; f.lineWidth = 1.6; f.beginPath(); f.moveTo(x - h * .4, y - h); f.lineTo(x, y); f.lineTo(x + h * .4, y - h); f.moveTo(x, y); f.lineTo(x + R(-.1, .1) * h, y - h * 1.2); f.stroke(); }
+  for (let i = 0; i < 40; i++) { const x = R(0, FW), y = R(0, FH), r = .9 * u; f.fillStyle = '#5cb85c'; [0, 2.1, 4.2].forEach(a => { f.beginPath(); f.arc(x + Math.cos(a) * r, y + Math.sin(a) * r, r, 0, 7); f.fill(); }); }
+  for (let i = 0; i < 26; i++) { const x = R(0, FW), y = R(0, FH), rw = R(1.5, 3.5) * u; f.fillStyle = 'rgba(42,34,56,.12)'; f.beginPath(); f.ellipse(x + .6 * u, y + .8 * u, rw, rw * .6, 0, 0, 7); f.fill(); f.fillStyle = Kit.pick(['#c9c3b8', '#b5afa4', '#ddd7cc']); f.beginPath(); f.ellipse(x, y, rw, rw * .65, R(-.4, .4), 0, 7); f.fill(); f.fillStyle = 'rgba(255,255,255,.4)'; f.beginPath(); f.ellipse(x - rw * .3, y - rw * .2, rw * .35, rw * .15, 0, 0, 7); f.fill(); }
+  // まわりの しげみと さく
+  const bush = (x, y, s) => { f.fillStyle = 'rgba(42,34,56,.15)'; f.beginPath(); f.ellipse(x, y + s * .6, s * 1.3, s * .45, 0, 0, 7); f.fill(); [[0, 0, 1], [-.7, .2, .75], [.7, .2, .75], [-.3, -.4, .7], [.35, -.35, .65]].forEach(([dx, dy, k], i) => { f.fillStyle = i % 2 ? '#3f9a52' : '#4fae5f'; f.beginPath(); f.arc(x + dx * s, y + dy * s, s * k, 0, 7); f.fill(); }); f.fillStyle = 'rgba(255,255,255,.18)'; f.beginPath(); f.arc(x - s * .3, y - s * .45, s * .3, 0, 7); f.fill(); };
+  for (let x = 6 * u; x < FW; x += R(14, 26) * u) { bush(x, R(3, 6) * u, R(3.5, 5.5) * u); bush(x + R(-4, 4) * u, FH - R(3, 6) * u, R(3.5, 5.5) * u); }
+  for (let y = 14 * u; y < FH - 10 * u; y += R(16, 28) * u) { bush(R(3, 6) * u, y, R(3.5, 5) * u); bush(FW - R(3, 6) * u, y, R(3.5, 5) * u); }
+  f.strokeStyle = '#a8794a'; f.lineWidth = .9 * u; f.strokeRect(1.2 * u, 1.2 * u, FW - 2.4 * u, FH - 2.4 * u);
+  fieldImg = c;
 }
 const loop = Kit.loop(update);
 
