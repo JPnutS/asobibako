@@ -43,6 +43,13 @@
         <li>✨ 1回の なみで たくさん つぶすほど、エビの とくてんが あがる。</li>
         <li>😾 ぷちぷちに <b>くっつかれている あいだ HPが へる</b>。0に なったら おしまい。</li>
       </ul>
+      <span class="k-label">モード</span>
+      <div class="k-chips" id="optMode"></div>
+      <div id="rivalBox" class="k-stack" style="gap:6px">
+        <p class="k-muted" style="margin:0">🐈 ライバルねこも おなじ ばしょで エビを ねらってくる。エビは さきに ちかづいた ねこの もの！ しょうげきはで ライバルを はじきとばせるよ。</p>
+        <span class="k-label">ライバルの かず</span><div class="k-chips" id="optRiv"></div>
+        <span class="k-label">ライバルの つよさ</span><div class="k-chips" id="optRlv"></div>
+      </div>
       <span class="k-label">じかん</span>
       <div class="k-chips" id="optTime"></div>
       <p class="k-muted" id="bestLine" style="margin:0"></p>
@@ -61,11 +68,26 @@
 <script>
 const $ = id => document.getElementById(id);
 const stage = $('stage'), cv = $('cv');
-const O = Object.assign({ time: 60 }, Kit.store.get('ebi:opt', {}));
+const O = Object.assign({ time: 60, mode: 'solo', riv: 2, rlv: 2 }, Kit.store.get('ebi:opt', {}));
+const RL = { 1: { name: 'のんびり', sp: .72, react: .9, need: 5, val: .45 }, 2: { name: 'ふつう', sp: .86, react: .55, need: 7, val: .7 }, 3: { name: 'すばやい', sp: .97, react: .3, need: 9, val: 1 } };
+const RIVALS = [
+  { name: 'グレ', fur: '#c4c6d0', stripe: '#8b8e9c', ui: '#6f7a90' },
+  { name: 'クロ', fur: '#56515e', stripe: '#38333f', ui: '#38333f' },
+  { name: 'シロ', fur: '#fbf7f0', stripe: '#e3d5c0', ui: '#b39a74' },
+];
+const ME = { name: 'ぷっちー', fur: '#ffc98a', stripe: '#f0a35a', ui: '#ff7a45' };
 if (![60, 90].includes(O.time)) O.time = 60;
+function chips(root, items, cur, on) {
+  root.innerHTML = '';
+  items.forEach(([v, l]) => { const b = Kit.el(`<button class="k-chip" aria-pressed="${v === cur}">${l}</button>`); b.onclick = () => { Kit.sfx('select'); on(v); Kit.store.set('ebi:opt', O); renderSetup(); }; root.appendChild(b); });
+}
 function renderSetup() {
-  const root = $('optTime'); root.innerHTML = '';
-  [[60, '60びょう'], [90, '90びょう']].forEach(([v, l]) => { const b = Kit.el(`<button class="k-chip" aria-pressed="${v === O.time}">${l}</button>`); b.onclick = () => { Kit.sfx('select'); O.time = v; Kit.store.set('ebi:opt', O); renderSetup(); }; root.appendChild(b); });
+  chips($('optMode'), [['solo', '🐱 ひとりで'], ['rival', '🐈 ライバルねこと とりあい']], O.mode, v => O.mode = v);
+  chips($('optRiv'), [[1, '1ぴき'], [2, '2ひき'], [3, '3びき']], O.riv, v => O.riv = v);
+  chips($('optRlv'), Object.entries(RL).map(([k, v]) => [+k, v.name]), O.rlv, v => O.rlv = v);
+  chips($('optTime'), [[60, '60びょう'], [90, '90びょう']], O.time, v => O.time = v);
+  $('rivalBox').hidden = O.mode !== 'rival';
+  if (O.mode === 'rival') { const w = Kit.getBest(`ebiWin${O.rlv}`) || 0; $('bestLine').textContent = `ライバル（${RL[O.rlv].name}）に 1いに なった かず：${w}`; return; }
   const b = Kit.getBest(`ebi2_${O.time}`);
   $('bestLine').textContent = b ? `ベスト（${O.time}びょう）：${b}てん` : '';
 }
@@ -113,10 +135,14 @@ const KINDS = {
 const HPMAX = 100, AGGRO = 30, MAGNET = 2.6;
 function start() {
   resize();
-  G = { running: true, paused: false, over: false, t: O.time, el: 0, score: 0, hp: HPMAX, cat: { x: FW / 2, y: FH / 2, vx: 0, vy: 0, face: 1, dir: Math.PI / 2 },
+  G = { running: true, paused: false, over: false, t: O.time, el: 0, score: 0, hp: HPMAX, cat: { x: FW / 2, y: FH / 2, vx: 0, vy: 0, face: 1, dir: Math.PI / 2, kx: 0, ky: 0, stun: 0, me: true, look: ME }, rivals: [],
     enemies: [], herds: [], shrimps: [], waves: [], fx: [], floats: [],
     herdT: 0, charge: 0, charging: false, cd: 0, mouth: 0, hurt: 0, full: 0, fever: 0, eaten: 0, missed: 0, bestChain: 0, waveNo: 0, shake: 0 };
-  for (let i = 0; i < 7; i++) addHerd(true);
+  if (O.mode === 'rival') for (let i = 0; i < O.riv; i++) {
+    const a = i / O.riv * 6.28 + .5;
+    G.rivals.push({ x: FW / 2 + Math.cos(a) * 40 * u, y: FH / 2 + Math.sin(a) * 30 * u, vx: 0, vy: 0, dir: a, kx: 0, ky: 0, stun: 0, score: 0, eaten: 0, charge: 0, charging: false, cd: 1, mouth: 0, look: RIVALS[i], ai: { t: 0, gx: FW / 2, gy: FH / 2, want: .7 } });
+  }
+  for (let i = 0; i < 7 + (O.mode === 'rival' ? O.riv * 2 : 0); i++) addHerd(true);
   ['setupOv', 'resultOv', 'pauseOv'].forEach(id => $(id).hidden = true);
   ['pauseBtn', 'boom', 'hint'].forEach(id => $(id).hidden = false);
   Kit.keepAwake(true);
@@ -147,10 +173,14 @@ function release() {
   G.charging = false;
   if (!G.running || G.paused || G.cd > 0) return;
   const c = G.fever > 0 ? 1 : Math.max(.15, G.charge);
-  G.waves.push({ id: ++G.waveNo, x: G.cat.x, y: G.cat.y, r: CR, maxR: CR + (12 + 30 * c) * u, n: 0, power: c >= .99 ? 2 : 1 });
+  fire(G.cat, c);
   G.cd = .3; G.charge = 0; G.shake = .15 + c * .2;
-  Kit.tone(110, .25, { type: 'sine', vol: .35, slide: -50 }); Kit.noise(.25, { freq: 300 + c * 500, vol: .25 });
   Kit.vibrate(20 + c * 30);
+}
+function fire(cat, c) {
+  G.waves.push({ id: ++G.waveNo, owner: cat, x: cat.x, y: cat.y, r: CR, maxR: CR + (12 + 30 * c) * u, n: 0, power: c >= .99 ? 2 : 1, hitCats: new Set([cat]) });
+  const d = Math.hypot(cat.x - G.cat.x, cat.y - G.cat.y), v = Math.max(.08, 1 - d / (90 * u));
+  Kit.tone(110, .25, { type: 'sine', vol: .35 * v, slide: -50 }); Kit.noise(.25, { freq: 300 + c * 500, vol: .25 * v });
 }
 const boom = $('boom');
 boom.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); try { boom.setPointerCapture(e.pointerId); } catch (_) {} press(); });
@@ -189,13 +219,60 @@ function popEnemy(e, w) {
   const value = Math.round((e.kind === 'gold' ? 50 : 10) * (1 + (idx - 1) * .15) * (e.kind === 'big' ? 1.5 : 1));
   G.shrimps.push({ x: e.x, y: e.y, vx: ax / d * out / .55, vy: ay / d * out / .55, h: 0, vh: Kit.rand(26, 34) * u, rot: Math.atan2(ay, ax), spin: Kit.rand(8, 14) * (Math.random() < .5 ? -1 : 1), t: 0, state: 'jump', gold: e.kind === 'gold', size: e.kind === 'big' ? 1.3 : e.kind === 'small' ? .85 : 1, value, life: 7 });
 }
-function eat(s) {
+function eat(s, cat) {
+  if (!cat.me) { // ライバルが たべた
+    const v = Math.max(1, Math.round(s.value * RL[O.rlv].val));
+    cat.score += v; cat.eaten++; cat.mouth = .18;
+    if (Math.hypot(cat.x - G.cat.x, cat.y - G.cat.y) < 60 * u) G.floats.push({ x: cat.x + Kit.rand(-CR, CR), y: cat.y - CR * 1.3, text: `+${v}`, color: cat.look.ui, size: 14, t: 0 });
+    return;
+  }
   let p = s.value; if (G.fever > 0) p *= 2;
   G.score += p; G.eaten++; G.mouth = .18;
   G.hp = Math.min(HPMAX, G.hp + (s.gold ? 4 : 1));
   if (G.fever <= 0) { G.full += s.gold ? 5 : 1; if (G.full >= 40) { G.full = 0; G.fever = 7; Kit.sfx('win'); G.floats.push({ x: G.cat.x, y: G.cat.y - CR * 2.6, text: '🎉 フィーバー！', color: '#ff5d8f', size: 34, t: -.2 }); } }
   chomp(s.gold);
   G.floats.push({ x: G.cat.x + Kit.rand(-CR, CR), y: G.cat.y - CR * 1.3, text: `+${p}`, color: s.gold ? '#d99a00' : '#ff7a45', size: 15 + Math.min(14, p / 6), t: 0 });
+}
+/* ライバルねこ：エビが おちていれば とりに、なければ ぷちぷちの おおい むれへ */
+function stepRival(R, dt) {
+  const L = RL[O.rlv];
+  R.mouth = Math.max(0, R.mouth - dt); R.cd -= dt;
+  R.ai.t -= dt;
+  if (R.ai.t <= 0) {
+    R.ai.t = L.react * Kit.rand(.7, 1.3);
+    let best = null, bv = -1;
+    for (const s of G.shrimps) { if (s.state !== 'ground' && s.state !== 'jump') continue; const d = Math.hypot(s.x - R.x, s.y - R.y); if (d < 40 * u) { const v = s.value / (1 + d / (8 * u)); if (v > bv) { bv = v; best = s; } } }
+    if (best) { R.ai.gx = best.x; R.ai.gy = best.y; R.ai.goal = 'ebi'; }
+    else {
+      let hb = null, hv = -1;
+      for (const h of G.herds) { const n = G.enemies.filter(e => e.herd === h).length, d = Math.hypot(h.x - R.x, h.y - R.y), v = n / (1 + d / (35 * u)); if (v > hv) { hv = v; hb = h; } }
+      if (hb) { R.ai.gx = hb.x; R.ai.gy = hb.y; R.ai.goal = 'herd'; }
+    }
+  }
+  let mx = 0, my = 0;
+  if (R.stun > 0) R.stun -= dt;
+  else {
+    const dx = R.ai.gx - R.x, dy = R.ai.gy - R.y, d = Math.hypot(dx, dy);
+    // むれに ついたら まちぶせ（すこし はなれて あつめる）
+    const stopAt = R.ai.goal === 'herd' ? 6 * u : 0;
+    if (d > stopAt + u) { mx = dx / d; my = dy / d; }
+  }
+  const sp = 30 * u * L.sp * (R.charging ? .55 : 1);
+  R.vx += (mx * sp - R.vx) * Math.min(1, dt * 8); R.vy += (my * sp - R.vy) * Math.min(1, dt * 8);
+  R.x = Kit.clamp(R.x + (R.vx + R.kx) * dt, CR, FW - CR); R.y = Kit.clamp(R.y + (R.vy + R.ky) * dt, CR, FH - CR);
+  R.kx *= Math.max(0, 1 - dt * 5); R.ky *= Math.max(0, 1 - dt * 5);
+  if (Math.hypot(mx, my) > .1) R.dir = Math.atan2(my, mx);
+  R.walk = (R.walk || 0) + Math.hypot(R.vx, R.vy) * dt / u;
+  // ためて うつ
+  if (R.charging) {
+    R.charge = Math.min(1, R.charge + dt);
+    if (R.charge >= R.ai.want) { R.charging = false; fire(R, R.charge); R.cd = .6; R.charge = 0; }
+  } else if (R.cd <= 0 && R.stun <= 0) {
+    let near = 0; for (const e of G.enemies) if (Math.abs(e.x - R.x) < 26 * u && Math.hypot(e.x - R.x, e.y - R.y) < 26 * u) near++;
+    // ちかくに ぷっちーが いたら じゃまする ことも
+    const pd = Math.hypot(G.cat.x - R.x, G.cat.y - R.y);
+    if (near >= L.need || (R.touching || 0) >= 3 || (pd < 14 * u && Math.random() < dt * O.rlv * .4)) { R.charging = true; R.charge = 0; R.ai.want = Kit.rand(.45, 1); }
+  }
 }
 function update(dt) {
   if (G && G.running && !G.paused) step(dt);
@@ -211,10 +288,14 @@ function step(dt) {
   // ねこが うごく
   let mx = input.mx, my = input.my; const k = input.keys;
   if (k.KeyW || k.ArrowUp) my -= 1; if (k.KeyS || k.ArrowDown) my += 1; if (k.KeyA || k.ArrowLeft) mx -= 1; if (k.KeyD || k.ArrowRight) mx += 1;
+  if (C.stun > 0) { C.stun -= dt; mx = my = 0; }
   const m = Math.hypot(mx, my); if (m > 1) { mx /= m; my /= m; }
   const sp = 30 * u * (G.charging ? .55 : 1);
   C.vx += (mx * sp - C.vx) * Math.min(1, dt * 10); C.vy += (my * sp - C.vy) * Math.min(1, dt * 10);
-  C.x = Kit.clamp(C.x + C.vx * dt, CR, FW - CR); C.y = Kit.clamp(C.y + C.vy * dt, CR, FH - CR);
+  C.x = Kit.clamp(C.x + (C.vx + C.kx) * dt, CR, FW - CR); C.y = Kit.clamp(C.y + (C.vy + C.ky) * dt, CR, FH - CR);
+  C.kx *= Math.max(0, 1 - dt * 5); C.ky *= Math.max(0, 1 - dt * 5);
+  for (const R of G.rivals) stepRival(R, dt);
+  const cats = [C, ...G.rivals];
   if (Math.abs(mx) > .1) C.face = Math.sign(mx);
   if (m > .15) C.dir = Math.atan2(my, mx);
   C.walk = (C.walk || 0) + Math.hypot(C.vx, C.vy) * dt / u;
@@ -226,17 +307,21 @@ function step(dt) {
   // ぷちぷち：ちかいと よってくる、とおいと むれで うろうろ
   const es = G.enemies;
   let touching = 0;
+  for (const R of G.rivals) R.touching = 0;
   for (const e of es) {
-    const dx = C.x - e.x, dy = C.y - e.y, d = Math.hypot(dx, dy) || 1, stop = CR + e.r * .9;
+    let T = C, d = Math.hypot(C.x - e.x, C.y - e.y) || 1;
+    for (const R of G.rivals) { const dr = Math.hypot(R.x - e.x, R.y - e.y); if (dr < d) { d = dr; T = R; } }
+    const stop = CR + e.r * .9;
     if (d < AGGRO * u) e.chase = true; else if (d > AGGRO * u * 1.8) e.chase = false;
+    e.target = T;
     let tx, ty, s;
-    if (e.chase) { tx = C.x; ty = C.y; s = e.sp; }
+    if (e.chase) { tx = T.x; ty = T.y; s = e.sp; }
     else { tx = e.herd.x + e.ox; ty = e.herd.y + e.oy; s = e.sp * .35; }
     const ex = tx - e.x, ey = ty - e.y, ed = Math.hypot(ex, ey) || 1, lim = e.chase ? d - stop : ed;
     if (lim > 0) { const mm = Math.min(s * dt, lim); e.x += ex / ed * mm; e.y += ey / ed * mm; }
     e.wob += dt * (d <= stop + 2 * u ? 10 : 5);
     e.touch = d <= stop + 1.2 * u;
-    if (e.touch) touching++;
+    if (e.touch) { if (T === C) touching++; else T.touching++; }
   }
   // くっつかれている間 HPが へる
   if (touching) {
@@ -254,8 +339,20 @@ function step(dt) {
     } }
   // しょうげきは（ねこに ついていく）
   for (const w of G.waves) {
-    w.x = C.x; w.y = C.y;
+    w.x = w.owner.x; w.y = w.owner.y;
     w.r += (55 + w.maxR / u * .9) * u * dt;
+    // ほかの ねこを はじきとばす
+    for (const K of cats) {
+      if (w.hitCats.has(K)) continue;
+      const dx = K.x - w.x, dy = K.y - w.y, d = Math.hypot(dx, dy) || 1;
+      if (d - CR * .6 <= w.r && d <= w.maxR + CR) {
+        w.hitCats.add(K);
+        const pw = (w.power > 1 ? 70 : 45) * u;
+        K.kx += dx / d * pw; K.ky += dy / d * pw; K.stun = w.power > 1 ? .8 : .5; K.charging = false;
+        if (K === C) { G.charge = 0; G.charging = false; $('boom').classList.remove('on'); Kit.sfx('bad'); Kit.vibrate(30); }
+        if (K === C || w.owner === C) G.floats.push({ x: K.x, y: K.y - CR * 1.8, text: K === C ? 'ふにゃ〜！' : 'ドーン！', color: K === C ? '#e04040' : '#ff7a45', size: 22, t: 0 });
+      }
+    }
     for (const e of es) {
       if (e.dead || e.hitBy === w.id) continue;
       const d = Math.hypot(e.x - w.x, e.y - w.y);
@@ -267,8 +364,8 @@ function step(dt) {
     }
     if (w.r >= w.maxR && !w.done) {
       w.done = true;
-      if (w.n >= 5) G.floats.push({ x: C.x, y: C.y - CR * 2.4, text: `${w.n}ひき いっぺんに！`, color: '#ff5d8f', size: 20 + Math.min(16, w.n * .5), t: -.2 });
-      if (w.n >= 15) Kit.sfx('good');
+      if (w.n >= 5 && w.owner === C) G.floats.push({ x: C.x, y: C.y - CR * 2.4, text: `${w.n}ひき いっぺんに！`, color: '#ff5d8f', size: 20 + Math.min(16, w.n * .5), t: -.2 });
+      if (w.n >= 15 && w.owner === C) Kit.sfx('good');
     }
   }
   G.waves = G.waves.filter(w => w.r < w.maxR + 10 * u);
@@ -282,12 +379,15 @@ function step(dt) {
       s.vh -= 95 * u * dt; s.h += s.vh * dt; s.x += s.vx * dt; s.y += s.vy * dt; s.rot += s.spin * dt;
       if (s.h <= 0) { s.h = 0; s.state = 'ground'; s.t = 0; }
     } else if (s.state === 'ground') {
-      if (Math.hypot(s.x - C.x, s.y - C.y) < mag) { s.state = 'fly'; s.k = 0; s.fx = s.x; s.fy = s.y; }
+      let to = null, best = 1e9;
+      for (const K of cats) { const dd = Math.hypot(s.x - K.x, s.y - K.y); if (dd < (K === C ? mag : CR * MAGNET) && dd < best) { best = dd; to = K; } }
+      if (to) { s.state = 'fly'; s.k = 0; s.fx = s.x; s.fy = s.y; s.to = to; }
       else if (s.t > s.life) { s.state = 'gone'; G.missed++; G.fx.push({ ring: true, x: s.x, y: s.y, r: 2 * u, t: 0 }); }
     } else if (s.state === 'fly') {
       s.k += dt / .22; const e = Math.min(1, s.k), q = e * e;
-      s.x = s.fx + (C.x - s.fx) * q; s.y = s.fy + (C.y + CR * .25 - s.fy) * q; s.h = Math.sin(e * Math.PI) * 4 * u; s.rot += dt * 10;
-      if (s.k >= 1) { s.state = 'eaten'; eat(s); }
+      const T = s.to;
+      s.x = s.fx + (T.x - s.fx) * q; s.y = s.fy + (T.y + CR * .25 - s.fy) * q; s.h = Math.sin(e * Math.PI) * 4 * u; s.rot += dt * 10;
+      if (s.k >= 1) { s.state = 'eaten'; eat(s, T); }
     }
   }
   G.shrimps = G.shrimps.filter(s => s.state !== 'eaten' && s.state !== 'gone');
@@ -304,7 +404,7 @@ function drawEnemy(e) {
   g.fillStyle = gr; g.beginPath(); g.arc(0, 0, r, 0, 7); g.fill();
   g.strokeStyle = e.touch ? '#ff5d5d' : 'rgba(90,120,170,.55)'; g.lineWidth = e.kind === 'big' && e.hp > 1 ? 3 : 1.5; g.stroke();
   g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.ellipse(-r * .38, -r * .45, r * .22, r * .12, -.6, 0, 7); g.fill();
-  const C = G.cat, a = e.chase ? Math.atan2(C.y - e.y, C.x - e.x) : e.wob * .2, ex = Math.cos(a) * r * .25, ey = Math.sin(a) * r * .25;
+  const C = e.target || G.cat, a = e.chase ? Math.atan2(C.y - e.y, C.x - e.x) : e.wob * .2, ex = Math.cos(a) * r * .25, ey = Math.sin(a) * r * .25;
   g.fillStyle = '#2a2238';
   g.beginPath(); g.arc(ex - r * .25, ey - r * .05, r * .11, 0, 7); g.arc(ex + r * .25, ey - r * .05, r * .11, 0, 7); g.fill();
   if (e.touch) { g.strokeStyle = '#2a2238'; g.lineWidth = 1.5; g.beginPath(); g.arc(ex, ey + r * .2, r * .14, 0, Math.PI); g.stroke(); }
@@ -390,7 +490,13 @@ function draw() {
     if (f.ring) { g.strokeStyle = `rgba(255,255,255,${.9 * (1 - f.t / .4)})`; g.lineWidth = 2.5; g.beginPath(); g.arc(f.x, f.y, f.r * (1 + f.t * 3), 0, 7); g.stroke(); }
     else { g.fillStyle = f.col; g.globalAlpha = 1 - f.t / .4; g.beginPath(); g.arc(f.x, f.y, 2.5, 0, 7); g.fill(); g.globalAlpha = 1; }
   }
-  drawCatAny(C.x, C.y);
+  const all = [C, ...G.rivals].sort((a, b) => a.y - b.y);
+  for (const K of all) {
+    if (K.charging && !K.me) { const R2 = CR + (12 + 30 * K.charge) * u; g.setLineDash([6, 8]); g.strokeStyle = K.look.ui; g.globalAlpha = .6; g.lineWidth = 2.5; g.beginPath(); g.arc(K.x, K.y, R2, 0, 7); g.stroke(); g.setLineDash([]); g.globalAlpha = 1; }
+    drawCatAny(K);
+    if (!K.me) { g.font = `900 13px 'Zen Maru Gothic', sans-serif`; g.textAlign = 'center'; g.lineWidth = 3; g.strokeStyle = '#fff'; g.strokeText(`${K.look.name} ${K.score}`, K.x, K.y - CR * 2); g.fillStyle = K.look.ui; g.fillText(`${K.look.name} ${K.score}`, K.x, K.y - CR * 2); }
+    if (K.stun > 0) { g.font = `${CR * .7}px sans-serif`; g.textAlign = 'center'; g.fillText('💫', K.x, K.y - CR * 1.4); }
+  }
   for (const f of G.floats) { if (f.t < 0) continue; g.globalAlpha = 1 - f.t; g.font = `900 ${f.size}px 'Zen Maru Gothic', sans-serif`; g.textAlign = 'center'; g.lineWidth = 4; g.strokeStyle = '#fff'; g.strokeText(f.text, f.x, f.y); g.fillStyle = f.color; g.fillText(f.text, f.x, f.y); g.globalAlpha = 1; }
   g.restore();
   // うえの じょうほう
@@ -419,7 +525,14 @@ function draw() {
   for (const e of G.enemies) g.fillRect(rx + e.x * sc - 1, ry + e.y * sc - 1, 2.2, 2.2);
   g.fillStyle = '#ff8a5c'; for (const s of G.shrimps) if (s.state === 'ground') g.fillRect(rx + s.x * sc - 1, ry + s.y * sc - 1, 2.5, 2.5);
   g.strokeStyle = 'rgba(42,34,56,.5)'; g.lineWidth = 1; g.strokeRect(rx + (camX - W / 2) * sc, ry + (camY - H / 2) * sc, W * sc, H * sc);
+  for (const R of G.rivals) { g.fillStyle = R.look.ui; g.beginPath(); g.arc(rx + R.x * sc, ry + R.y * sc, 3, 0, 7); g.fill(); }
   g.fillStyle = '#ff5d8f'; g.beginPath(); g.arc(rx + C.x * sc, ry + C.y * sc, 3.5, 0, 7); g.fill();
+  // ランキング
+  if (G.rivals.length) {
+    const list = [{ look: ME, score: G.score, me: true }, ...G.rivals].sort((a, b) => b.score - a.score);
+    g.font = `900 13px 'Zen Maru Gothic', sans-serif`; g.textAlign = 'left';
+    list.forEach((K, i) => { const y = 64 + i * 19; g.fillStyle = 'rgba(255,255,255,.85)'; g.fillRect(6, y - 9, 118, 18); g.fillStyle = K.look.ui; g.fillText(`${i + 1}. ${K.me ? 'あなた' : K.look.name}  ${K.score}`, 10, y); });
+  }
 }
 /* ---------- 3Dの ぷっちー（three.js で かいて、2Dの がめんに はりつける） ---------- */
 let cat3 = null;
@@ -462,12 +575,11 @@ import('../../common/vendor/three.module.min.js').then(THREE => {
   // しっぽ
   const tail = new THREE.Group(); tail.position.set(0, .7, -.68); cat.add(tail);
   for (let i = 0; i < 7; i++) tail.add(sph(.085 - i * .004, i % 2 ? stripe : fur, 0, i * .11, -i * .05 + i * i * .012));
-  let dirNow = Math.PI / 2;
   cat3 = {
     canvas: cnv,
     render(st) {
-      let d = st.dir - dirNow; d = Math.atan2(Math.sin(d), Math.cos(d)); dirNow += d * .25;
-      root.rotation.y = Math.atan2(Math.cos(dirNow), Math.sin(dirNow)); // がめんの 右＝+x、下＝+z
+      fur.color.set(st.fur); stripe.color.set(st.stripe);
+      root.rotation.y = Math.atan2(Math.cos(st.dir), Math.sin(st.dir)); // がめんの 右＝+x、下＝+z
       const w = st.moving ? Math.sin(st.walk * .45) : 0;
       legs.forEach((p, i) => { p.rotation.x = (i === 0 || i === 3 ? w : -w) * .7; });
       cat.position.y = st.moving ? Math.abs(Math.sin(st.walk * .45)) * .08 : 0;
@@ -480,13 +592,16 @@ import('../../common/vendor/three.module.min.js').then(THREE => {
     },
   };
 }).catch(() => { /* うまく いかない ときは 2Dの ねこ */ });
-function drawCatAny(x, y) {
-  if (!cat3) return drawCat(x, y);
-  const C = G.cat, t = performance.now() / 1000;
+function drawCatAny(C) {
+  const x = C.x, y = C.y;
+  if (!cat3) { if (C.me) return drawCat(x, y); g.fillStyle = C.look.fur; g.strokeStyle = '#2a2238'; g.lineWidth = 3; g.beginPath(); g.arc(x, y, CR, 0, 7); g.fill(); g.stroke(); return; }
+  const t = performance.now() / 1000;
   const S = CR * 4.2;
+  let dd = C.dir - (C.dn ?? C.dir); dd = Math.atan2(Math.sin(dd), Math.cos(dd)); C.dn = (C.dn ?? C.dir) + dd * .25;
   g.fillStyle = 'rgba(42,34,56,.22)'; g.beginPath(); g.ellipse(x, y + CR * .55, CR * 1.05, CR * .45, 0, 0, 7); g.fill();
-  if (G.fever > 0) { g.fillStyle = `hsla(${t * 200 % 360},90%,70%,.35)`; g.beginPath(); g.arc(x, y, CR * 1.5, 0, 7); g.fill(); }
-  cat3.render({ dir: C.dir, walk: C.walk || 0, moving: Math.hypot(C.vx, C.vy) > 3 * u, t, mouth: G.mouth / .18, puff: G.charging ? 1 + G.charge * .14 : 1, charging: G.charging, hurt: G.hurt > 0 && Math.sin(t * 30) > 0, fever: G.fever > 0 });
+  if (C.me && G.fever > 0) { g.fillStyle = `hsla(${t * 200 % 360},90%,70%,.35)`; g.beginPath(); g.arc(x, y, CR * 1.5, 0, 7); g.fill(); }
+  const ch = C.me ? G.charging : C.charging, cg = C.me ? G.charge : C.charge;
+  cat3.render({ dir: C.dn, walk: C.walk || 0, moving: Math.hypot(C.vx, C.vy) > 3 * u, t, mouth: (C.me ? G.mouth : C.mouth) / .18, puff: ch ? 1 + cg * .14 : 1, charging: ch, hurt: C.me && G.hurt > 0 && Math.sin(t * 30) > 0, fever: C.me && G.fever > 0, fur: C.look.fur, stripe: C.look.stripe });
   g.drawImage(cat3.canvas, x - S / 2, y - S * .6, S, S);
 }
 
@@ -554,6 +669,7 @@ function finish() {
   G.over = true; G.running = false; G.charging = false; Kit.music.stop(); Kit.keepAwake(false);
   ['pauseBtn', 'boom', 'stick', 'hint'].forEach(id => $(id).hidden = true); stickId = null; input.mx = input.my = 0;
   const alive = G.hp > 0;
+  if (G.rivals.length) return finishRival(alive);
   const r = Kit.best(`ebi2_${O.time}`, G.score);
   if (r.isNew) Kit.confetti();
   Kit.sfx(alive ? 'win' : 'lose');
@@ -563,6 +679,19 @@ function finish() {
     <div class="res"><div><span>🦐 たべた エビ</span><b>${G.eaten}ひき</b></div>
     <div><span>💨 とりのがした エビ</span><b>${G.missed}ひき</b></div>
     <div><span>💥 いっぺんに つぶした さいこう</span><b>${G.bestChain}ひき</b></div></div>
+    <div class="k-row" style="justify-content:center"><button class="k-btn is-orange is-big" id="again">もういっかい</button><button class="k-btn" id="toSetup">せっていへ</button></div>`;
+  setTimeout(() => { $('resultOv').hidden = false; }, 700);
+  $('again').onclick = () => { Kit.sfx('tap'); start(); };
+  $('toSetup').onclick = () => { $('resultOv').hidden = true; $('setupOv').hidden = false; renderSetup(); };
+}
+function finishRival(alive) {
+  const list = [{ look: ME, score: G.score, eaten: G.eaten, me: true }, ...G.rivals].sort((a, b) => b.score - a.score);
+  const rank = list.findIndex(K => K.me) + 1;
+  const win = alive && rank === 1;
+  if (win) { Kit.addWin(`ebiWin${O.rlv}`); Kit.confetti(); Kit.sfx('win'); } else Kit.sfx(alive ? 'good' : 'lose');
+  $('resultCard').innerHTML = `<h2>${!alive ? '😾 HPが なくなった…' : win ? '👑 1い！ エビ王！' : `${rank}い！`}</h2>
+    <div class="res">${list.map((K, i) => `<div style="${K.me ? 'font-weight:900;background:#fff2c2' : ''}"><span>${['🥇', '🥈', '🥉', '4'][i]} ${K.me ? 'あなた（ぷっちー）' : K.look.name}</span><b>${K.score}てん</b></div>`).join('')}</div>
+    <div class="res"><div><span>🦐 たべた エビ</span><b>${G.eaten}ひき</b></div><div><span>💥 いっぺんに つぶした さいこう</span><b>${G.bestChain}ひき</b></div></div>
     <div class="k-row" style="justify-content:center"><button class="k-btn is-orange is-big" id="again">もういっかい</button><button class="k-btn" id="toSetup">せっていへ</button></div>`;
   setTimeout(() => { $('resultOv').hidden = false; }, 700);
   $('again').onclick = () => { Kit.sfx('tap'); start(); };
@@ -585,6 +714,7 @@ Kit.bar({ id: 'puchi', title: '🦐 ぷちぷちエビ', help: `
     <li>🟣 おおきい ぷちぷちは まんたんまで ためた なみ（ピンク）で いっぱつ。⭐ きんいろは 50てんの きんの エビに なる。</li>
     <li>😾 ぷちぷちに くっつかれている あいだ HPが へる（くっついている数が おおいほど はやい）。エビを たべると すこし かいふく。HPが 0か、じかん ぎれで おしまい。</li>
     <li>🍽 たべると まんぷくゲージが たまり、いっぱいで 7びょうかん フィーバー（とくてん2ばい・すぐ まんたん・とおくの エビも すいこむ）。</li>
+    <li>🐈 <b>ライバルねこと とりあい</b>：グレ・クロ・シロも エビを ねらってくる。おちた エビは さきに ちかづいた ねこの もの。しょうげきはは ライバルを はじきとばして すこし うごけなくする（じぶんも とばされるので ちゅうい）。じかんぎれの とき とくてん 1いなら かち！</li>
   </ul>` });
 { const ex = document.querySelector('.kbar-extra'); if (ex) ex.appendChild($('pauseBtn')); }
 renderSetup();
