@@ -487,10 +487,10 @@ function drawP(p) {
   g.globalAlpha = 1;
   // なまえ
   g.font = '900 13px "Zen Maru Gothic", sans-serif';
-  // ふつうの おにごっこ：じゅんい と おにだった じかん
+  // ふつうの おにごっこ：じゅんい
   if (O.rule === 'tag') {
     const rank = S.ps.filter(q => q.oniTime < p.oniTime - .05).length + 1;
-    const tagTxt = `${rank}い・おに${Math.floor(p.oniTime)}びょう`, tw = g.measureText(tagTxt).width + 10;
+    const tagTxt = `${rank}い`, tw = g.measureText(tagTxt).width + 10;
     g.fillStyle = rank === 1 ? '#ffe08a' : p.oni ? '#ffd0d6' : 'rgba(255,255,255,.85)'; g.strokeStyle = 'rgba(42,34,56,.4)'; g.lineWidth = 1.5;
     g.beginPath(); g.roundRect(p.x - tw / 2, p.y - R - 40, tw, 17, 8); g.fill(); g.stroke();
     g.fillStyle = '#2a2238'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(tagTxt, p.x, p.y - R - 31);
@@ -546,7 +546,7 @@ $('startBtn').onclick = () => { Kit.sfx('tap'); newGame(); };
 Kit.bar({ id: 'onigokko', title: '🏃 おにごっこ', help: `
   <p>つのが はえているのが <b>おに</b>。スティックで にげたり おいかけたり！</p>
   <ul>
-    <li><b>ふつう</b>：タッチで おに交代。おにを わたした人は 3びょう ダッシュ💨。あたまの上の「○い・おに○びょう」を見て、だれを ねらうか きめよう。おにだった時間が いちばん少ない人の勝ち。</li>
+    <li><b>ふつう</b>：タッチで おに交代。おにを わたした人は 3びょう ダッシュ💨。あたまの上の じゅんい（○い）を見て、だれを ねらうか きめよう。おにだった時間が いちばん少ない人の勝ち。</li>
     <li><b>こおりおに</b>：タッチされると こおる。なかまに タッチしてもらうと とける。</li>
     <li><b>ふえおに</b>：タッチされると おにが ふえる。さいごまで にげきろう。</li>
   </ul>
