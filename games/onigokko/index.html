@@ -66,7 +66,7 @@ const FW = 1000, FH = 680; // フィールドの大きさ（画面に合わせ�
 const ANIMALS = ['🐶', '🐱', '🐰', '🐻', '🐼', '🦊', '🐸', '🐵'];
 const COLS = ['#ff5d8f', '#4aa8ff', '#3ecf8e', '#ff8a3d', '#8b5cf6', '#ffc93c', '#2fb7b3', '#c98b52'];
 const RULES = {
-  tag: { name: '🔁 ふつう', desc: 'タッチされたら おにが交代。さいごに おにだった時間が いちばん少ない人の勝ち。' },
+  tag: { name: '🔁 ふつう', desc: 'タッチされたら おにが交代。おにを わたした人は 3びょう ダッシュ！ さいごに おにだった時間が いちばん少ない人の勝ち。' },
   ice: { name: '🧊 こおりおに', desc: 'おにに タッチされたら こおる。なかまに タッチしてもらうと とける。ぜんいん こおったら おにの勝ち！' },
   zombie: { name: '🧟 ふえおに', desc: 'タッチされたら おにの なかまになる。さいごまで にげきった人の勝ち！' },
 };
@@ -119,20 +119,54 @@ function makeField() {
   }
   return obs;
 }
+// ぬかるみ（おそい）と かぜのみち（はやい）
+function makeZones(obs) {
+  const zs = [];
+  for (let i = 0; i < 80 && zs.length < 4; i++) {
+    const kind = zs.length % 2 ? 'wind' : 'mud';
+    const r = Kit.rand(60, 85), x = Kit.rand(100, FW - 100), y = Kit.rand(100, FH - 100);
+    if (obs.some(o => Math.hypot(o.x - x, o.y - y) < o.r + r + 10)) continue;
+    if (zs.some(z => Math.hypot(z.x - x, z.y - y) < z.r + r + 60)) continue;
+    zs.push({ kind, x, y, r, a: Math.random() * 6.28 });
+  }
+  return zs;
+}
+const zoneMul = p => { for (const z of S.zones) if (Math.hypot(p.x - z.x, p.y - z.y) < z.r) return z.kind === 'mud' ? .55 : 1.4; return 1; };
+function drawZone(z) {
+  g.save(); g.beginPath(); g.arc(z.x, z.y, z.r, 0, 6.29);
+  if (z.kind === 'mud') {
+    g.fillStyle = '#a9824f'; g.fill(); g.clip();
+    g.fillStyle = '#8c6a3c';
+    for (let k = 0; k < 9; k++) { const a = z.a + k * 2.4, d = z.r * (.2 + (k % 3) * .25); g.beginPath(); g.ellipse(z.x + Math.cos(a) * d, z.y + Math.sin(a) * d, 12, 7, a, 0, 6.29); g.fill(); }
+  } else {
+    g.fillStyle = '#bfe7ff'; g.fill(); g.clip();
+    const t = performance.now() / 600, ca = Math.cos(z.a), sa = Math.sin(z.a);
+    g.strokeStyle = 'rgba(255,255,255,.95)'; g.lineWidth = 5; g.lineCap = 'round'; g.lineJoin = 'round';
+    for (let row = -1; row <= 1; row++) for (let k = 0; k < 4; k++) {
+      const u = ((k / 4 + t) % 1) * z.r * 2 - z.r, v = row * 30;
+      const cx = z.x + ca * u - sa * v, cy = z.y + sa * u + ca * v;
+      g.beginPath(); g.moveTo(cx - ca * 8 - sa * 10, cy - sa * 8 + ca * 10); g.lineTo(cx + ca * 6, cy + sa * 6); g.lineTo(cx - ca * 8 + sa * 10, cy - sa * 8 - ca * 10); g.stroke();
+    }
+  }
+  g.restore();
+  g.strokeStyle = z.kind === 'mud' ? 'rgba(90,60,30,.45)' : 'rgba(80,170,255,.6)'; g.lineWidth = 3;
+  g.beginPath(); g.arc(z.x, z.y, z.r, 0, 6.29); g.stroke();
+}
 function newGame() {
   const n = O.humans + O.cpus;
   const ps = [];
   for (let i = 0; i < n; i++) {
     const human = i < O.humans;
     ps.push({ i, human, name: human ? (O.names[i].trim() || `${i + 1}P`) : `CPU${i - O.humans + 1}`, face: ANIMALS[i], col: COLS[i],
-      x: 0, y: 0, vx: 0, vy: 0, oni: false, frozen: false, imm: 0, stun: 0, boost: 0, oniTime: 0, caught: 0, saves: 0, alive: true, wander: Math.random() * 6 });
+      x: 0, y: 0, vx: 0, vy: 0, oni: false, frozen: false, imm: 0, stun: 0, boost: 0, dash: 0, oniTime: 0, caught: 0, saves: 0, alive: true, wander: Math.random() * 6 });
   }
   // スタートいち：円にならべる
   ps.forEach((p, k) => { const a = k / n * Math.PI * 2; p.x = FW / 2 + Math.cos(a) * 280; p.y = FH / 2 + Math.sin(a) * 210; });
   // おにをきめる
   const nOni = O.rule === 'ice' && n >= 6 ? 2 : 1;
   Kit.shuffle(ps.slice()).slice(0, nOni).forEach(p => { p.oni = true; p.stun = 1.5; });
-  S = { ps, obs: makeField(), t: O.time, items: [], itemT: 6, ctrl: [0, 1, 2, 3].map(() => ({ id: null, ox: 0, oy: 0, x: 0, y: 0 })), keys: {}, count: 3, over: false, msgs: [] };
+  S = { ps, obs: makeField(), zones: [], t: O.time, items: [], itemT: 6, ctrl: [0, 1, 2, 3].map(() => ({ id: null, ox: 0, oy: 0, x: 0, y: 0 })), keys: {}, count: 3, over: false, msgs: [] };
+  S.zones = makeZones(S.obs);
   S.obs.forEach(o => { for (const p of ps) if (Math.hypot(p.x - o.x, p.y - o.y) < o.r + 30) { p.x = Kit.clamp(p.x + (p.x - o.x) * .8, 40, FW - 40); p.y = Kit.clamp(p.y + (p.y - o.y) * .8, 40, FH - 40); } });
   $('setupOv').hidden = true; $('resultOv').hidden = true; $('pauseBtn').hidden = false;
   resize();
@@ -219,7 +253,9 @@ function cpuVec(p, dt) {
     // ちかい人を おいかける（少し先をよむ）
     const targets = S.ps.filter(q => !q.oni && !q.frozen && q.imm <= 0 && q.alive);
     let best = null, bd = 1e9;
-    for (const q of targets) { const d = Math.hypot(q.x - p.x, q.y - p.y) + (q === p.lastT ? -60 : 0); if (d < bd) { bd = d; best = q; } }
+    // ちかい人を ねらう。かしこい おには、おにの じかんが みじかい（1いの）人も ねらう
+    const maxOni = Math.max(...S.ps.map(q => q.oniTime));
+    for (const q of targets) { const d = Math.hypot(q.x - p.x, q.y - p.y) + (q === p.lastT ? -60 : 0) - (O.rule === 'tag' ? (maxOni - q.oniTime) * [0, 0, 4, 7][lv] : 0) + (q.dash > 0 ? 120 : 0); if (d < bd) { bd = d; best = q; } }
     if (best) {
       p.lastT = best;
       const lead = lv >= 2 ? Math.min(.5, bd / 400) : 0;
@@ -282,12 +318,12 @@ function update(dt) {
   S.items.forEach(it => it.t -= dt); S.items = S.items.filter(it => it.t > 0);
   const cpuSp = [0, .8, .9, .98][O.level];
   for (const p of S.ps) {
-    p.imm = Math.max(0, p.imm - dt); p.boost = Math.max(0, p.boost - dt);
+    p.imm = Math.max(0, p.imm - dt); p.boost = Math.max(0, p.boost - dt); p.dash = Math.max(0, p.dash - dt);
     if (p.oni) p.oniTime += dt;
     let [mx, my] = p.human ? humanVec(p.i) : cpuVec(p, dt);
     if (p.stun > 0) { p.stun -= dt; mx = my = 0; }
     if (p.frozen) mx = my = 0;
-    let sp = 230 * (p.oni ? 1.06 : 1) * (p.boost > 0 ? 1.45 : 1) * (p.human ? 1 : cpuSp);
+    let sp = 230 * (p.oni ? 1.06 : 1) * (p.boost > 0 ? 1.45 : 1) * (p.dash > 0 ? 1.35 : 1) * zoneMul(p) * (p.human ? 1 : cpuSp);
     // 少しずつ かそく
     const k = Math.min(1, dt * 10);
     p.vx += (mx * sp - p.vx) * k; p.vy += (my * sp - p.vy) * k;
@@ -332,7 +368,7 @@ function tag(a, b) {
   b.caught++;
   Kit.vibrate(50);
   if (O.rule === 'tag') {
-    a.oni = false; a.imm = 1.5; b.oni = true; b.stun = 1.2; Kit.sfx('hit'); msg(b, 'おに！');
+    a.oni = false; a.imm = 1.5; a.dash = 3; b.oni = true; b.stun = 1.2; Kit.sfx('hit'); msg(b, 'おに！'); setTimeout(() => msg(a, '💨 ダッシュ！'), 300);
   } else if (O.rule === 'ice') {
     b.frozen = true; b.vx = b.vy = 0; Kit.sfx('drop'); msg(b, 'カチーン！');
     if (S.ps.filter(p => !p.oni).every(p => p.frozen)) setTimeout(finish, 600);
@@ -359,6 +395,7 @@ function draw() {
     g.beginPath(); g.moveTo(VW / 2, 0); g.lineTo(VW / 2, VH); if (O.humans >= 3) { g.moveTo(0, VH / 2); g.lineTo(VW, VH / 2); } g.stroke(); g.setLineDash([]);
     g.restore(); g.save(); g.translate(ox, oy); g.scale(sc, sc);
   }
+  for (const z of S.zones) drawZone(z);
   for (const o of S.obs) drawObs(o);
   for (const it of S.items) {
     const b = Math.sin(performance.now() / 150) * 3;
@@ -370,8 +407,8 @@ function draw() {
   for (const p of ps) drawP(p);
   for (const m of S.msgs) {
     g.font = '900 22px "Zen Maru Gothic", sans-serif'; g.textAlign = 'center';
-    g.lineWidth = 5; g.strokeStyle = '#fff'; g.strokeText(m.text, m.p.x, m.p.y - 40 - (1.2 - m.t) * 20);
-    g.fillStyle = '#2a2238'; g.fillText(m.text, m.p.x, m.p.y - 40 - (1.2 - m.t) * 20);
+    g.lineWidth = 5; g.strokeStyle = '#fff'; g.strokeText(m.text, m.p.x, m.p.y - 70 - (1.2 - m.t) * 20);
+    g.fillStyle = '#2a2238'; g.fillText(m.text, m.p.x, m.p.y - 70 - (1.2 - m.t) * 20);
   }
   g.restore();
   // スティック
@@ -426,6 +463,10 @@ function drawP(p) {
   // かげ
   g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.ellipse(p.x, p.y + R * .8, R, R * .45, 0, 0, 6.29); g.fill();
   if (p.boost > 0) { g.strokeStyle = '#ffc93c'; g.lineWidth = 4; g.beginPath(); g.arc(p.x, p.y, R + 6, 0, 6.29); g.stroke(); }
+  if (p.dash > 0) { // にげる ダッシュ：うしろに かぜの せん
+    const sp = Math.hypot(p.vx, p.vy) || 1; g.strokeStyle = 'rgba(80,170,255,.7)'; g.lineWidth = 3;
+    for (let k = -1; k <= 1; k++) { const ox = -p.vy / sp * k * 9, oy = p.vx / sp * k * 9; g.beginPath(); g.moveTo(p.x - p.vx / sp * (R + 4) + ox, p.y - p.vy / sp * (R + 4) + oy); g.lineTo(p.x - p.vx / sp * (R + 22 + Math.random() * 8) + ox, p.y - p.vy / sp * (R + 22 + Math.random() * 8) + oy); g.stroke(); }
+  }
   if (p.oni) {
     g.fillStyle = 'rgba(255,60,80,.25)'; g.beginPath(); g.arc(p.x, p.y, R + 12 + Math.sin(performance.now() / 120) * 3, 0, 6.29); g.fill();
   }
@@ -446,6 +487,14 @@ function drawP(p) {
   g.globalAlpha = 1;
   // なまえ
   g.font = '900 13px "Zen Maru Gothic", sans-serif';
+  // ふつうの おにごっこ：じゅんい と おにだった じかん
+  if (O.rule === 'tag') {
+    const rank = S.ps.filter(q => q.oniTime < p.oniTime - .05).length + 1;
+    const tagTxt = `${rank}い・おに${Math.floor(p.oniTime)}びょう`, tw = g.measureText(tagTxt).width + 10;
+    g.fillStyle = rank === 1 ? '#ffe08a' : p.oni ? '#ffd0d6' : 'rgba(255,255,255,.85)'; g.strokeStyle = 'rgba(42,34,56,.4)'; g.lineWidth = 1.5;
+    g.beginPath(); g.roundRect(p.x - tw / 2, p.y - R - 40, tw, 17, 8); g.fill(); g.stroke();
+    g.fillStyle = '#2a2238'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(tagTxt, p.x, p.y - R - 31);
+  }
   const w = g.measureText(p.name).width + 12;
   g.fillStyle = p.human ? '#ffffff' : 'rgba(255,255,255,.7)'; g.strokeStyle = p.human ? p.col : 'rgba(42,34,56,.3)'; g.lineWidth = 2;
   g.beginPath(); g.roundRect(p.x - w / 2, p.y + R + 6, w, 18, 9); g.fill(); g.stroke();
@@ -497,11 +546,11 @@ $('startBtn').onclick = () => { Kit.sfx('tap'); newGame(); };
 Kit.bar({ id: 'onigokko', title: '🏃 おにごっこ', help: `
   <p>つのが はえているのが <b>おに</b>。スティックで にげたり おいかけたり！</p>
   <ul>
-    <li><b>ふつう</b>：タッチで おに交代。おにだった時間が いちばん少ない人の勝ち。</li>
+    <li><b>ふつう</b>：タッチで おに交代。おにを わたした人は 3びょう ダッシュ💨。あたまの上の「○い・おに○びょう」を見て、だれを ねらうか きめよう。おにだった時間が いちばん少ない人の勝ち。</li>
     <li><b>こおりおに</b>：タッチされると こおる。なかまに タッチしてもらうと とける。</li>
     <li><b>ふえおに</b>：タッチされると おにが ふえる。さいごまで にげきろう。</li>
   </ul>
-  <p>⚡を とると 3びょう はやくなる。1台で4人まで あそべるよ（画面を分けて、それぞれのところを さわってうごかす）。</p>` });
+  <p>⚡を とると 3びょう はやくなる。ちゃいろの <b>ぬかるみ</b>は おそく、みずいろの <b>かぜのみち</b>は はやく うごけるよ。1台で4人まで あそべるよ（画面を分けて、それぞれのところを さわってうごかす）。</p>` });
 renderSetup();
 resize();
 </script>
