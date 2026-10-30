@@ -19,6 +19,8 @@
   .stepper button { height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); font-size: 1.3rem; cursor: pointer; touch-action: manipulation; }
   .stepper .val { text-align: center; font-family: var(--display); font-size: 2rem; font-variant-numeric: tabular-nums; }
   .stepper .val small { font-size: .5em; color: var(--muted); margin-left: 2px; }
+  .stepper .val input { width: 3.2ch; font: inherit; text-align: right; color: inherit; background: transparent; border: 0; border-bottom: 1px dashed var(--line); padding: 0; }
+  .stepper .val input:focus { outline: none; border-bottom-color: var(--ink); }
   .seg { display: flex; flex-wrap: wrap; gap: 6px; }
   .seg .k-chip { min-height: 38px; padding: 4px 12px; font-size: .9rem; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -124,10 +126,18 @@ function render() {
   const P = plan();
   app.innerHTML = '';
   const form = Kit.el('<div class="k-card k-stack"></div>');
-  const st = Kit.el(`<div class="stepper"><button aria-label="減らす">−</button><div class="val">${S.beans}<small>g</small></div><button aria-label="増やす">＋</button></div>`);
+  const st = Kit.el(`<div class="stepper"><button aria-label="減らす">−</button><label class="val"><input type="text" inputmode="numeric" pattern="[0-9]*" value="${S.beans}" aria-label="豆の量（g）"><small>g</small></label><button aria-label="増やす">＋</button></div>`);
   const [minus, , plus] = st.children;
   const bump = d => { S.beans = Kit.clamp(S.beans + d, 8, 60); save(); render(); };
   minus.onclick = () => bump(-1); plus.onclick = () => bump(1);
+  const inp = st.querySelector('input');
+  inp.onfocus = () => inp.select();
+  inp.onkeydown = e => { if (e.key === 'Enter') inp.blur(); };
+  inp.onchange = () => {
+    const v = parseInt(inp.value.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)), 10);
+    if (!Number.isNaN(v)) S.beans = Kit.clamp(v, 8, 60);
+    save(); render();
+  };
   form.appendChild(field('豆の量', st, `お湯 ${P.water}g ・ できあがり約 ${Math.round(P.water - S.beans * 2)}ml（${Math.max(1, Math.round((P.water - S.beans * 2) / 150))}杯ぶん）`));
   form.appendChild(field('豆とお湯の比率', seg([[13, '1:13'], [14, '1:14'], [15, '1:15（基本）'], [16, '1:16'], [17, '1:17']], S.ratio, v => S.ratio = v)));
   const two = Kit.el('<div class="k-stack"></div>');
