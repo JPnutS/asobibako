@@ -1,5 +1,5 @@
 /* オフライン用：はじめに全部をキャッシュし、その後は「キャッシュ→裏で更新」 */
-const VERSION = 'asobibako-v21';
+const VERSION = 'asobibako-v22';
 importScripts('common/games.js', 'tools/items.js');
 const CORE = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png',
   'common/kit.css', 'common/kit.js', 'common/games.js', 'common/vendor/three.module.min.js',
