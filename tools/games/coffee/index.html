@@ -85,7 +85,7 @@ Kit.bar({ id: 'coffee', title: 'コーヒー 4:6', help: `
 
 const $ = id => document.getElementById(id);
 const app = $('app');
-const S = Object.assign({ beans: 20, ratio: 15, taste: 'std', strength: 3, roast: 'mid', bgm: true }, Kit.store.get('coffee:s', {}));
+const S = Object.assign({ beans: 20, ratio: 15, taste: 'std', strength: 3, bgm: true }, Kit.store.get('coffee:s', {}));
 const save = () => Kit.store.set('coffee:s', S);
 
 const TASTE = { sweet: [5, 7], std: [6, 6], bright: [7, 5] };           // 40% の分け方（12分の）
@@ -134,8 +134,9 @@ function render() {
   two.appendChild(field('味（最初の40%）', seg([['sweet', '甘め'], ['std', 'バランス'], ['bright', '明るい酸味']], S.taste, v => S.taste = v)));
   two.appendChild(field('濃さ（残りの60%）', seg([[1, 'すっきり'], [2, 'やや軽め'], [3, '標準'], [4, '濃いめ']], S.strength, v => S.strength = v)));
   form.appendChild(two);
-  form.appendChild(field('焙煎', seg(Object.entries(ROAST).map(([k, [l, t]]) => [k, `${l} ${t}℃`]), S.roast, v => S.roast = v), 'お湯の温度のめやすです。'));
-  form.appendChild(field('タイマー中のBGM', seg([[true, 'オン'], [false, 'オフ']], S.bgm, v => S.bgm = v), '注ぐ合図やカウントダウンの音とは別に、BGMだけを切り替えられます。'));
+  const go = Kit.el('<button class="k-btn is-sun is-big" id="go">タイマーをはじめる</button>');
+  go.onclick = () => run(P);
+  form.appendChild(go);
   app.appendChild(form);
 
   const out = Kit.el('<div class="k-card k-stack"></div>');
@@ -143,7 +144,6 @@ function render() {
     <div class="sum">
       <div><span>豆</span><b>${S.beans}g</b></div>
       <div><span>お湯</span><b>${P.water}g</b></div>
-      <div><span>温度</span><b>${ROAST[S.roast][1]}℃</b></div>
       <div><span>時間</span><b>${mmss(P.endT)}</b></div>
     </div>
     <div class="stack">${P.pours.map(p => `<i class="${p.kind === 'body' ? 'b' : 'a'}" style="flex:${p.w}"></i>`).join('')}</div>
@@ -154,7 +154,7 @@ function render() {
         <span class="to">${p.to}<small>gまで</small></span></div>`).join('')}
       <div class="pour end"><span class="t">${mmss(P.endT)}</span><span class="w"><b>ドリッパーを外す</b><small>落ちきるまで待つ</small></span><span></span></div>
     </div>
-    <button class="k-btn is-sun is-big" id="go">タイマーをはじめる</button>
+    <p class="note">お湯の温度のめやす：${Object.values(ROAST).map(([l, t]) => `${l} ${t}℃`).join(' ・ ')}</p>
     <details class="how"><summary>4:6メソッドについて</summary>
       <p>お湯を「40%」と「60%」に分けて考える淹れ方です。前半の2回で味の方向を、後半の回数で濃さを調整します。</p>
       <p>${TASTE_L[S.taste]}：最初の${P.first}gを ${P.pours[0].w}g → ${P.pours[1].w}g で注ぎます。${S.taste === 'sweet' ? '1回目を少なくすると甘みが出やすくなります。' : S.taste === 'bright' ? '1回目を多くすると酸味が明るく出ます。' : '同じ量ずつで、甘さと酸味のバランス型です。'}</p>
@@ -162,7 +162,6 @@ function render() {
       <p class="note">各回、前のお湯がだいたい落ちてから次を注ぎます。落ちるのが速すぎる時は細かめ、遅すぎる時は粗めに挽き目を調整してください。</p>
     </details>`;
   app.appendChild(out);
-  $('go').onclick = () => run(P);
 }
 
 /* ---------- BGM（ゆったりしたコード進行。効果音とは別にオン・オフ） ---------- */
