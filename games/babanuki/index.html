@@ -50,11 +50,12 @@
   <section id="menu" class="k-card k-stack">
     <h2>あそびかた</h2>
     <div class="k-chips" id="optRule"></div>
-    <span class="k-label">あいて（CPU）の人数</span>
+    <div class="k-chips" id="optWhere"></div>
+    <span class="k-label" id="cpuLabel">あいて（CPU）の人数</span>
     <div class="k-chips" id="optCpu"></div>
     <span class="k-label">CPUのはやさ</span>
     <div class="k-chips" id="optSpeed"></div>
-    <span class="k-label">あなたのなまえ</span>
+    <span class="k-label" id="nameLabel">あなたのなまえ</span>
     <input class="k-input" id="myName" maxlength="10">
     <button class="k-btn is-sun is-big" id="go">くばる</button>
   </section>
@@ -73,6 +74,7 @@
 </main>
 
 <script src="../../common/kit.js"></script>
+<script src="../../common/net.js"></script>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
@@ -80,10 +82,17 @@ const CPU = [
   { name: 'クマさん', face: '🐻' }, { name: 'ウサギさん', face: '🐰' }, { name: 'ネコさん', face: '🐱' },
   { name: 'パンダさん', face: '🐼' }, { name: 'カエルさん', face: '🐸' },
 ];
-const O = Object.assign({ rule: 'baba', cpus: 3, speed: 2, name: 'あなた' }, Kit.store.get('baba:opts', {}));
+const O = Object.assign({ rule: 'baba', cpus: 3, speed: 2, name: 'あなた', where: 'local', netCpus: 0 }, Kit.store.get('baba:opts', {}));
+const FACES = ['😀', '😎', '🤠', '🥳', '🤩', '😺'];
 const SUITS = [['♠', 0], ['♥', 1], ['♦', 1], ['♣', 0]];
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 let P = [], turn = 0, gen = 0, finishOrder = [], lastDrawn = null, selected = null, hidden = null, over = false;
+/* オンライン：全員がおなじ乱数でおなじように配る。ME はこの端末の人の席。
+   手札の「ならび」は全員でそろえておき（引くときは何まいめかを送る）、自分の画面だけ viewHand のじゅんばんで見せる */
+let room = null, ME = 0, viewHand = [];
+const R = () => (room ? room.rng : Math.random);
+const mix = a => (room ? Net.shuffleWith(room.rng, a) : Kit.shuffle(a));
+const net = () => !!room;
 
 function chips(root, list, get, set) {
   root.innerHTML = '';
@@ -94,18 +103,25 @@ function chips(root, list, get, set) {
 }
 function renderMenu() {
   chips($('optRule'), [['baba', '🃏 ババぬき'], ['jiji', '👴 ジジぬき']], () => O.rule, v => O.rule = v);
-  chips($('optCpu'), [1, 2, 3, 4, 5].map(n => [n, `${n}人`]), () => O.cpus, v => O.cpus = v);
+  chips($('optWhere'), [['local', '📱 CPUと'], ['net', '📡 オンライン']], () => O.where, v => O.where = v);
+  const online = O.where === 'net';
+  $('cpuLabel').textContent = online ? 'CPUもいれる？' : 'あいて（CPU）の人数';
+  if (online) chips($('optCpu'), [0, 1, 2, 3].map(n => [n, n ? `${n}人` : 'いれない']), () => O.netCpus, v => O.netCpus = v);
+  else chips($('optCpu'), [1, 2, 3, 4, 5].map(n => [n, `${n}人`]), () => O.cpus, v => O.cpus = v);
+  $('nameLabel').hidden = $('myName').hidden = online;
+  $('go').textContent = online ? 'へやへ' : 'くばる';
   chips($('optSpeed'), [[1, 'ゆっくり'], [2, 'ふつう'], [3, 'はやい']], () => O.speed, v => O.speed = v);
   $('myName').value = O.name;
 }
 const wait = () => [0, 1300, 850, 450][O.speed];
+const mine = () => P[ME];
 
 /* ---------- カード ---------- */
 function deck() {
   const d = [];
   SUITS.forEach(([s, red]) => RANKS.forEach(r => d.push({ r, s, red, id: `${s}${r}` })));
   if (O.rule === 'baba') d.push({ r: 'JOKER', s: '', red: 0, id: 'joker', joker: true });
-  return Kit.shuffle(d);
+  return mix(d);
 }
 function cardHTML(c, tag = 'div', extra = '') {
   if (c.joker) return `<${tag} class="card joker ${extra}" data-id="${c.id}" aria-label="ジョーカー">🤡</${tag}>`;
@@ -121,18 +137,28 @@ function removePairs(hand) {
 
 function start() {
   gen++; over = false; finishOrder = []; lastDrawn = null; selected = null;
-  O.name = $('myName').value.trim() || 'あなた';
-  Kit.store.set('baba:opts', O);
-  P = [{ name: O.name, face: '😀', me: true, hand: [] }]
-    .concat(Kit.shuffle(CPU).slice(0, O.cpus).map(c => ({ ...c, hand: [] })));
+  if (room) {
+    ME = room.me;
+    const cpus = Math.min(room.opts.cpus, 6 - room.players.length);
+    P = room.players.map((pl, i) => ({ name: pl.name, face: FACES[i], me: i === ME, human: true, hand: [] }))
+      .concat(mix(CPU).slice(0, cpus).map(c => ({ ...c, hand: [] })));
+    $('meName').textContent = P[ME].name;
+  } else {
+    ME = 0;
+    O.name = $('myName').value.trim() || 'あなた';
+    Kit.store.set('baba:opts', O);
+    P = [{ name: O.name, face: '😀', me: true, hand: [] }]
+      .concat(Kit.shuffle(CPU).slice(0, O.cpus).map(c => ({ ...c, hand: [] })));
+    $('meName').textContent = O.name;
+  }
   let d = deck();
   if (O.rule === 'jiji') { hidden = d.pop(); } else hidden = null;
   d.forEach((c, i) => P[i % P.length].hand.push(c));
-  P.forEach(p => { p.hand = removePairs(p.hand).keep; p.done = false; if (!p.me) p.hand = Kit.shuffle(p.hand); });
+  P.forEach(p => { p.hand = removePairs(p.hand).keep; p.done = false; if (!p.me || room) p.hand = mix(p.hand); });
+  viewHand = mine().hand.slice();
   sortMine();
   $('menu').hidden = true; $('game').hidden = false;
-  $('meName').textContent = O.name;
-  turn = Kit.randInt(0, P.length - 1);
+  turn = Math.floor(R()() * P.length);
   P.forEach(checkDone);
   render();
   Kit.sfx('whoosh');
@@ -140,7 +166,14 @@ function start() {
 }
 function sortMine() {
   const order = r => r === 'JOKER' ? 99 : RANKS.indexOf(r);
-  P[0].hand.sort((a, b) => order(a.r) - order(b.r));
+  shown().sort((a, b) => order(a.r) - order(b.r));
+}
+/* 自分の画面に出す手札（オンラインでは、ならびを自分だけでかえられる） */
+function shown() {
+  if (!room) return P[0].hand;
+  const h = mine().hand;
+  viewHand = viewHand.filter(c => h.includes(c)).concat(h.filter(c => !viewHand.includes(c)));
+  return viewHand;
 }
 function active() { return P.filter(p => !p.done); }
 function nextActive(i) { for (let k = 1; k <= P.length; k++) { const j = (i + k) % P.length; if (!P[j].done) return j; } return -1; }
@@ -151,17 +184,17 @@ function checkDone(p) {
 /* ---------- 画面 ---------- */
 function render(sayHTML) {
   const target = P[turn] && !P[turn].done ? nextActive(turn) : -1;
-  $('opps').innerHTML = P.slice(1).map((p, k) => {
-    const i = k + 1, rank = finishOrder.indexOf(p);
-    return `<div class="opp ${i === turn && !over ? 'turn' : ''} ${i === target && turn === 0 && !over ? 'target' : ''} ${p.done ? 'done' : ''}">
+  $('opps').innerHTML = P.map((_, k) => (ME + k) % P.length).slice(1).map(i => {
+    const p = P[i], rank = finishOrder.indexOf(p);
+    return `<div class="opp ${i === turn && !over ? 'turn' : ''} ${i === target && turn === ME && !over ? 'target' : ''} ${p.done ? 'done' : ''}">
       <div class="face">${p.face}</div><div class="nm">${Kit.esc(p.name)}</div>
       ${rank >= 0 ? `<span class="rank">${rank + 1}ばん</span>` : `<div class="mini">${'<i></i>'.repeat(Math.min(p.hand.length, 8))}</div><span class="k-num">${p.hand.length}まい</span>`}
     </div>`;
   }).join('');
-  const mine = P[0];
-  $('myCount').textContent = mine.hand.length;
-  $('hand').innerHTML = mine.hand.map(c => cardHTML(c, 'div', c === lastDrawn ? 'new' : '')).join('') ||
-    `<p style="margin:0">${finishOrder.indexOf(mine) >= 0 ? `🎉 ${finishOrder.indexOf(mine) + 1}ばんであがり！` : ''}</p>`;
+  const me = mine();
+  $('myCount').textContent = me.hand.length;
+  $('hand').innerHTML = shown().map(c => cardHTML(c, 'div', c === lastDrawn ? 'new' : '')).join('') ||
+    `<p style="margin:0">${finishOrder.indexOf(me) >= 0 ? `🎉 ${finishOrder.indexOf(me) + 1}ばんであがり！` : ''}</p>`;
   if (sayHTML !== undefined) $('zone').innerHTML = sayHTML;
 }
 
@@ -171,7 +204,9 @@ function nextTurn(first) {
   if (!first) turn = nextActive(turn);
   else if (P[turn].done) turn = nextActive(turn);
   const from = nextActive(turn);
-  if (P[turn].me) myTurn(from); else cpuTurn(from);
+  if (P[turn].me) myTurn(from);
+  else if (room && (P[turn].human || !room.isHost)) remoteTurn(from);   // CPUはへやを作った人の端末が動かす
+  else cpuTurn(from);
 }
 
 function myTurn(from) {
@@ -183,8 +218,10 @@ function myTurn(from) {
     const b = e.target.closest('button.card'); if (!b || my !== gen) return;
     $('pickFan').onclick = null;
     b.classList.add('picked'); Kit.sfx('pop');
-    const card = src.hand.splice(+b.dataset.i, 1)[0];
-    setTimeout(() => { if (my === gen) receive(0, card, from); }, 350);
+    const i = +b.dataset.i;
+    if (room) room.move({ i });
+    const card = src.hand.splice(i, 1)[0];
+    setTimeout(() => { if (my === gen) receive(ME, card, from); }, 350);
   };
 }
 function cpuTurn(from) {
@@ -194,14 +231,33 @@ function cpuTurn(from) {
     ${fromMe ? '' : `<div class="fan">${src.hand.map(() => '<div class="card back" style="width:40px"></div>').join('')}</div>`}`);
   const i = Kit.randInt(0, src.hand.length - 1);
   if (fromMe) {
-    const el = $('hand').children[i]; if (el) el.classList.add('picked');
+    const el = $('hand').querySelector(`[data-id="${src.hand[i].id}"]`); if (el) el.classList.add('picked');
   }
   setTimeout(() => {
     if (my !== gen) return;
-    const card = src.hand.splice(i, 1)[0];
-    if (fromMe) { Kit.sfx(card.joker ? 'good' : 'bad'); Kit.toast(card.joker ? `${me.name}がジョーカーを引いた！` : `${me.name}に ${card.s}${card.r} を取られた`); }
-    receive(turn, card, from);
+    if (room) room.move({ i });
+    take(i, from);
   }, wait());
+}
+/* ほかの人（オンライン）が引くのを待つ */
+function remoteTurn(from) {
+  const src = P[from], me = P[turn], my = gen;
+  const fromMe = src.me;
+  render(`<div class="say">${me.face} ${Kit.esc(me.name)}が ${fromMe ? 'あなた' : Kit.esc(src.name)} から引くよ…</div>
+    ${fromMe ? '' : `<div class="fan">${src.hand.map(() => '<div class="card back" style="width:40px"></div>').join('')}</div>`}`);
+  room.next().then(m => {
+    if (my !== gen) return;
+    if (fromMe) {
+      const el = $('hand').querySelector(`[data-id="${src.hand[m.i].id}"]`); if (el) el.classList.add('picked');
+      setTimeout(() => { if (my === gen) take(m.i, from); }, 450);
+    } else take(m.i, from);
+  });
+}
+function take(i, from) {
+  const src = P[from], me = P[turn];
+  const card = src.hand.splice(i, 1)[0];
+  if (src.me) { Kit.sfx(card.joker ? 'good' : 'bad'); Kit.toast(card.joker ? `${me.name}がジョーカーを引いた！` : `${me.name}に ${card.s}${card.r} を取られた`); }
+  receive(turn, card, from);
 }
 function receive(i, card, from) {
   const p = P[i];
@@ -209,13 +265,14 @@ function receive(i, card, from) {
   if (pair) p.hand = p.hand.filter(c => c !== pair); else p.hand.push(card);
   if (p.me) {
     lastDrawn = pair ? null : card;
+    if (room && !pair) p.hand = mix(p.hand);
     sortMine();
     render(pair
       ? `<div class="say">${cardHTML(card)}</div><div class="say">ペアができた！ 2まいすてたよ</div>`
       : `<div class="say">${cardHTML(card)}</div><div class="say">${card.joker ? 'ジョーカーを引いちゃった…' : 'ペアはなかった'}</div>`);
     Kit.sfx(pair ? 'good' : card.joker ? 'bad' : 'tap');
   } else {
-    if (!pair) p.hand = Kit.shuffle(p.hand);
+    if (!pair) p.hand = mix(p.hand);
     if (pair) Kit.sfx('select');
     render();
   }
@@ -224,14 +281,17 @@ function receive(i, card, from) {
   const my = gen;
   setTimeout(() => { if (my === gen) nextTurn(false); }, p.me ? 1100 : 300);
 }
-$('shuffle').onclick = () => { P[0].hand = Kit.shuffle(P[0].hand); lastDrawn = null; Kit.sfx('whoosh'); render(); };
+$('shuffle').onclick = () => {
+  if (room) viewHand = Kit.shuffle(shown()); else P[0].hand = Kit.shuffle(P[0].hand);
+  lastDrawn = null; Kit.sfx('whoosh'); render();
+};
 
 function endGame() {
   over = true; gen++;
   const loser = active()[0];
   if (loser) finishOrder.push(loser);
   render('');
-  const myRank = finishOrder.indexOf(P[0]) + 1;
+  const myRank = finishOrder.indexOf(mine()) + 1;
   const iLost = loser && loser.me;
   if (myRank === 1) Kit.addWin('babanuki');
   iLost ? Kit.sfx('lose') : (Kit.sfx('win'), Kit.confetti());
@@ -240,17 +300,30 @@ function endGame() {
     title: iLost ? 'ざんねん…さいごまでのこっちゃった' : myRank === 1 ? '1ばんであがり！🎉' : `${myRank}ばんであがり！`,
     body: `<ol>${finishOrder.map(p => `<li>${p.face} ${Kit.esc(p.name)}</li>`).join('')}</ol>
       ${O.rule === 'jiji' && hidden ? `<p>かくれていたカード：</p><div style="display:flex;gap:8px">${cardHTML(hidden)}${last ? cardHTML(last) : ''}</div><p>この${hidden.r}がジジでした！</p>` : ''}`,
-    actions: [{ label: 'せってい', onClick: () => { $('game').hidden = true; $('menu').hidden = false; renderMenu(); } }, { label: 'もう一回', primary: true, onClick: start }],
+    actions: [{ label: 'せってい', onClick: leaveNet }, { label: 'もう一回', primary: true, onClick: () => (room ? room.again() : start()) }],
     dismissable: false,
   });
 }
-$('go').onclick = start;
+$('go').onclick = () => {
+  if (O.where !== 'net') return start();
+  Kit.store.set('baba:opts', O); Kit.sfx('select'); openNet();
+};
+function openNet(joinCode) {
+  Net.open({
+    game: 'babanuki', min: 2, max: 6, joinCode, opts: () => ({ rule: O.rule, speed: O.speed, cpus: O.netCpus }),
+    onStart(r) { room = r; O.rule = r.opts.rule; O.speed = r.opts.speed; start(); },
+    onLeave: leaveNet,
+  });
+}
+function leaveNet() { if (room) room.close(); room = null; gen++; $('game').hidden = true; $('menu').hidden = false; renderMenu(); }
 
 Kit.bar({ id: 'babanuki', title: '🃏 ババぬき', help: `
   <p>となりの人から1まいずつカードを引きます。同じ数字が2まいそろったら、すてられます。</p>
   <p>はやく手札がなくなった人からあがり。<b>ババぬき</b>はジョーカーをさいごまで持っていた人の負け。</p>
-  <p><b>ジジぬき</b>はジョーカーなし。はじめに1まいだけ、だれにも見えないようにかくします。そのペアのカード（ジジ）がどれかは、さいごまでわかりません。</p>` });
+  <p><b>ジジぬき</b>はジョーカーなし。はじめに1まいだけ、だれにも見えないようにかくします。そのペアのカード（ジジ）がどれかは、さいごまでわかりません。</p>
+  <p>📡 <b>オンライン</b>：べつのスマホやタブレットで2〜6人。ひとりが「へやをつくる」、ほかの人は そのばんごうで「へやにはいる」。自分の手札は自分の画面にだけ出ます。</p>` });
 renderMenu();
+{ const jc = Net.joinCode(); if (jc) { O.where = 'net'; renderMenu(); openNet(jc); } }
 </script>
 </body>
 </html>
