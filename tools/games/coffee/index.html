@@ -35,11 +35,12 @@
   .stack .a { background: var(--sweet); } .stack .b { background: var(--body); }
   .legend { display: flex; justify-content: space-between; font-size: .76rem; color: var(--muted); }
   .plan { display: grid; gap: 6px; }
-  .pour { display: grid; grid-template-columns: 52px 1fr auto; gap: 12px; align-items: center; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+  .pour { display: grid; grid-template-columns: 44px 1fr auto; gap: 10px; align-items: center; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
   .pour .t { font-variant-numeric: tabular-nums; color: var(--muted); font-size: .9rem; }
-  .pour .w { display: grid; }
-  .pour .w b { font-size: 1.05rem; }
-  .pour .w small { color: var(--muted); font-size: .78rem; }
+  .pour .w { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; }
+  .pour .w b { font-size: 1.3rem; white-space: nowrap; }
+  .pour .w small { color: var(--muted); font-size: .9rem; white-space: nowrap; }
+  .pour.end .w b { font-size: 1.1rem; }
   .pour .to { font-family: var(--display); font-size: 1.5rem; font-variant-numeric: tabular-nums; }
   .pour .to small { font-size: .5em; color: var(--muted); }
   .pour.p1, .pour.p2 { border-left: 4px solid var(--sweet); }
@@ -160,7 +161,7 @@ function render() {
     <div class="legend"><span>味 ${P.first}g（${TASTE_L[S.taste]}）</span><span>濃さ ${P.rest}g（${S.strength}回・${STRENGTH_L[S.strength]}）</span></div>
     <div class="plan">${P.pours.map(p => `
       <div class="pour ${p.kind === 'body' ? 'body' : p.kind}"><span class="t">${mmss(p.t)}</span>
-        <span class="w"><b>${p.i + 1}投目　${p.w}g</b><small>${p.kind === 'body' ? '濃さ' : '味'}</small></span>
+        <span class="w"><b>${p.i + 1}投目 ${p.w}g</b><small>${p.kind === 'body' ? '濃さ' : '味'}</small></span>
         <span class="to">${p.to}<small>gまで</small></span></div>`).join('')}
       <div class="pour end"><span class="t">${mmss(P.endT)}</span><span class="w"><b>ドリッパーを外す</b><small>落ちきるまで待つ</small></span><span></span></div>
     </div>
@@ -234,7 +235,7 @@ function run(P) {
       <div class="in"><span class="lbl" id="lbl">準備ができたら</span><span class="big" id="big">${P.pours[0].to}<small>g</small></span><span class="sub" id="sub">スケールを0にしてスタート</span></div></div>
     <div class="next" id="next"></div>
     <div class="ctrl"><button class="k-btn is-sun is-big" id="start">スタート（1投目）</button><button class="k-chip" id="bgm"></button></div>
-    <div class="plan" id="plan" style="width:100%">${P.pours.map(p => `<div class="pour ${p.kind === 'body' ? 'body' : p.kind}" data-i="${p.i}"><span class="t">${mmss(p.t)}</span><span class="w"><b>${p.i + 1}投目　${p.w}g</b><small>${p.kind === 'body' ? '濃さ' : '味'}</small></span><span class="to">${p.to}<small>gまで</small></span></div>`).join('')}
+    <div class="plan" id="plan" style="width:100%">${P.pours.map(p => `<div class="pour ${p.kind === 'body' ? 'body' : p.kind}" data-i="${p.i}"><span class="t">${mmss(p.t)}</span><span class="w"><b>${p.i + 1}投目 ${p.w}g</b><small>${p.kind === 'body' ? '濃さ' : '味'}</small></span><span class="to">${p.to}<small>gまで</small></span></div>`).join('')}
       <div class="pour end" data-i="end"><span class="t">${mmss(P.endT)}</span><span class="w"><b>ドリッパーを外す</b><small>落ちきるまで待つ</small></span><span></span></div></div>
     <button class="k-btn is-small" id="back">設定に戻る</button></div>`;
   const now = () => (performance.now() - t0 - paused) / 1000;
