@@ -43,6 +43,24 @@
   @keyframes gone { to { transform: translateY(-30px) scale(.6); opacity: 0; } }
   .mine { background: var(--card); border: 3px solid var(--line); border-radius: 20px; padding: 10px; display: grid; gap: 8px; }
   .mine .k-row { justify-content: space-between; }
+  /* 心理戦 */
+  #hand .card.raised, #hand .card.pinch { z-index: 1; }
+  .card.raised { transform: translateY(-16px); box-shadow: 0 0 0 4px #fff, 0 0 18px 6px var(--sun), 0 4px 0 var(--line); }
+  .card.raised::before { content: "✨"; position: absolute; top: -14px; right: -10px; font-size: 1.1rem; }
+  .card.pinch::after { content: "👆"; position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%); font-size: 1.5rem; animation: poke .5s ease-in-out infinite alternate; }
+  .card.pinch { outline: 4px dashed #fff; outline-offset: 2px; }
+  @keyframes poke { to { transform: translate(-50%, -6px); } }
+  .fan.small .card { width: 40px; font-size: 1rem; }
+  .fan.small .card.raised::before { font-size: .8rem; top: -10px; right: -6px; }
+  .fan.small .card.pinch::after { font-size: 1.1rem; bottom: -14px; }
+  .psyrow { display: flex; align-items: center; gap: 8px; min-height: 48px; }
+  .psyrow .who { font-size: 2rem; }
+  .bubble { font-size: 2rem; background: #fff; border: 3px solid var(--line); border-radius: 18px; padding: 0 10px; min-width: 48px; text-align: center; opacity: 0; transform: scale(.4); transition: transform .2s cubic-bezier(.3, 1.6, .5, 1), opacity .2s; }
+  .bubble.on { opacity: 1; transform: none; }
+  .hint { font-size: .85rem; font-weight: 700; opacity: .85; text-align: center; }
+  .reacts .k-chip { font-size: 1.6rem; min-height: 52px; padding: 2px 14px; }
+  #pickFan { padding-bottom: 22px; }
+  #hand .card { cursor: default; }
 </style>
 </head>
 <body>
@@ -137,6 +155,7 @@ function removePairs(hand) {
 
 function start() {
   gen++; over = false; finishOrder = []; lastDrawn = null; selected = null;
+  tno = 0; cur = null; psy = { raised: null, pinch: null, react: null };
   if (room) {
     ME = room.me;
     const cpus = Math.min(room.opts.cpus, 6 - room.players.length);
@@ -196,7 +215,14 @@ function render(sayHTML) {
   $('hand').innerHTML = shown().map(c => cardHTML(c, 'div', c === lastDrawn ? 'new' : '')).join('') ||
     `<p style="margin:0">${finishOrder.indexOf(me) >= 0 ? `🎉 ${finishOrder.indexOf(me) + 1}ばんであがり！` : ''}</p>`;
   if (sayHTML !== undefined) $('zone').innerHTML = sayHTML;
+  paintPsy();
 }
+/* 自分が引かれる側のとき：タップした手札を「つきだす」（もう一度で もどす） */
+$('hand').onclick = e => {
+  const el = e.target.closest('.card');
+  if (!el || !cur || over || !P[cur.from].me) return;
+  Kit.sfx('tap'); signal('raised', psy.raised === el.dataset.id ? null : el.dataset.id);
+};
 
 function nextTurn(first) {
   if (over) return;
@@ -204,47 +230,146 @@ function nextTurn(first) {
   if (!first) turn = nextActive(turn);
   else if (P[turn].done) turn = nextActive(turn);
   const from = nextActive(turn);
+  cur = { from, to: turn };
+  if (brain() && !P[from].human && !P[from].me && (P[turn].me || P[turn].human)) cpuRaise(from);
   if (P[turn].me) myTurn(from);
   else if (room && (P[turn].human || !room.isHost)) remoteTurn(from);   // CPUはへやを作った人の端末が動かす
   else cpuTurn(from);
 }
 
+/* ---------- 心理戦 ----------
+   引かれる人：手札を1まいタップで「つきだす」（引いてほしいカードを目立たせる。ほんとうかウソかは自由）
+   引く人：1回めのタップで「つまむ」→ 引かれる人に見える → 引かれる人は顔で反応 → もう1回タップで引く */
+const REACTS = ['😊', '😱', '🤔', '😏'];
+let cur = null, psy = { raised: null, pinch: null, react: null }, tno = 0;
+const brain = () => !room || room.isHost;   // CPUを動かす端末
+function signal(k, v) {
+  psy[k] = v;
+  if (room) room.send({ t: 'psy', k, v, n: tno });
+  onPsy(k, true);
+}
+function onPsy(k, local) {
+  if (k === 'pinch') psy.react = null;   // つまみなおしたら、顔もリセット
+  if (!local) {
+    if (k === 'react' && psy.react) { Kit.sfx('pop'); }
+    if (k === 'pinch' && cur && P[cur.from].me) { Kit.sfx('tick'); Kit.vibrate(30); }
+    if (k === 'raised' && psy.raised && cur && P[cur.to].me) Kit.sfx('select');
+  }
+  // CPUが引かれる側：つままれたら顔で反応
+  if (k === 'pinch' && psy.pinch && cur && brain() && !P[cur.from].human && !P[cur.from].me) cpuReact();
+  paintPsy();
+}
+function cardOf(id) { return P[cur.from].hand.find(c => c.id === id); }
+function paintPsy() {
+  if (!cur || over) return;
+  const fan = $('pickFan') || $('zone').querySelector('.fan');
+  if (fan) fan.querySelectorAll('.card').forEach(el => {
+    const id = P[cur.from].hand[+el.dataset.i] && P[cur.from].hand[+el.dataset.i].id;
+    el.classList.toggle('raised', !!id && id === psy.raised);
+    el.classList.toggle('pinch', !!id && id === psy.pinch);
+  });
+  $('hand').querySelectorAll('.card').forEach(el => {
+    const isFrom = P[cur.from].me;
+    el.classList.toggle('raised', isFrom && el.dataset.id === psy.raised);
+    el.classList.toggle('pinch', isFrom && el.dataset.id === psy.pinch);
+  });
+  const bub = $('react');
+  if (bub) { bub.textContent = psy.react || ''; bub.classList.toggle('on', !!psy.react); }
+  document.querySelectorAll('#reacts button').forEach(b => b.setAttribute('aria-pressed', String(b.textContent === psy.react)));
+}
+function backsHTML(src, id, big) {
+  return `<div class="fan ${big ? '' : 'small'}" ${id ? `id="${id}"` : ''}>${src.hand.map((c, i) =>
+    big ? `<button class="card back" data-i="${i}" aria-label="${i + 1}まいめ"></button>` : `<div class="card back" data-i="${i}"></div>`).join('')}</div>`;
+}
+function zoneOthers(src, me) {
+  const fromMe = src.me;
+  render(`<div class="say">${me.face} ${Kit.esc(me.name)}が ${fromMe ? 'あなた' : Kit.esc(src.name)} から引くよ…</div>
+    ${fromMe
+      ? `<div class="hint">カードをタップで「つきだす」／顔でゆさぶろう</div>
+         <div class="k-chips reacts" id="reacts">${REACTS.map(e => `<button class="k-chip">${e}</button>`).join('')}</div>`
+      : `<div class="psyrow"><span class="who">${src.face}</span><span class="bubble" id="react"></span></div>${backsHTML(src, '', false)}`}`);
+  if (fromMe) $('reacts').onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    signal('react', psy.react === b.textContent ? null : b.textContent);
+  };
+  paintPsy();
+}
+
 function myTurn(from) {
   const src = P[from];
-  render(`<div class="say">⭐ あなたのばん：${Kit.esc(src.name)}から1まい引いてね</div>
-    <div class="fan" id="pickFan">${src.hand.map((c, i) => `<button class="card back" data-i="${i}" aria-label="${i + 1}まいめ"></button>`).join('')}</div>`);
+  render(`<div class="say">⭐ ${Kit.esc(src.name)}から1まい引いてね</div>
+    <div class="psyrow"><span class="who">${src.face}</span><span class="bubble" id="react"></span></div>
+    ${backsHTML(src, 'pickFan', true)}
+    <div class="hint">1回タップで つまむ → もう1回で引く</div>`);
+  paintPsy();
   const my = gen;
   $('pickFan').onclick = e => {
     const b = e.target.closest('button.card'); if (!b || my !== gen) return;
+    const i = +b.dataset.i, id = src.hand[i].id;
+    if (psy.pinch !== id) { Kit.sfx('tap'); signal('pinch', id); return; }
     $('pickFan').onclick = null;
     b.classList.add('picked'); Kit.sfx('pop');
-    const i = +b.dataset.i;
     if (room) room.move({ i });
-    const card = src.hand.splice(i, 1)[0];
-    setTimeout(() => { if (my === gen) receive(ME, card, from); }, 350);
+    setTimeout(() => { if (my === gen) take(i, from); }, 350);
   };
 }
-function cpuTurn(from) {
-  const src = P[from], me = P[turn], my = gen;
-  const fromMe = src.me;
-  render(`<div class="say">${me.face} ${Kit.esc(me.name)}が ${fromMe ? 'あなた' : Kit.esc(src.name)} から引くよ…</div>
-    ${fromMe ? '' : `<div class="fan">${src.hand.map(() => '<div class="card back" style="width:40px"></div>').join('')}</div>`}`);
-  const i = Kit.randInt(0, src.hand.length - 1);
-  if (fromMe) {
-    const el = $('hand').querySelector(`[data-id="${src.hand[i].id}"]`); if (el) el.classList.add('picked');
-  }
+/* CPUが引かれる側のとき：ジョーカーを持っていたら、つきだしてさそう（ウソのときもある） */
+function cpuRaise(from) {
+  const src = P[from], my = gen, n = tno;
+  const joker = src.hand.find(c => c.joker);
+  let pick = null;
+  const r = Math.random();
+  if (joker) pick = r < 0.45 ? joker : r < 0.65 ? Kit.pick(src.hand.filter(c => !c.joker)) : null;
+  else pick = r < 0.3 ? Kit.pick(src.hand) : null;
+  if (!pick) return;
+  setTimeout(() => { if (my === gen && n === tno && !psy.raised) signal('raised', pick.id); }, Kit.rand(400, 1200));
+}
+function cpuReact() {
+  const my = gen, n = tno, id = psy.pinch;
   setTimeout(() => {
-    if (my !== gen) return;
-    if (room) room.move({ i });
-    take(i, from);
-  }, wait());
+    if (my !== gen || n !== tno || psy.pinch !== id) return;
+    const c = cardOf(id); if (!c) return;
+    const w = c.joker ? [['😊', .45], ['😏', .2], ['😱', .2], [null, .15]] : [['😱', .4], ['🤔', .25], ['😊', .15], [null, .2]];
+    let r = Math.random(), e = null;
+    for (const [k, p] of w) { if ((r -= p) < 0) { e = k; break; } }
+    signal('react', e);
+  }, Kit.rand(250, 600));
+}
+/* CPUが引く側：つまんで、相手の顔を見て、引く（または持ちかえる） */
+function cpuTurn(from) {
+  const src = P[from], me = P[turn], my = gen, n = tno;
+  zoneOthers(src, me);
+  const ok = () => my === gen && n === tno && !over;
+  const idx = id => src.hand.findIndex(c => c.id === id);
+  setTimeout(() => {
+    if (!ok()) return;
+    let i = psy.raised && Math.random() < 0.45 ? idx(psy.raised) : Kit.randInt(0, src.hand.length - 1);
+    if (i < 0) i = Kit.randInt(0, src.hand.length - 1);
+    signal('pinch', src.hand[i].id);
+    setTimeout(() => {
+      if (!ok()) return;
+      const face = psy.react;
+      const keep = face === '😱' ? 0.65 : face === '😊' ? 0.45 : face === '😏' ? 0.5 : 0.8;
+      if (src.hand.length > 1 && Math.random() > keep) {
+        const others = src.hand.map((_, k) => k).filter(k => k !== i);
+        i = Kit.pick(others);
+        signal('pinch', src.hand[i].id);
+      }
+      setTimeout(() => {
+        if (!ok()) return;
+        const el = src.me ? $('hand').querySelector(`[data-id="${src.hand[i].id}"]`) : null;
+        if (el) el.classList.add('picked');
+        if (room) room.move({ i });
+        setTimeout(() => { if (ok()) take(i, from); }, src.me ? 350 : 0);
+      }, 450);
+    }, wait() + 500);
+  }, 500 + wait() / 2);
 }
 /* ほかの人（オンライン）が引くのを待つ */
 function remoteTurn(from) {
   const src = P[from], me = P[turn], my = gen;
   const fromMe = src.me;
-  render(`<div class="say">${me.face} ${Kit.esc(me.name)}が ${fromMe ? 'あなた' : Kit.esc(src.name)} から引くよ…</div>
-    ${fromMe ? '' : `<div class="fan">${src.hand.map(() => '<div class="card back" style="width:40px"></div>').join('')}</div>`}`);
+  zoneOthers(src, me);
   room.next().then(m => {
     if (my !== gen) return;
     if (fromMe) {
@@ -256,6 +381,7 @@ function remoteTurn(from) {
 function take(i, from) {
   const src = P[from], me = P[turn];
   const card = src.hand.splice(i, 1)[0];
+  tno++; psy = { raised: null, pinch: null, react: null }; cur = null;
   if (src.me) { Kit.sfx(card.joker ? 'good' : 'bad'); Kit.toast(card.joker ? `${me.name}がジョーカーを引いた！` : `${me.name}に ${card.s}${card.r} を取られた`); }
   receive(turn, card, from);
 }
@@ -311,7 +437,11 @@ $('go').onclick = () => {
 function openNet(joinCode) {
   Net.open({
     game: 'babanuki', min: 2, max: 6, joinCode, opts: () => ({ rule: O.rule, speed: O.speed, cpus: O.netCpus }),
-    onStart(r) { room = r; O.rule = r.opts.rule; O.speed = r.opts.speed; start(); },
+    onStart(r) {
+      room = r; O.rule = r.opts.rule; O.speed = r.opts.speed;
+      r.onMessage = msg => { if (msg.t === 'psy' && msg.n === tno && !over) { psy[msg.k] = msg.v; onPsy(msg.k, false); } };
+      start();
+    },
     onLeave: leaveNet,
   });
 }
@@ -321,6 +451,7 @@ Kit.bar({ id: 'babanuki', title: '🃏 ババぬき', help: `
   <p>となりの人から1まいずつカードを引きます。同じ数字が2まいそろったら、すてられます。</p>
   <p>はやく手札がなくなった人からあがり。<b>ババぬき</b>はジョーカーをさいごまで持っていた人の負け。</p>
   <p><b>ジジぬき</b>はジョーカーなし。はじめに1まいだけ、だれにも見えないようにかくします。そのペアのカード（ジジ）がどれかは、さいごまでわかりません。</p>
+  <p>🎭 <b>心理戦</b>：引かれる人は、手札をタップして1まい「つきだす」ことができます（ほんとうに引いてほしいカードか、ワナかは自由）。引く人は1回タップで「つまむ」、もう1回で引きます。つままれた人は 😊😱🤔😏 で反応して、ゆさぶろう！</p>
   <p>📡 <b>オンライン</b>：べつのスマホやタブレットで2〜6人。ひとりが「へやをつくる」、ほかの人は そのばんごうで「へやにはいる」。自分の手札は自分の画面にだけ出ます。</p>` });
 renderMenu();
 { const jc = Net.joinCode(); if (jc) { O.where = 'net'; renderMenu(); openNet(jc); } }
