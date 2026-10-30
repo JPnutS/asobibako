@@ -31,6 +31,7 @@
 <main class="k-wrap" id="menu">
   <div class="k-card k-stack">
     <h2>だれがあそぶ？</h2>
+    <div class="k-chips" id="optWhere"></div>
     <div class="k-stack" id="slots"></div>
   </div>
   <div class="k-card k-stack">
@@ -53,17 +54,23 @@
 </section>
 
 <script src="../../common/kit.js"></script>
+<script src="../../common/net.js"></script>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
 const FACES = ['🦊', '🐧', '🐯', '🐙'];
 const COLS = ['#ff8a3d', '#3d8bff', '#ffc93c', '#9b6bff'];
 const KINDS = [['off', 'なし'], ['human', 'ひと'], ['cpu1', 'CPU よわい'], ['cpu2', 'CPU ふつう'], ['cpu3', 'CPU つよい']];
-const O = Object.assign({ slots: ['human', 'cpu2', 'off', 'off'], quota: 2, size: 2 }, Kit.store.get('sand:opts', {}));
+const O = Object.assign({ slots: ['human', 'cpu2', 'off', 'off'], quota: 2, size: 2, where: 'local' }, Kit.store.get('sand:opts', {}));
 let wins = [0, 0, 0, 0];
 
 function renderMenu() {
-  const wrap = $('slots'); wrap.innerHTML = '';
+  const where = $('optWhere'); where.innerHTML = '';
+  [['local', '📱 この端末で'], ['net', '📡 オンライン']].forEach(([v, l]) => {
+    const b = Kit.el(`<button class="k-chip" aria-pressed="${O.where === v}">${l}</button>`);
+    b.onclick = () => { O.where = v; Kit.sfx('select'); renderMenu(); }; where.appendChild(b);
+  });
+  const wrap = $('slots'); wrap.innerHTML = ''; wrap.hidden = O.where === 'net';
   O.slots.forEach((k, i) => {
     const row = Kit.el(`<div class="slot"><span class="mark" style="background:${COLS[i]}">${FACES[i]}</span><div class="k-chips"></div></div>`);
     KINDS.forEach(([v, l]) => {
@@ -83,9 +90,17 @@ function renderMenu() {
 const CW = 3;              // 1列のはば(px)
 let W, H, g, ground, h = [], n, flagC, flagStart, P, cur, removed, quota, over, gen = 0, cpuPos = null, pointer = null, flagTilt = 0, flagFall = 0, grains = [];
 let FALL = 30;             // はたの下がこれだけへったらたおれる
+/* オンライン：山の大きさを全員そろえる（480×360 を画面に合わせて拡大）。けずっている人の端末が、山のようすを送る */
+let room = null, view = { s: 1, ox: 0, oy: 0, cw: 0, ch: 0 }, remotePos = null, sendT = 0;
+const mine = p => p.k === 'human' || (p.k === 'net' && p.i === room.me);
+const pack = a => a.map(v => Math.round(v * 10));
+const unpack = a => a.map(v => v / 10);
 
 function setupWorld() {
-  ({ w: W, h: H, g } = Kit.fitCanvas($('cv')));
+  const fit = Kit.fitCanvas($('cv'));
+  g = fit.g; view.cw = fit.w; view.ch = fit.h;
+  if (room) { W = 480; H = 360; view.s = Math.min(fit.w / W, fit.h / H); view.ox = (fit.w - W * view.s) / 2; view.oy = fit.h - H * view.s; }
+  else { W = fit.w; H = fit.h; view.s = 1; view.ox = view.oy = 0; }
   ground = H - 18;
   n = Math.ceil(W / CW);
   // 安息角より少しゆるい円すい形にして、はじめは自然にくずれないようにする
@@ -136,15 +151,15 @@ function eraseAt(x, y, dt) {
 
 /* ---------- ゲーム ---------- */
 function start() {
-  gen++; over = false; cpuPos = null; pointer = null;
-  P = O.slots.map((k, i) => ({ k, i })).filter(p => p.k !== 'off');
+  gen++; over = false; cpuPos = null; pointer = null; remotePos = null;
+  P = room ? room.players.map((_, i) => ({ k: 'net', i })) : O.slots.map((k, i) => ({ k, i })).filter(p => p.k !== 'off');
   $('menu').hidden = true; $('game').hidden = false;
   setupWorld();
-  cur = Kit.randInt(0, P.length - 1);
+  cur = room ? (room.round - 1) % P.length : Kit.randInt(0, P.length - 1);
   loop.start();
   beginTurn();
 }
-const label = p => p.k === 'human' ? (P.filter(x => x.k === 'human').length > 1 ? `ひと${p.i + 1}` : 'あなた') : `CPU${p.i + 1}`;
+const label = p => p.k === 'net' ? (p.i === room.me ? 'あなた' : Kit.esc(room.name(p.i))) : p.k === 'human' ? (P.filter(x => x.k === 'human').length > 1 ? `ひと${p.i + 1}` : 'あなた') : `CPU${p.i + 1}`;
 function paintBar() {
   $('turnbar').innerHTML = P.map((p, j) => `<div class="who ${j === cur && !over ? 'now' : ''}"><span class="mark" style="background:${COLS[p.i]}">${FACES[p.i]}</span>${label(p)} <small>${wins[p.i]}勝</small></div>`).join('');
 }
@@ -152,22 +167,50 @@ function paintQuota() {
   const r = Math.min(1, removed / quota);
   $('qfill').style.width = (r * 100) + '%';
   $('qbar').classList.toggle('full', r >= 1);
-  $('endTurn').disabled = !(r >= 1 && P[cur].k === 'human' && !over);
+  $('endTurn').disabled = !(r >= 1 && mine(P[cur]) && !over);
 }
 function beginTurn() {
-  removed = 0; paintBar(); paintQuota();
+  removed = 0; remotePos = null; paintBar(); paintQuota();
   const p = P[cur];
-  $('msg').textContent = p.k === 'human' ? `${label(p)}のばん：ゆびでなぞって砂をけずろう` : `${label(p)}がけずっています…`;
-  if (p.k !== 'human') cpuTurn(+p.k.slice(3));
+  $('msg').textContent = mine(p) ? `${label(p)}のばん：ゆびでなぞって砂をけずろう` : `${label(p)}がけずっています…`;
+  if (p.k === 'net') { if (!mine(p)) netWait(); }
+  else if (p.k !== 'human') cpuTurn(+p.k.slice(3));
 }
 function endTurn() {
   if (over) return;
-  pointer = null; cpuPos = null;
+  if (room && mine(P[cur])) room.move({ h: pack(h) });
+  pointer = null; cpuPos = null; remotePos = null;
   cur = (cur + 1) % P.length; Kit.sfx('select');
   const my = gen;
   setTimeout(() => { if (my === gen && !over) beginTurn(); }, 450);
 }
 $('endTurn').onclick = endTurn;
+
+function netWait() {
+  const my = gen;
+  room.next().then(m => {
+    if (my !== gen || over) return;
+    h = unpack(m.h);
+    if (m.fall) fall(); else endTurn();
+  });
+}
+function openNet(joinCode) {
+  Net.open({
+    game: 'sandpile', min: 2, max: 4, joinCode, opts: () => ({ quota: O.quota, size: O.size }),
+    onStart(r) {
+      if (room !== r) wins = [0, 0, 0, 0];
+      room = r; Object.assign(O, r.opts);
+      r.onMessage = msg => {
+        if (msg.t !== 'h' || msg.r !== r.round || over || !P || mine(P[cur])) return;
+        h = unpack(msg.h); remotePos = msg.pos; removed = msg.rm; paintQuota();
+      };
+      start();
+    },
+    onLeave: leaveNet,
+  });
+}
+function leaveNet() { if (room) room.close(); room = null; gen++; loop.stop(); $('game').hidden = true; $('menu').hidden = false; renderMenu(); }
+function fall() { over = true; Kit.sfx('boom'); Kit.vibrate([120, 60, 120]); setTimeout(lose, 1300); }
 
 function cpuTurn(level) {
   const my = gen;
@@ -199,14 +242,18 @@ function update(dt) {
   if (over && flagFall >= 1) { draw(); return; }
   const p = P[cur];
   let pos = null;
-  if (!over && p.k === 'human' && pointer) pos = pointer;
-  if (!over && p.k !== 'human' && cpuPos) pos = cpuPos;
+  if (!over && mine(p) && pointer) pos = pointer;
+  if (!over && !mine(p) && p.k !== 'net' && cpuPos) pos = cpuPos;
   if (pos) {
     const got = eraseAt(pos.x, pos.y, dt);
     if (got > 0) { removed += got; if (Math.random() < 0.3) Kit.tone(Kit.rand(180, 320), 0.05, { type: 'triangle', vol: 0.05 }); }
     paintQuota();
   }
   for (let k = 0; k < 3; k++) settle();
+  if (room && mine(p) && !over && (sendT += dt) > 0.08) {
+    sendT = 0;
+    room.send({ t: 'h', r: room.round, h: pack(h), pos: pointer ? { x: Math.round(pointer.x), y: Math.round(pointer.y) } : null, rm: removed });
+  }
   grains.forEach(q => { q.x += q.vx * dt; q.y += q.vy * dt; q.vy += 600 * dt; q.life -= dt; });
   grains = grains.filter(q => q.life > 0);
   // はた
@@ -215,7 +262,7 @@ function update(dt) {
     const drop = flagStart - base;
     const lean = (h[flagC + 4] - h[flagC - 4]);
     flagTilt = Kit.clamp(drop / FALL, 0, 1) * 0.5 * Math.sign(lean || 1) * -1;
-    if (drop > FALL) { over = true; Kit.sfx('boom'); Kit.vibrate([120, 60, 120]); setTimeout(lose, 1300); }
+    if (drop > FALL && (!room || mine(p))) { if (room) room.move({ fall: 1, h: pack(h) }); fall(); }
   } else {
     flagFall = Math.min(1, flagFall + dt * 1.2);
   }
@@ -227,18 +274,29 @@ function lose() {
   paintBar();
   const humanSafe = loser.k !== 'human' && P.some(p => p.k === 'human') && P.some(p => p.k !== 'human');
   if (humanSafe) Kit.addWin('sandpile');
-  loser.k === 'human' && P.some(p => p.k !== 'human') ? Kit.sfx('lose') : (Kit.sfx('win'), Kit.confetti());
+  (room ? mine(loser) : loser.k === 'human' && P.some(p => p.k !== 'human')) ? Kit.sfx('lose') : (Kit.sfx('win'), Kit.confetti());
   $('msg').textContent = `${label(loser)}が はたをたおした！`;
   Kit.modal({
     title: `${FACES[loser.i]} ${label(loser)}の負け！`,
     body: `<p>はたをたおしちゃった。ほかのみんなの勝ち！</p>`,
-    actions: [{ label: 'せってい', onClick: () => $('toMenu').click() }, { label: 'もう一回', primary: true, onClick: start }],
+    actions: [{ label: 'せってい', onClick: () => $('toMenu').click() }, { label: 'もう一回', primary: true, onClick: () => (room ? room.again() : start()) }],
   });
 }
 
 /* ---------- 絵 ---------- */
 const BANDS = ['#f2c27b', '#e9ad62', '#f6d39a', '#d9964f', '#f0bb72'];
 function draw() {
+  g.save();
+  if (room) {
+    // まわりの余白も空と地面でうめてから、480×360 の世界を拡大してかく
+    g.fillStyle = '#e6f6ff'; g.fillRect(0, 0, view.cw, view.ch);
+    g.fillStyle = '#7a4a1e'; g.fillRect(0, view.oy + ground * view.s, view.cw, view.ch);
+    g.translate(view.ox, view.oy); g.scale(view.s, view.s);
+  }
+  drawWorld();
+  g.restore();
+}
+function drawWorld() {
   const sky = g.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, '#9fd8ff'); sky.addColorStop(1, '#e6f6ff');
   g.fillStyle = sky; g.fillRect(0, 0, W, H);
   g.save();
@@ -262,16 +320,19 @@ function draw() {
   g.lineWidth = 3; g.stroke();
   g.restore();
   // ゆび／CPUの位置
-  const pos = P && P[cur] && (P[cur].k === 'human' ? pointer : cpuPos);
+  const pos = P && P[cur] && (mine(P[cur]) ? pointer : P[cur].k === 'net' ? remotePos : cpuPos);
   if (pos && !over) { g.strokeStyle = 'rgba(42,34,56,.6)'; g.lineWidth = 3; g.setLineDash([5, 5]); g.beginPath(); g.arc(pos.x, pos.y, 22, 0, 6.28); g.stroke(); g.setLineDash([]); }
 }
 const loop = Kit.loop(update);
 
 /* ---------- そうさ ---------- */
 const stage = $('stage');
-function local(e) { const r = stage.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height, id: e.pointerId }; }
+function local(e) {
+  const r = $('cv').getBoundingClientRect();
+  return { x: (e.clientX - r.left - view.ox) / view.s, y: (e.clientY - r.top - view.oy) / view.s, id: e.pointerId };
+}
 stage.addEventListener('pointerdown', e => {
-  if (over || !P || P[cur].k !== 'human') return;
+  if (over || !P || !mine(P[cur])) return;
   stage.setPointerCapture(e.pointerId); pointer = local(e);
 });
 stage.addEventListener('pointermove', e => { if (pointer && e.pointerId === pointer.id) pointer = local(e); });
@@ -281,14 +342,16 @@ const up = e => {
   if (!over && removed >= quota) endTurn();
 };
 stage.addEventListener('pointerup', up); stage.addEventListener('pointercancel', up);
-$('toMenu').onclick = () => { gen++; loop.stop(); $('game').hidden = true; $('menu').hidden = false; renderMenu(); };
-$('go').onclick = () => { Kit.store.set('sand:opts', O); wins = [0, 0, 0, 0]; Kit.sfx('select'); start(); };
+$('toMenu').onclick = leaveNet;
+$('go').onclick = () => { Kit.store.set('sand:opts', O); wins = [0, 0, 0, 0]; Kit.sfx('select'); if (O.where === 'net') openNet(); else start(); };
 
 Kit.bar({ id: 'sandpile', title: '⛰️ やまくずし', help: `
   <p>砂の山のてっぺんに はたが立っています。じゅんばんに ゆびでなぞって砂をけずります。</p>
   <p>上のメーターがいっぱいになるまでけずったら、ゆびをはなすと交代。</p>
-  <p>けずると、まわりの砂がサラサラくずれてきます。<b>はたをたおした人の負け！</b> はたから遠いところをけずるのがコツ。</p>` });
+  <p>けずると、まわりの砂がサラサラくずれてきます。<b>はたをたおした人の負け！</b> はたから遠いところをけずるのがコツ。</p>
+  <p>📡 <b>オンライン</b>：べつのスマホやタブレットで2〜4人。ひとりが「へやをつくる」、ほかの人は そのばんごうで「へやにはいる」。</p>` });
 renderMenu();
+{ const jc = Net.joinCode(); if (jc) { O.where = 'net'; renderMenu(); openNet(jc); } }
 </script>
 </body>
 </html>

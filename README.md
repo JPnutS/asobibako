@@ -6,6 +6,8 @@
 - `index.html` … トップ（ゲーム一覧・設定）
 - `common/` … 全ゲーム共通の見た目（kit.css）、音・保存・ボタンなど（kit.js）、ゲーム一覧（games.js）
 - `games/<名前>/index.html` … 各ゲーム（1ファイルで完結）
+- `common/net.js` … オンライン対戦（ババぬき・やまくずし・よんもくならべ・ドット＆ボックス・ヒット＆ブロー）。へやばんごう（4けた）で、べつの端末どうしを直接つなぎます。登録はいりません
+  - `common/vendor/peerjs.min.js` … PeerJS 1.5.5（MIT）。つなぐ相手さがしには PeerJS の無料公開サーバー（0.peerjs.com）を使います
 - `sw.js`, `manifest.webmanifest`, `icon*` … オフライン対応とホーム画面アイコン
 - `tools/` … 「あそびばこ 道具と遊び」（`tools/index.html` が入口、一覧は `tools/items.js`。`otona/` は旧URLからの転送だけ）。共通部品は `common/kit.js` を `data-ns="asobibako-otona:"` 付きで読み、保存場所を子ども版と分けています。見た目は `tools/style.css`。
   - `tools/vendor/qrcode.js` … QRコード生成（qrcode-generator, MIT）
@@ -20,3 +22,4 @@
 
 ## データについて
 ハイスコア・推し活ノート・ビーズ図案などは、それぞれの端末のブラウザの中だけに保存されます。どこにも送信しません。
+オンライン対戦のときだけ、なまえとゲームの手を、いっしょに遊んでいる端末に送ります（つなぐ相手さがしに PeerJS のサーバーを使います）。

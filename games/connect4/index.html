@@ -60,12 +60,14 @@
 </main>
 
 <script src="../../common/kit.js"></script>
+<script src="../../common/net.js"></script>
 <script>
 'use strict';
 const W = 7, H = 6;
 const $ = id => document.getElementById(id);
 const O = Object.assign({ mode: 'cpu', level: 2, first: 1 }, Kit.store.get('connect4:opts', {}));
 let board, turn, over, history, gen = 0, busy = false, wins = { 1: 0, 2: 0 }, hoverCol = -1;
+let room = null, myP = 1, netWins = [0, 0];   // オンライン：myP はこの端末の色
 
 function chips(root, list, get, set) {
   root.innerHTML = '';
@@ -76,7 +78,7 @@ function chips(root, list, get, set) {
   });
 }
 function renderMenu() {
-  chips($('optMode'), [['cpu', '🤖 CPUとたいせん'], ['2p', '👫 ふたりで']], () => O.mode, v => O.mode = v);
+  chips($('optMode'), [['cpu', '🤖 CPUとたいせん'], ['2p', '👫 ふたりで'], ['net', '📡 オンライン']], () => O.mode, v => O.mode = v);
   chips($('optLevel'), [[1, 'よわい'], [2, 'ふつう'], [3, 'つよい'], [4, 'さいきょう']], () => O.level, v => O.level = v);
   chips($('optFirst'), [[1, 'じぶん'], [2, 'CPU']], () => O.first, v => O.first = v);
   $('cpuOpts').hidden = O.mode !== 'cpu';
@@ -100,13 +102,16 @@ function start() {
   $('undo').hidden = O.mode !== 'cpu';
   paintStatus(); paintTally();
   if (O.mode === 'cpu' && O.first === 2) cpuTurn();
+  if (room && turn !== myP) waitRemote();
 }
-const name = p => O.mode === 'cpu' ? (p === cpuP() ? 'CPU' : 'あなた') : (p === 1 ? 'あか' : 'きいろ');
+const seatOf = p => (p === myP ? room.me : 1 - room.me);
+const name = p => room ? (p === myP ? 'あなた' : Kit.esc(room.name(seatOf(p)))) : O.mode === 'cpu' ? (p === cpuP() ? 'CPU' : 'あなた') : (p === 1 ? 'あか' : 'きいろ');
 const cpuP = () => O.first === 2 ? 1 : 2;
 function paintStatus(msg) {
   $('status').innerHTML = msg || `<span class="chip p${turn}"></span>${name(turn)}のばん`;
 }
 function paintTally() {
+  if (room) { $('tally').innerHTML = [myP, 3 - myP].map(p => `<span><i class="chip p${p}"></i>${name(p)} <b class="k-num">${netWins[seatOf(p)]}</b></span>`).join(''); return; }
   $('tally').innerHTML = `<span><i class="chip p1"></i>${name(1)} <b class="k-num">${wins[1]}</b></span><span><i class="chip p2"></i>${name(2)} <b class="k-num">${wins[2]}</b></span>`;
 }
 function dropRow(b, c) { for (let r = H - 1; r >= 0; r--) if (!b[r][c]) return r; return -1; }
@@ -126,9 +131,11 @@ function place(c) {
     over = true;
     setTimeout(() => {
       line.forEach(([rr, cc]) => $(`h${rr}${cc}`).firstChild.classList.add('win'));
-      wins[turn]++; paintTally();
-      const humanWon = O.mode === 'cpu' && turn !== cpuP();
-      if (O.mode === 'cpu' && !humanWon) { Kit.sfx('lose'); paintStatus('CPUの勝ち！もう一回やってみよう'); }
+      if (room) netWins[seatOf(turn)]++; else wins[turn]++;
+      paintTally();
+      const humanWon = (O.mode === 'cpu' && turn !== cpuP()) || (room && turn === myP);
+      if (room && !humanWon) { Kit.sfx('lose'); paintStatus(`<span class="chip p${turn}"></span>${name(turn)}の勝ち！`); }
+      else if (O.mode === 'cpu' && !humanWon) { Kit.sfx('lose'); paintStatus('CPUの勝ち！もう一回やってみよう'); }
       else { Kit.sfx('win'); Kit.confetti(); paintStatus(`<span class="chip p${turn}"></span>${name(turn)}の勝ち！`); }
       if (humanWon) Kit.addWin('connect4');
     }, 400);
@@ -229,9 +236,36 @@ function cpuTurn() {
 function humanPlay(c) {
   if (over || busy) return;
   if (O.mode === 'cpu' && turn === cpuP()) return;
+  if (room && turn !== myP) return;
   if (!place(c)) { Kit.sfx('bad'); return; }
   if (O.mode === 'cpu' && !over) cpuTurn();
+  if (room) { room.move({ c }); if (!over) waitRemote(); }
 }
+
+/* ---------- オンライン ---------- */
+function waitRemote() {
+  const my = gen;
+  paintStatus(`<span class="chip p${turn}"></span>${name(turn)}のばん…`);
+  room.next().then(m => {
+    if (my !== gen || over) return;
+    place(m.c);
+    if (!over && turn !== myP) waitRemote();
+  });
+}
+function openNet(joinCode) {
+  Net.open({
+    game: 'connect4', min: 2, max: 2, joinCode,
+    onStart(r) {
+      if (room !== r) netWins = [0, 0];
+      room = r;
+      // 先手（あか）は1回ごとに交代
+      myP = (r.round + r.me) % 2 === 1 ? 1 : 2;
+      start();
+    },
+    onLeave: leaveNet,
+  });
+}
+function leaveNet() { if (room) room.close(); room = null; gen++; $('game').hidden = true; $('menu').hidden = false; renderMenu(); }
 $('board').addEventListener('click', e => {
   const col = e.target.closest('.col'); if (col) humanPlay(+col.dataset.c);
 });
@@ -261,17 +295,20 @@ $('undo').onclick = () => {
   Kit.sfx('whoosh'); paintStatus();
   if (turn === cpuP()) cpuTurn();
 };
-$('again').onclick = () => { Kit.sfx('select'); start(); };
-$('toMenu').onclick = () => { gen++; $('game').hidden = true; $('menu').hidden = false; renderMenu(); };
+$('again').onclick = () => { Kit.sfx('select'); if (room) room.again(); else start(); };
+$('toMenu').onclick = leaveNet;
 $('go').onclick = () => {
-  Kit.store.set('connect4:opts', O); wins = { 1: 0, 2: 0 }; Kit.sfx('select'); start();
+  Kit.store.set('connect4:opts', O); wins = { 1: 0, 2: 0 }; Kit.sfx('select');
+  if (O.mode === 'net') openNet(); else start();
 };
 
 Kit.bar({ id: 'connect4', title: '🔴 よんもくならべ', help: `
   <p>じゅんばんに、上から石を入れていきます。石は下におちます。</p>
   <p><b>たて・よこ・ななめ</b>に、じぶんの色を<b>4つ</b>ならべたら勝ち！</p>
-  <p>CPUとたいせんするときは「まった」で1手もどせます。キーボードの1〜7でも入れられます。</p>` });
+  <p>CPUとたいせんするときは「まった」で1手もどせます。キーボードの1〜7でも入れられます。</p>
+  <p>📡 <b>オンライン</b>：べつのスマホやタブレットと あそべます。ひとりが「へやをつくる」、もうひとりが そのばんごうで「へやにはいる」。</p>` });
 renderMenu();
+{ const jc = Net.joinCode(); if (jc) { O.mode = 'net'; renderMenu(); openNet(jc); } }
 </script>
 </body>
 </html>

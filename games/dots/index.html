@@ -40,6 +40,7 @@
   <section id="menu" class="k-stack">
     <div class="k-card k-stack">
       <h2>だれがあそぶ？</h2>
+      <div class="k-chips" id="optWhere"></div>
       <div class="slots" id="slots"></div>
     </div>
     <div class="k-card k-stack">
@@ -70,17 +71,23 @@
 </main>
 
 <script src="../../common/kit.js"></script>
+<script src="../../common/net.js"></script>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
 const COLORS = ['#ff5d8f', '#3d8bff', '#2fb862', '#9b6bff'];
 const MARKS = ['●', '▲', '■', '★'];
 const KINDS = [['off', 'なし'], ['human', 'ひと'], ['cpu1', 'CPU よわい'], ['cpu2', 'CPU ふつう'], ['cpu3', 'CPU つよい']];
-const O = Object.assign({ slots: ['human', 'cpu2', 'off', 'off'], names: ['プレイヤー1', 'プレイヤー2', 'プレイヤー3', 'プレイヤー4'], size: 4, rule: 'classic' },
+const O = Object.assign({ slots: ['human', 'cpu2', 'off', 'off'], names: ['プレイヤー1', 'プレイヤー2', 'プレイヤー3', 'プレイヤー4'], size: 4, rule: 'classic', where: 'local' },
   Kit.store.get('dots:opts', {}));
 
 function renderMenu() {
-  const wrap = $('slots'); wrap.innerHTML = '';
+  const where = $('optWhere'); where.innerHTML = '';
+  [['local', '📱 この端末で'], ['net', '📡 オンライン']].forEach(([v, l]) => {
+    const b = Kit.el(`<button class="k-chip" aria-pressed="${O.where === v}">${l}</button>`);
+    b.onclick = () => { O.where = v; Kit.sfx('select'); renderMenu(); }; where.appendChild(b);
+  });
+  const wrap = $('slots'); wrap.innerHTML = ''; wrap.hidden = O.where === 'net';
   O.slots.forEach((k, i) => {
     const row = Kit.el(`<div class="slot"><span class="mark" style="background:${COLORS[i]}">${MARKS[i]}</span><div class="k-chips"></div></div>`);
     KINDS.forEach(([v, l]) => {
@@ -108,6 +115,8 @@ function renderMenu() {
 
 /* ---------- 盤面データ ---------- */
 let N, P, lines, owner, cur, players, moves, gen = 0, lastLine = null, busy = false;
+let room = null;   // オンラインのとき
+const mine = p => p.k === 'human' || (p.k === 'net' && p.i === room.me);
 const SP = 100, M = 30;
 function key(t, r, c) { return `${t}${r},${c}`; }
 function boxesOf(t, r, c) {
@@ -126,8 +135,9 @@ function allLines() {
 
 function start() {
   gen++; busy = false;
-  players = O.slots.map((k, i) => ({ k, i, score: 0 })).filter(p => p.k !== 'off');
-  N = O.size; lines = new Set(); owner = {}; cur = 0; lastLine = null;
+  players = room ? room.players.map((_, i) => ({ k: 'net', i, score: 0 }))
+    : O.slots.map((k, i) => ({ k, i, score: 0 })).filter(p => p.k !== 'off');
+  N = O.size; lines = new Set(); owner = {}; cur = room ? (room.round - 1) % players.length : 0; lastLine = null;
   $('menu').hidden = true; $('game').hidden = false;
   $('diceRow').hidden = O.rule !== 'dice';
   drawBoard(); beginTurn();
@@ -151,18 +161,18 @@ function drawBoard() {
 function paintScores() {
   $('scores').innerHTML = players.map((p, j) => `<div class="sc ${j === cur ? 'now' : ''}"><span class="mark" style="background:${COLORS[p.i]}">${MARKS[p.i]}</span>${label(p)} <b class="k-num">${p.score}</b></div>`).join('');
 }
-const label = p => p.k === 'human' ? (players.filter(x => x.k === 'human').length > 1 ? `ひと${p.i + 1}` : 'あなた') : `CPU${p.i + 1}`;
+const label = p => p.k === 'net' ? (p.i === room.me ? 'あなた' : Kit.esc(room.name(p.i))) : p.k === 'human' ? (players.filter(x => x.k === 'human').length > 1 ? `ひと${p.i + 1}` : 'あなた') : `CPU${p.i + 1}`;
 
 function beginTurn() {
   paintScores();
   const p = players[cur];
-  if (O.rule === 'dice') { moves = 0; $('die').textContent = '?'; $('movesLeft').textContent = ''; $('roll').disabled = p.k !== 'human'; }
+  if (O.rule === 'dice') { moves = 0; $('die').textContent = '?'; $('movesLeft').textContent = ''; $('roll').disabled = !mine(p); }
   else moves = Infinity;
-  $('msg').textContent = p.k === 'human' ? `${label(p)}のばん${O.rule === 'dice' ? '：サイコロをふってね' : ''}` : `${label(p)}がかんがえ中…`;
-  if (p.k !== 'human') cpuPlay();
+  $('msg').textContent = mine(p) ? `${label(p)}のばん${O.rule === 'dice' ? '：サイコロをふってね' : ''}` : `${label(p)}${p.k === 'net' ? 'のばん…' : 'がかんがえ中…'}`;
+  if (p.k === 'net' && !mine(p)) waitRemote();
+  else if (p.k !== 'human' && p.k !== 'net') cpuPlay();
 }
-function roll() {
-  const n = Kit.randInt(1, 6);
+function roll(n = Kit.randInt(1, 6)) {
   const d = $('die'); d.classList.remove('roll'); void d.offsetWidth; d.classList.add('roll');
   Kit.sfx('whoosh');
   setTimeout(() => { d.textContent = n; }, 250);
@@ -171,7 +181,10 @@ function roll() {
   $('msg').textContent = `${label(players[cur])}：${n}本ひけるよ`;
   return n;
 }
-$('roll').onclick = () => { if (!busy && players[cur].k === 'human' && moves === 0) roll(); };
+$('roll').onclick = () => {
+  if (busy || !mine(players[cur]) || moves !== 0) return;
+  const n = roll(); if (room) room.move({ roll: n });
+};
 
 function draw(t, r, c) {
   const k = key(t, r, c);
@@ -195,16 +208,17 @@ function draw(t, r, c) {
     moves--; $('movesLeft').textContent = `のこり ${moves} 本`;
     if (moves <= 0) next();
   } else if (!got) next();
-  else if (p.k === 'human') $('msg').textContent = 'はこを取った！もう1本ひけるよ';
+  else if (mine(p)) $('msg').textContent = 'はこを取った！もう1本ひけるよ';
   return true;
 }
 function next() { cur = (cur + 1) % players.length; busy = true; const my = gen; setTimeout(() => { if (my !== gen) return; busy = false; beginTurn(); }, 350); }
 
 $('board').addEventListener('click', e => {
   const h = e.target.closest('.hit'); if (!h || busy) return;
-  const p = players[cur]; if (p.k !== 'human') return;
+  const p = players[cur]; if (!mine(p)) return;
   if (O.rule === 'dice' && moves === 0) { Kit.toast('さきにサイコロをふってね'); return; }
-  const [t, r, c] = h.dataset.l.split(','); draw(t, +r, +c);
+  const [t, r, c] = h.dataset.l.split(',');
+  if (draw(t, +r, +c) && room) room.move({ l: [t, +r, +c] });
   if (p.k === 'human' && players[cur] === p && O.rule === 'classic' && !$('game').hidden) {/* もう1回 */}
 });
 
@@ -256,6 +270,25 @@ function cpuPlay() {
   setTimeout(stepOnce, 600);
 }
 
+/* ---------- オンライン：ほかの人の手を、順番に受け取る ---------- */
+function waitRemote() {
+  const my = gen, p = players[cur];
+  room.next().then(m => {
+    if (my !== gen || players[cur] !== p) return;
+    if (m.roll) roll(m.roll); else draw(...m.l);
+    if (lines.size === allLines().length) return;
+    if (players[cur] === p) waitRemote();   // まだ同じ人のばん（はこを取った・サイコロののこり）
+  });
+}
+function openNet(joinCode) {
+  Net.open({
+    game: 'dots', min: 2, max: 4, joinCode, opts: () => ({ size: O.size, rule: O.rule }),
+    onStart(r) { room = r; Object.assign(O, r.opts); start(); },
+    onLeave: leaveNet,
+  });
+}
+function leaveNet() { if (room) room.close(); room = null; gen++; busy = false; $('game').hidden = true; $('menu').hidden = false; renderMenu(); }
+
 function endGame() {
   gen++; busy = false;
   paintScores();
@@ -264,25 +297,27 @@ function endGame() {
   const ranked = players.slice().sort((a, b) => b.score - a.score);
   const humanWin = winners.length === 1 && winners[0].k === 'human' && players.some(p => p.k !== 'human');
   if (humanWin) Kit.addWin('dots');
-  const allCpuWin = winners.every(p => p.k !== 'human') && players.some(p => p.k === 'human');
+  const allCpuWin = room ? !winners.some(mine) : winners.every(p => p.k !== 'human') && players.some(p => p.k === 'human');
   allCpuWin ? Kit.sfx('lose') : (Kit.sfx('win'), Kit.confetti());
   $('msg').textContent = winners.length > 1 ? 'ひきわけ！' : `${label(winners[0])}の勝ち！`;
   Kit.modal({
     title: winners.length > 1 ? `${winners.map(label).join('と')}がひきわけ！` : `${label(winners[0])}の勝ち！`,
     body: `<ol>${ranked.map(p => `<li><span style="color:${COLORS[p.i]}">${MARKS[p.i]}</span> ${label(p)}：<b>${p.score}</b> こ</li>`).join('')}</ol>`,
-    actions: [{ label: 'せっていへ', onClick: () => $('toMenu').click() }, { label: 'もう一回', primary: true, onClick: () => start() }],
+    actions: [{ label: 'せっていへ', onClick: () => $('toMenu').click() }, { label: 'もう一回', primary: true, onClick: () => (room ? room.again() : start()) }],
   });
 }
-$('again').onclick = () => { Kit.sfx('select'); start(); };
-$('toMenu').onclick = () => { gen++; busy = false; $('game').hidden = true; $('menu').hidden = false; renderMenu(); };
-$('go').onclick = () => { Kit.store.set('dots:opts', O); Kit.sfx('select'); start(); };
+$('again').onclick = () => { Kit.sfx('select'); if (room) room.again(); else start(); };
+$('toMenu').onclick = leaveNet;
+$('go').onclick = () => { Kit.store.set('dots:opts', O); Kit.sfx('select'); if (O.where === 'net') openNet(); else start(); };
 
 Kit.bar({ id: 'dots', title: '✏️ ドット＆ボックス', help: `
   <p>じゅんばんに、点と点のあいだに線を1本ひきます。</p>
   <p>はこの<b>4つめの線</b>をひいた人が、そのはこをもらえます。はこを取ったら、もう1本ひけます。</p>
   <p>3本かこまれたはこを作ると、相手に取られちゃうよ。はこをいちばん多く取った人の勝ち！</p>
-  <p>「サイコロ」ルールでは、サイコロの数だけ線をひけます。</p>` });
+  <p>「サイコロ」ルールでは、サイコロの数だけ線をひけます。</p>
+  <p>📡 <b>オンライン</b>：べつのスマホやタブレットで2〜4人。ひとりが「へやをつくる」、ほかの人は そのばんごうで「へやにはいる」。</p>` });
 renderMenu();
+{ const jc = Net.joinCode(); if (jc) { O.where = 'net'; renderMenu(); openNet(jc); } }
 </script>
 </body>
 </html>
