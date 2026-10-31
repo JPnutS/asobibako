@@ -22,7 +22,6 @@
   .screen video.main { transition: transform .2s; }
   .screen .cam, .screen .take { transform: scaleX(-1); }
   .screen.pip .cam { position: absolute; right: 10px; bottom: 10px; width: 30%; height: auto; max-width: 240px; border: 2px solid #fff; border-radius: 10px; background: #000; }
-  .screen.ghost .cam { position: absolute; inset: 0; opacity: var(--ghost, .45); mix-blend-mode: screen; }
   .badge { position: absolute; left: 10px; top: 10px; background: rgba(0,0,0,.55); color: #fff; padding: 2px 10px; border-radius: 999px; font-size: .78rem; pointer-events: none; z-index: 2; }
   .rec-dot { position: absolute; right: 12px; top: 10px; color: #fff; background: #c0392b; padding: 2px 10px; border-radius: 999px; font-size: .78rem; z-index: 2; animation: blink 1s infinite; }
   @keyframes blink { 50% { opacity: .5; } }
@@ -162,7 +161,6 @@
       <div class="k-card group">
         <h3>自分と見比べる</h3>
         <div class="seg" id="optCam"></div>
-        <div id="ghostRow" class="speed" hidden><input type="range" id="ghost" min="0.15" max="0.8" step="0.05" aria-label="重ねる濃さ"><b>濃さ</b></div>
         <div id="prepRow" class="group" hidden><span class="k-label">録画ボタンを押してから再生まで</span><div class="seg" id="optPrep"></div></div>
         <button class="k-btn is-small" id="recSelf" style="justify-self:start" hidden>● 自分を録画しながら再生</button>
         <div class="takes" id="takes"></div>
@@ -188,7 +186,7 @@ Kit.bar({ id: 'dance', title: 'ダンス練習', help: `
   <p><b>速さ</b>：0.25倍から細かく変えられます。「だんだん速く」は、リピートのたびに5%ずつ速くなり、等速で止まります。</p>
   <p><b>区間リピート</b>：A と B の間をくり返します。合間に休みやカウントを入れられます。</p>
   <p><b>目印</b>：曲の区切りに名前を付けて、すぐに飛べます。</p>
-  <p><b>自分と見比べる</b>：カメラで自分を映して、並べたり重ねたりできます。録画ボタンを押すと、立ち位置に移動できるよう数秒の秒読み（すぐ・5・10・15秒から選べます）のあとでお手本が始まり、同時に録画が始まります。全画面のメニューからも録画できます。録画すると、お手本と並べて見返せます。</p>
+  <p><b>自分と見比べる</b>：カメラで自分を小窓や横並びで映せます。録画ボタンを押すと、立ち位置に移動できるよう数秒の秒読み（すぐ・5・10・15秒から選べます）のあとでお手本が始まり、同時に録画が始まります。全画面のメニューの「● 録画」からも始められます（カメラが切れていれば自動で付きます）。録画すると、お手本と並べて見返せます。</p>
   <p><b>YouTube・TikTok</b>：リンクを貼ると、その動画で練習できます。1コマ送りと保存は動画ファイルの時だけ、TikTok は速さも変えられません。</p>
   <p><b>全画面</b>：「全画面で練習」を押すと画面いっぱいに映します。画面をタップするか右上のボタンで、メニューを出したりしまったりできます。</p>
   <p><b>キーボード</b>：スペース 再生／停止、← → 5秒、, . 1コマ、[ ] A・B、L リピート、M 目印、F 全画面、1〜5 速さ。</p>
@@ -196,7 +194,8 @@ Kit.bar({ id: 'dance', title: 'ダンス練習', help: `
 
 const $ = id => document.getElementById(id);
 const v = $('v'), cam = $('cam'), take = $('take');
-const st = Object.assign({ h: true, vflip: false, speed: 1, count: false, gap: 0, view: 'off', ghost: .45, prep: 5 }, Kit.store.get('dance:opts', {}));
+const st = Object.assign({ h: true, vflip: false, speed: 1, count: false, gap: 0, view: 'off', prep: 5 }, Kit.store.get('dance:opts', {}));
+st.vflip = false; if (st.view === 'ghost') st.view = 'pip';
 const saveOpts = () => Kit.store.set('dance:opts', st);
 let A = null, B = null, loop = false, ramp = false, url = null, recording = null, camStream = null, mediaSrc = null, fileName = 'video', fileKey = '';
 let marks = [], takes = [], selfRec = null, prep = null, compare = null, loops = 0, busy = false;
@@ -213,15 +212,15 @@ function seg(root, list, get, set) {
 function setSpeed(x) { st.speed = Math.round(Kit.clamp(x, .25, 1.5) * 100) / 100; M.playbackRate = st.speed; saveOpts(); render(); }
 
 function render() {
-  seg($('optFlip'), [['h', '左右反転'], ['n', 'そのまま'], ['hv', '左右＋上下']], () => st.h && st.vflip ? 'hv' : st.h ? 'h' : 'n', x => { st.h = x !== 'n'; st.vflip = x === 'hv'; });
+  seg($('optFlip'), [['h', '左右反転'], ['n', 'そのまま']], () => st.h ? 'h' : 'n', x => { st.h = x === 'h'; });
   seg($('optSpeed'), [[0.5, '0.5'], [0.75, '0.75'], [0.9, '0.9'], [1, '等速'], [1.25, '1.25']], () => st.speed, x => setSpeed(x));
   seg($('optGap'), [[0, 'なし'], [2, '2秒休む'], [4, '4秒休む']], () => st.gap, x => st.gap = x);
   seg($('optPrep'), [[0, 'すぐ'], [5, '5秒'], [10, '10秒'], [15, '15秒']], () => st.prep, x => st.prep = x);
-  seg($('optCam'), [['off', 'カメラなし'], ['pip', '小窓'], ['side', '並べる'], ['ghost', '重ねる']], () => camStream ? st.view : 'off', x => setView(x));
+  seg($('optCam'), [['off', 'カメラなし'], ['pip', '小窓'], ['side', '並べる']], () => camStream ? st.view : 'off', x => setView(x));
   $('speed').value = st.speed; $('speedVal').textContent = st.speed.toFixed(2) + '倍';
   dispEl().style.transform = `scale(${st.h ? -1 : 1}, ${st.vflip ? -1 : 1})`;
   M.playbackRate = st.speed;
-  $('badge').textContent = compare ? '見比べ：お手本 ｜ 自分' : `${st.h ? '左右反転' : 'そのまま'}${st.vflip ? '・上下' : ''} ・ ${st.speed.toFixed(2)}倍${loop ? ` ・ リピート${loops ? ` ${loops}回目` : ''}` : ''}`;
+  $('badge').textContent = compare ? '見比べ：お手本 ｜ 自分' : `${st.h ? '左右反転' : 'そのまま'} ・ ${st.speed.toFixed(2)}倍${loop ? ` ・ リピート${loops ? ` ${loops}回目` : ''}` : ''}`;
   $('loopOn').setAttribute('aria-pressed', loop); $('countOn').setAttribute('aria-pressed', st.count); $('rampOn').setAttribute('aria-pressed', ramp);
   $('abInfo').textContent = A != null || B != null ? `A ${A != null ? fmt(A) : '−'} 〜 B ${B != null ? fmt(B) : '−'}` : 'A と B を決めると、その間をくり返します。';
   const d = M.duration || 1;
@@ -232,11 +231,10 @@ function render() {
   $('fsSpeed').textContent = st.speed.toFixed(2) + '倍';
   $('fsLoop').setAttribute('aria-pressed', loop); $('fsFlip').setAttribute('aria-pressed', st.h);
   $('fsHandle').textContent = menuOff ? '☰' : '✕';
-  scr.style.setProperty('--ghost', st.ghost);
   cam.hidden = !camStream || !!compare; take.hidden = !compare;
-  $('ghostRow').hidden = !(camStream && st.view === 'ghost'); $('ghost').value = st.ghost;
   const canRec = !!camStream && !!window.MediaRecorder;
-  $('recSelf').hidden = $('prepRow').hidden = $('fsRec').hidden = !canRec;
+  $('recSelf').hidden = $('prepRow').hidden = !canRec;
+  $('fsRec').hidden = !window.MediaRecorder || !navigator.mediaDevices;
   $('recSelf').textContent = prep ? '■ やめる' : selfRec ? '■ 録画を止める' : '● 自分を録画しながら再生';
   $('fsRec').textContent = prep ? '■ やめる' : selfRec ? '■ 録画停止' : '● 録画';
   renderMarks(); renderTakes();
@@ -432,6 +430,7 @@ $('fsbar').addEventListener('click', e => {
   else if (d === 'faster') setSpeed(st.speed + .05);
   else if (d === 'flip') { st.h = !st.h; saveOpts(); render(); }
   else if (d === 'mark') $('addMark').click();
+  else if (d === 'recSelf') fsRecord();
   else if (d === 'exitFs') exitFs();
   else $(d).click();
 });
@@ -489,7 +488,6 @@ $('rampOn').onclick = () => {
   if (ramp) { if (st.speed >= 1) setSpeed(0.7); if (!loop) { loop = true; if (A == null) A = 0; } Kit.toast(`${st.speed.toFixed(2)}倍から始めます`); }
   render();
 };
-$('ghost').addEventListener('input', e => { st.ghost = +e.target.value; saveOpts(); render(); });
 
 /* ---------- 目印 ---------- */
 function saveMarks() { marks.sort((a, b) => a.t - b.t); Kit.store.set(fileKey, marks); }
@@ -533,6 +531,12 @@ async function setView(x) {
   render();
 }
 function pickMime(list) { if (!window.MediaRecorder) return null; return list.find(m => MediaRecorder.isTypeSupported(m)) || ''; }
+// 全画面から録画：カメラが切れていたら小窓で付けてから始める。始まったらメニューを隠す
+async function fsRecord() {
+  if (!prep && !selfRec && !camStream) { await setView('pip'); if (!camStream) return; }
+  if (!prep && !selfRec) { menuOff = true; render(); }
+  $('recSelf').click();
+}
 // 準備の秒読み（大きな数字＋音）。途中でやめたら false
 async function prepCountdown(sec) {
   const c = $('count'); c.hidden = false;
