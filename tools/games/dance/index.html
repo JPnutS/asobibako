@@ -115,7 +115,7 @@
         <div class="fsquick">
           <button data-do="setA">A</button><button data-do="setB">B</button><button data-do="loopOn" id="fsLoop">⟲ リピート</button>
           <button data-do="slower">−</button><span id="fsSpeed" class="k-num"></span><button data-do="faster">＋</button>
-          <button data-do="flip" id="fsFlip">↔ 反転</button><button data-do="mark">＋目印</button><button data-do="exitFs">✕ 全画面を終了</button>
+          <button data-do="flip" id="fsFlip">↔ 反転</button><button data-do="mark">＋目印</button><button data-do="recSelf" id="fsRec" hidden>● 録画</button><button data-do="exitFs">✕ 全画面を終了</button>
         </div>
       </div>
     </div>
@@ -163,6 +163,7 @@
         <h3>自分と見比べる</h3>
         <div class="seg" id="optCam"></div>
         <div id="ghostRow" class="speed" hidden><input type="range" id="ghost" min="0.15" max="0.8" step="0.05" aria-label="重ねる濃さ"><b>濃さ</b></div>
+        <div id="prepRow" class="group" hidden><span class="k-label">録画ボタンを押してから再生まで</span><div class="seg" id="optPrep"></div></div>
         <button class="k-btn is-small" id="recSelf" style="justify-self:start" hidden>● 自分を録画しながら再生</button>
         <div class="takes" id="takes"></div>
         <p class="note">録画は、お手本と同じタイミングで並べて見返せます。録画はこの画面を閉じると消えるので、残したい時は保存してください。</p>
@@ -187,7 +188,7 @@ Kit.bar({ id: 'dance', title: 'ダンス練習', help: `
   <p><b>速さ</b>：0.25倍から細かく変えられます。「だんだん速く」は、リピートのたびに5%ずつ速くなり、等速で止まります。</p>
   <p><b>区間リピート</b>：A と B の間をくり返します。合間に休みやカウントを入れられます。</p>
   <p><b>目印</b>：曲の区切りに名前を付けて、すぐに飛べます。</p>
-  <p><b>自分と見比べる</b>：カメラで自分を映して、並べたり重ねたりできます。録画すると、お手本と並べて見返せます。</p>
+  <p><b>自分と見比べる</b>：カメラで自分を映して、並べたり重ねたりできます。録画ボタンを押すと、立ち位置に移動できるよう数秒の秒読み（すぐ・5・10・15秒から選べます）のあとでお手本が始まり、同時に録画が始まります。全画面のメニューからも録画できます。録画すると、お手本と並べて見返せます。</p>
   <p><b>YouTube・TikTok</b>：リンクを貼ると、その動画で練習できます。1コマ送りと保存は動画ファイルの時だけ、TikTok は速さも変えられません。</p>
   <p><b>全画面</b>：「全画面で練習」を押すと画面いっぱいに映します。画面をタップするか右上のボタンで、メニューを出したりしまったりできます。</p>
   <p><b>キーボード</b>：スペース 再生／停止、← → 5秒、, . 1コマ、[ ] A・B、L リピート、M 目印、F 全画面、1〜5 速さ。</p>
@@ -195,10 +196,10 @@ Kit.bar({ id: 'dance', title: 'ダンス練習', help: `
 
 const $ = id => document.getElementById(id);
 const v = $('v'), cam = $('cam'), take = $('take');
-const st = Object.assign({ h: true, vflip: false, speed: 1, count: false, gap: 0, view: 'off', ghost: .45 }, Kit.store.get('dance:opts', {}));
+const st = Object.assign({ h: true, vflip: false, speed: 1, count: false, gap: 0, view: 'off', ghost: .45, prep: 5 }, Kit.store.get('dance:opts', {}));
 const saveOpts = () => Kit.store.set('dance:opts', st);
 let A = null, B = null, loop = false, ramp = false, url = null, recording = null, camStream = null, mediaSrc = null, fileName = 'video', fileKey = '';
-let marks = [], takes = [], selfRec = null, compare = null, loops = 0, busy = false;
+let marks = [], takes = [], selfRec = null, prep = null, compare = null, loops = 0, busy = false;
 
 function fmt(t) { if (!isFinite(t) || t < 0) t = 0; const m = Math.floor(t / 60), s = Math.floor(t % 60), d = Math.floor(t * 10 % 10); return `${m}:${String(s).padStart(2, '0')}.${d}`; }
 function seg(root, list, get, set) {
@@ -215,6 +216,7 @@ function render() {
   seg($('optFlip'), [['h', '左右反転'], ['n', 'そのまま'], ['hv', '左右＋上下']], () => st.h && st.vflip ? 'hv' : st.h ? 'h' : 'n', x => { st.h = x !== 'n'; st.vflip = x === 'hv'; });
   seg($('optSpeed'), [[0.5, '0.5'], [0.75, '0.75'], [0.9, '0.9'], [1, '等速'], [1.25, '1.25']], () => st.speed, x => setSpeed(x));
   seg($('optGap'), [[0, 'なし'], [2, '2秒休む'], [4, '4秒休む']], () => st.gap, x => st.gap = x);
+  seg($('optPrep'), [[0, 'すぐ'], [5, '5秒'], [10, '10秒'], [15, '15秒']], () => st.prep, x => st.prep = x);
   seg($('optCam'), [['off', 'カメラなし'], ['pip', '小窓'], ['side', '並べる'], ['ghost', '重ねる']], () => camStream ? st.view : 'off', x => setView(x));
   $('speed').value = st.speed; $('speedVal').textContent = st.speed.toFixed(2) + '倍';
   dispEl().style.transform = `scale(${st.h ? -1 : 1}, ${st.vflip ? -1 : 1})`;
@@ -233,8 +235,10 @@ function render() {
   scr.style.setProperty('--ghost', st.ghost);
   cam.hidden = !camStream || !!compare; take.hidden = !compare;
   $('ghostRow').hidden = !(camStream && st.view === 'ghost'); $('ghost').value = st.ghost;
-  $('recSelf').hidden = !camStream || !window.MediaRecorder;
-  $('recSelf').textContent = selfRec ? '■ 録画を止める' : '● 自分を録画しながら再生';
+  const canRec = !!camStream && !!window.MediaRecorder;
+  $('recSelf').hidden = $('prepRow').hidden = $('fsRec').hidden = !canRec;
+  $('recSelf').textContent = prep ? '■ やめる' : selfRec ? '■ 録画を止める' : '● 自分を録画しながら再生';
+  $('fsRec').textContent = prep ? '■ やめる' : selfRec ? '■ 録画停止' : '● 録画';
   renderMarks(); renderTakes();
 }
 
@@ -529,32 +533,62 @@ async function setView(x) {
   render();
 }
 function pickMime(list) { if (!window.MediaRecorder) return null; return list.find(m => MediaRecorder.isTypeSupported(m)) || ''; }
+// 準備の秒読み（大きな数字＋音）。途中でやめたら false
+async function prepCountdown(sec) {
+  const c = $('count'); c.hidden = false;
+  prep = { stop: false }; render();
+  for (let n = sec; n > 0; n--) {
+    if (prep.stop) break;
+    c.textContent = n;
+    if (Kit.settings.sound) Kit.tone(660, n <= 3 ? 0.12 : 0.05, { type: 'square', vol: n <= 3 ? 0.08 : 0.04 });
+    await wait(1000);
+  }
+  const ok = !prep.stop; prep = null; c.hidden = true;
+  if (ok && Kit.settings.sound) Kit.tone(990, 0.25, { type: 'square', vol: 0.08 });
+  render();
+  return ok;
+}
 $('recSelf').onclick = async () => {
+  if (prep) { prep.stop = true; return; }
   if (selfRec) return stopSelf();
-  if (!camStream) return;
+  if (!camStream || busy) return;
   const mime = pickMime(['video/mp4', 'video/webm;codecs=vp9', 'video/webm']);
   let rec; try { rec = new MediaRecorder(camStream, mime ? { mimeType: mime } : undefined); } catch (e) { Kit.toast('録画を始められませんでした'); return; }
   const chunks = [];
   rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  M.pause();
+  if (!fsOn) $('screen').scrollIntoView({ block: 'start', behavior: 'smooth' });
   if (loop && A != null) M.currentTime = A;
-  const vStart = M.currentTime, speed = st.speed;
-  if (st.count) { busy = true; await countdown(); busy = false; }
-  selfRec = { rec, vStart, speed };
+  const speed = st.speed;
+  busy = true;
+  const go = st.prep ? await prepCountdown(st.prep) : (!st.count || (await countdown(), true));
+  busy = false;
+  if (!go) return;
+  selfRec = { rec, vStart: M.currentTime, speed };
   rec.onstop = () => {
     const type = rec.mimeType || mime || 'video/webm';
     const blob = new Blob(chunks, { type });
-    takes.unshift({ url: URL.createObjectURL(blob), blob, vStart, speed, type, at: new Date() });
+    takes.unshift({ url: URL.createObjectURL(blob), blob, vStart: sv.vStart, speed, type, at: new Date() });
     if (takes.length > 5) URL.revokeObjectURL(takes.pop().url);
     Kit.toast('録画しました。「見比べる」で並べて再生できます', 2800);
     render();
   };
-  rec.start(500);
-  $('recDot').hidden = false;
+  const sv = selfRec;
+  // お手本が実際に動き出した瞬間に録画を始める（読み込み待ちでずれないように）
+  let started = false;
+  const begin = () => {
+    if (started || selfRec !== sv) return; started = true;
+    sv.vStart = M.currentTime;
+    rec.start(500); $('recDot').hidden = false;
+  };
+  const onPlay = () => { v.removeEventListener('playing', onPlay); bus.removeEventListener('play', onPlay); begin(); };
+  v.addEventListener('playing', onPlay); bus.addEventListener('play', onPlay);
   M.playbackRate = st.speed;
   M.play().catch(() => {});
+  setTimeout(begin, 3000);   // 再生の知らせが来ない時の保険
   render();
 };
-function stopSelf() { if (!selfRec) return; const r = selfRec.rec; selfRec = null; $('recDot').hidden = true; M.pause(); if (r.state !== 'inactive') r.stop(); render(); }
+function stopSelf() { if (!selfRec) return; const r = selfRec.rec; if (r.state === 'inactive') { selfRec = null; M.pause(); render(); return; } selfRec = null; $('recDot').hidden = true; M.pause(); if (r.state !== 'inactive') r.stop(); render(); }
 function renderTakes() {
   $('takes').innerHTML = '';
   takes.forEach((t, i) => {
