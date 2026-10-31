@@ -610,6 +610,13 @@ function startCompare(t) {
   compare = t; take.src = t.url; take.muted = true;
   M.pause(); M.currentTime = t.vStart; M.playbackRate = t.speed; take.currentTime = 0;
   render(); Kit.toast('▶ で、お手本と録画を同時に再生します');
+  // 再生ボタンが見える所まで移動（動画の上端から、再生ボタンが画面に収まる位置）
+  if (!fsOn) {
+    const bar = document.querySelector('.kbar'), head = bar ? bar.getBoundingClientRect().bottom : 0;
+    const top = $('screen').getBoundingClientRect().top + scrollY - head - 8;
+    const btm = $('play').getBoundingClientRect().bottom + scrollY + 12;
+    scrollTo({ top: Math.max(top, btm - innerHeight), behavior: 'smooth' });
+  }
 }
 function endCompare() { if (!compare) return; compare = null; take.pause(); take.removeAttribute('src'); take.load(); M.playbackRate = st.speed; render(); }
 function syncTake() { if (!compare) return; const t = (M.currentTime - compare.vStart) / compare.speed; if (t >= 0 && isFinite(t)) take.currentTime = t; }
