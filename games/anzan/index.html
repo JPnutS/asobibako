@@ -26,7 +26,11 @@
   #stage[hidden] { display: none; }
   #num { font-family: var(--display); font-size: min(34vw, 46vh); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: .02em; user-select: none; }
   #num.minus { color: #ff7a9c; }
-  #num.small { font-size: min(18vw, 30vh); }
+  /* カウントダウンは すうじを つかわず、まるい ランプと「よーい」で */
+  #num.ready { font-family: var(--font); font-weight: 900; font-size: min(10vw, 7vh); color: #ffd36b; display: grid; justify-items: center; gap: 18px; letter-spacing: .2em; }
+  .lamps { display: flex; gap: min(5vw, 28px); }
+  .lamps i { width: min(9vw, 54px); aspect-ratio: 1; border-radius: 50%; border: 3px solid #ffd36b; }
+  .lamps i.on { background: #ffd36b; box-shadow: 0 0 18px #ffd36b88; }
   #stageInfo { position: absolute; top: max(14px, env(safe-area-inset-top)); left: 0; right: 0; text-align: center; color: #8a85a0; font-weight: 700; }
   #stopBtn { position: absolute; bottom: max(18px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); background: transparent; color: #8a85a0; border: 2px solid #3a3550; border-radius: 12px; padding: 6px 16px; font: 700 .9rem var(--font); }
 
@@ -39,6 +43,13 @@
   .seq { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
   .seq span { border: 2px solid var(--line); border-radius: 10px; padding: 2px 10px; font-weight: 900; font-variant-numeric: tabular-nums; background: var(--card); }
   .seq span.minus { color: #d6305f; }
+  .seq span small { display: block; font-size: .7rem; color: var(--muted); text-align: center; border-top: 1px dashed var(--muted); }
+  .tips { display: grid; gap: 12px; text-align: left; max-height: 62vh; overflow: auto; }
+  .tips h3 { margin: 0 0 2px; font-size: 1.02rem; }
+  .tips p { margin: 0; line-height: 1.7; }
+  .tips .ex { background: var(--soft); border-radius: 12px; padding: 6px 10px; font-weight: 700; }
+  .soro { display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 900; }
+  .soro figure { margin: 0; text-align: center; font-size: .85rem; }
   .total { text-align: center; font-weight: 900; font-size: 1.3rem; }
   .total b { font-family: var(--display); font-weight: 400; font-size: 1.8rem; }
   .dots { display: flex; gap: 8px; justify-content: center; font-size: 1.4rem; }
@@ -48,6 +59,7 @@
 <main class="k-wrap">
   <section id="menu" class="k-stack">
     <div class="tabs" id="tabs"></div>
+    <button class="k-btn is-grape" id="tipsBtn">💡 じょうずになる コツ</button>
 
     <div class="k-card k-stack" id="testBox">
       <div class="rank"><span class="k-label">チャレンジする きゅう</span><b id="rankName"></b><span class="spec" id="rankSpec"></span></div>
@@ -157,8 +169,9 @@ async function flash() {
   st.hidden = false; num.className = ''; num.textContent = '';
   $('stageInfo').textContent = `${P.cfg.name ? P.cfg.name + '・' : ''}${specText(P.cfg)}`;
   Kit.keepAwake(true);
-  for (const c of ['3', '2', '1']) {
-    num.className = 'small'; num.textContent = c; if (O.snd) Kit.tone(660, .08, { type: 'sine', vol: .25 });
+  for (const c of [3, 2, 1]) {
+    num.className = 'ready'; num.innerHTML = `<div class="lamps">${[0, 1, 2].map(i => `<i class="${i < c ? 'on' : ''}"></i>`).join('')}</div><div>よーい</div>`;
+    if (O.snd) Kit.tone(440, .12, { type: 'triangle', vol: .25 });
     await sleep(600); if (my !== run) return;
   }
   num.textContent = ''; await sleep(400); if (my !== run) return;
@@ -219,9 +232,10 @@ function check() {
   if (!typed) return;
   const right = Number(typed) === P.total;
   Kit.sfx(right ? 'good' : 'bad'); if (!right) Kit.vibrate(80);
-  const seq = P.nums.map(n => `<span class="${n < 0 ? 'minus' : ''}">${n < 0 ? '−' + (-n) : n}</span>`).join('');
+  let run = 0;
+  const seq = P.nums.map(n => { run += n; return `<span class="${n < 0 ? 'minus' : ''}">${n < 0 ? '−' + (-n) : n}<small>${run}</small></span>`; }).join('');
   const body = `<div class="verdict">${right ? '⭕ せいかい！' : '❌ ざんねん'}</div>
-    <div class="seq">${seq}</div>
+    <div class="seq">${seq}</div><div class="k-muted" style="font-size:.8rem;text-align:center">下の 小さい かずは とちゅうの こたえ</div>
     <div class="total">こたえ <b>${P.total.toLocaleString('ja-JP')}</b>${right ? '' : `<br><span class="k-muted">あなたの こたえ：${Number(typed).toLocaleString('ja-JP')}</span>`}</div>`;
   $('answer').hidden = true; $('result').hidden = false;
   if (!T) {
@@ -255,6 +269,37 @@ function check() {
   const back = $('back'); if (back) back.onclick = () => { $('result').hidden = true; $('menu').hidden = false; renderMenu(); };
 }
 
+/* ---------- そろばんの え ---------- */
+function soroban(n, cols = 2) {
+  const cw = 34, W = cols * cw + 12, beam = 46, H = 150, ds = String(n).padStart(cols, '0').slice(-cols);
+  let g = `<rect x="2" y="2" width="${W - 4}" height="${H - 4}" rx="6" fill="none" stroke="currentColor" stroke-width="4"/><line x1="2" x2="${W - 2}" y1="${beam}" y2="${beam}" stroke="currentColor" stroke-width="4"/>`;
+  const bead = (x, y, on) => `<ellipse cx="${x}" cy="${y}" rx="14" ry="6.5" fill="${on ? '#ff8a3d' : '#d9cfb8'}" stroke="#2a2238" stroke-width="2"/>`;
+  [...ds].forEach((ch, i) => {
+    const d = +ch, x = 6 + cw * i + cw / 2;
+    g += `<line x1="${x}" x2="${x}" y1="4" y2="${H - 4}" stroke="#8a7a5a" stroke-width="2.5"/>`;
+    g += bead(x, d >= 5 ? beam - 9 : 12, d >= 5);
+    const k = d % 5;
+    for (let j = 0; j < 4; j++) g += bead(x, j < k ? beam + 9 + j * 14 : H - 12 - (3 - j) * 14, j < k);
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W * .8}" height="${H * .8}" style="color:var(--line)" aria-label="そろばん ${n}">${g}</svg>`;
+}
+function showTips() {
+  Kit.sfx('tap');
+  Kit.modal({ title: '💡 じょうずになる コツ', body: `<div class="tips">
+    <div><h3>🧮 ふつうの あんざんと ちがうの？</h3>
+      <p>ふつうの あんざんは「7たす8は15」と <b>ことばで</b> 考えます。フラッシュあんざんは、あたまの中に <b>そろばん</b> を おもいうかべて、かずを見たしゅんかんに 玉を パチッと うごかします。ことばを つかわないから、とても はやく できるんです。</p>
+      <div class="soro"><figure>${soroban(27)}<br>27</figure>➜ <b>＋8</b> ➜<figure>${soroban(35)}<br>35</figure></div>
+      <p>そろばんでは <b>上の玉が 5</b>、<b>下の玉が 1</b>。オレンジが はりに くっついた 玉です。</p></div>
+    <div><h3>🧠 おぼえるのは「いまの こたえ」だけ</h3><p>出てきた かずは すぐ わすれて OK。あたまに のこすのは とちゅうの こたえ 1つだけ。</p></div>
+    <div><h3>🤐 こえに 出さない・くちを うごかさない</h3><p>こころの中で よむと、はやい スピードに おいつけなくなります。かずの「かたち」を 見たら すぐ たす！</p></div>
+    <div><h3>👀 画面の まんなかを ぼんやり 見る</h3><p>目を うごかさず、かず ぜんたいを まとめて パッと 見よう。まばたきは かずが きえた すきに。</p></div>
+    <div><h3>🔟 10の なかまを つかう</h3><p class="ex">＋9 は「＋10 して −1」　＋8 は「＋10 して −2」<br>−9 は「−10 して ＋1」　7と3、6と4 で ぴったり10</p></div>
+    <div><h3>🔢 2けたは 大きい くらいから</h3><p class="ex">47 ＋ 35 → 40＋30＝70、7＋5＝12 → 82</p><p>ひっさんとは ぎゃくに、十のくらいから たすと はやいよ。</p></div>
+    <div><h3>📈 れんしゅうの じゅんばん</h3><p>① ゆっくり（1.5びょう）で ぜんぶ せいかい ➜ ② かずを ふやす ➜ ③ はやくする。まちがいが つづいたら 1つ もどろう。まいにち 5ふんが いちばんの ちかみち！</p></div>
+    <div><h3>🔍 まちがえたら</h3><p>こたえの 下の「とちゅうの こたえ」を見て、どこで ずれたか さがしてみよう。</p></div>
+  </div>` });
+}
+$('tipsBtn').onclick = showTips;
 $('go').onclick = start;
 Kit.bar({ id: 'anzan', title: '🧮 フラッシュあんざん', help: `
   <p>画面に つぎつぎ 出てくる かずを、あたまの中で たしていこう。さいごに こたえを 入れます。</p>
