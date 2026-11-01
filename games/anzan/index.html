@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>フラッシュあんざん</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  .k-wrap { max-width: 560px; }
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .tabs .k-btn[aria-pressed="true"] { background: var(--sun); color: var(--on-color); }
+  .opt { display: grid; gap: 6px; }
+  .rank { display: grid; gap: 2px; }
+  .rank b { font-family: var(--display); font-weight: 400; font-size: 2rem; line-height: 1.2; }
+  .spec { font-weight: 700; color: var(--muted); }
+  .ladder { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .ladder button { border: 2px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); font: 900 .8rem var(--font); padding: 6px 0; cursor: pointer; }
+  .ladder button[aria-pressed="true"] { background: var(--sun); color: var(--on-color); }
+  .ladder button.done { background: var(--grass); color: var(--on-color); }
+  .ladder button:disabled { opacity: .35; cursor: default; }
+
+  /* フラッシュ画面 */
+  #stage { position: fixed; inset: 0; z-index: 50; background: #14121c; color: #fff; display: grid; place-items: center; touch-action: manipulation; }
+  #stage[hidden] { display: none; }
+  #num { font-family: var(--display); font-size: min(34vw, 46vh); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: .02em; user-select: none; }
+  #num.minus { color: #ff7a9c; }
+  #num.small { font-size: min(18vw, 30vh); }
+  #stageInfo { position: absolute; top: max(14px, env(safe-area-inset-top)); left: 0; right: 0; text-align: center; color: #8a85a0; font-weight: 700; }
+  #stopBtn { position: absolute; bottom: max(18px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); background: transparent; color: #8a85a0; border: 2px solid #3a3550; border-radius: 12px; padding: 6px 16px; font: 700 .9rem var(--font); }
+
+  /* こたえ */
+  .ans { font-family: var(--display); font-size: 2.6rem; text-align: right; border: 3px solid var(--line); border-radius: 16px; padding: 6px 16px; min-height: 70px; background: var(--card); font-variant-numeric: tabular-nums; }
+  .ans:empty::before { content: '？'; color: var(--muted); }
+  .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .pad .k-btn { font-size: 1.6rem; min-height: 58px; }
+  .verdict { font-family: var(--display); font-size: 2.4rem; text-align: center; }
+  .seq { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+  .seq span { border: 2px solid var(--line); border-radius: 10px; padding: 2px 10px; font-weight: 900; font-variant-numeric: tabular-nums; background: var(--card); }
+  .seq span.minus { color: #d6305f; }
+  .total { text-align: center; font-weight: 900; font-size: 1.3rem; }
+  .total b { font-family: var(--display); font-weight: 400; font-size: 1.8rem; }
+  .dots { display: flex; gap: 8px; justify-content: center; font-size: 1.4rem; }
+</style>
+</head>
+<body>
+<main class="k-wrap">
+  <section id="menu" class="k-stack">
+    <div class="tabs" id="tabs"></div>
+
+    <div class="k-card k-stack" id="testBox">
+      <div class="rank"><span class="k-label">チャレンジする きゅう</span><b id="rankName"></b><span class="spec" id="rankSpec"></span></div>
+      <p class="k-muted" style="margin:0">3もん だして 2もん せいかいで ごうかく！ つぎの きゅうに すすめるよ。</p>
+      <div class="ladder" id="ladder"></div>
+    </div>
+
+    <div class="k-card k-stack" id="freeBox">
+      <div class="opt"><span class="k-label">けた</span><div class="k-chips" id="optDig"></div></div>
+      <div class="opt"><span class="k-label">かず（くち）</span><div class="k-chips" id="optCnt"></div></div>
+      <div class="opt"><span class="k-label">はやさ（1つの かずを 見せる じかん）</span><div class="k-chips" id="optSpd"></div></div>
+      <div class="opt"><span class="k-label">けいさん</span><div class="k-chips" id="optOp"></div></div>
+    </div>
+
+    <div class="k-card k-stack">
+      <div class="opt"><span class="k-label">おと</span><div class="k-chips" id="optSnd"></div></div>
+    </div>
+    <button class="k-btn is-sun is-big" id="go">スタート</button>
+  </section>
+
+  <section id="answer" class="k-card k-stack" hidden>
+    <div class="dots" id="dotsA"></div>
+    <h2 style="margin:0">こたえは？</h2>
+    <div class="ans k-num" id="ansBox"></div>
+    <div class="pad" id="pad"></div>
+    <div class="k-row" style="justify-content:space-between">
+      <button class="k-btn is-small" id="replay">👀 もういちど 見る</button>
+      <button class="k-btn is-sun" id="ok">こたえる</button>
+    </div>
+  </section>
+
+  <section id="result" class="k-card k-stack k-center" hidden></section>
+</main>
+
+<div id="stage" hidden><div id="stageInfo"></div><div id="num"></div><button id="stopBtn">やめる</button></div>
+
+<script src="../../common/kit.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+
+/* ---------- きゅう：[けた, くち, びょう] ---------- */
+const RANKS = [
+  [1, 3, 1.5], [1, 4, 1.2], [1, 5, 1.0], [1, 7, 0.9], [1, 10, 0.8],
+  [1, 10, 0.6], [2, 3, 1.5], [2, 4, 1.2], [2, 5, 1.0], [2, 7, 1.0],
+  [2, 10, 1.0], [2, 10, 0.8], [2, 15, 0.8], [2, 15, 0.5], [3, 3, 1.5],
+  [3, 5, 1.2], [3, 7, 1.0], [3, 10, 1.0], [3, 15, 0.8], [3, 15, 0.5],
+].map(([dig, cnt, spd], i) => ({ dig, cnt, spd, op: 'add', name: i < 19 ? `${20 - i}きゅう` : 'めいじん' }));
+const SPEEDS = [3, 2, 1.5, 1.2, 1, .8, .6, .5, .4, .3, .2];
+const O = Object.assign({ tab: 'test', rank: 0, dig: 1, cnt: 5, spd: 1, op: 'add', snd: true }, Kit.store.get('anzan:opts', {}));
+const save = () => Kit.store.set('anzan:opts', O);
+const cleared = () => Kit.store.get('anzan:cleared', -1); // ごうかくした いちばん上の きゅう
+
+function chips(root, list, cur, set) {
+  root.innerHTML = '';
+  for (const [v, l] of list) {
+    const b = Kit.el(`<button class="k-chip" aria-pressed="${cur === v}">${l}</button>`);
+    b.onclick = () => { set(v); save(); Kit.sfx('select'); renderMenu(); };
+    root.appendChild(b);
+  }
+}
+const specText = r => `${r.dig}けた × ${r.cnt}くち・${r.spd}びょう${r.op === 'mix' ? '・ひき算あり' : ''}`;
+function renderMenu() {
+  const t = $('tabs'); t.innerHTML = '';
+  for (const [k, l] of [['test', '🏅 けんてい'], ['free', '🎛️ れんしゅう']]) {
+    const b = Kit.el(`<button class="k-btn" aria-pressed="${O.tab === k}">${l}</button>`);
+    b.onclick = () => { O.tab = k; save(); Kit.sfx('select'); renderMenu(); };
+    t.appendChild(b);
+  }
+  $('testBox').hidden = O.tab !== 'test'; $('freeBox').hidden = O.tab !== 'free';
+  O.rank = Math.min(O.rank, cleared() + 1, RANKS.length - 1);
+  const r = RANKS[O.rank];
+  $('rankName').textContent = r.name; $('rankSpec').textContent = specText(r);
+  const L = $('ladder'); L.innerHTML = '';
+  RANKS.forEach((q, i) => {
+    const b = Kit.el(`<button aria-pressed="${i === O.rank}" class="${i <= cleared() ? 'done' : ''}" ${i > cleared() + 1 ? 'disabled' : ''}>${q.name}</button>`);
+    b.onclick = () => { O.rank = i; save(); Kit.sfx('select'); renderMenu(); };
+    L.appendChild(b);
+  });
+  chips($('optDig'), [[1, '1けた'], [2, '2けた'], [3, '3けた'], [4, '4けた']], O.dig, v => O.dig = v);
+  chips($('optCnt'), [3, 5, 7, 10, 15, 20].map(n => [n, `${n}くち`]), O.cnt, v => O.cnt = v);
+  chips($('optSpd'), SPEEDS.map(s => [s, `${s}びょう`]), O.spd, v => O.spd = v);
+  chips($('optOp'), [['add', '➕ たし算'], ['mix', '➖ ひき算まじり']], O.op, v => O.op = v);
+  chips($('optSnd'), [[true, '🔊 あり'], [false, '🔇 なし']], O.snd, v => O.snd = v);
+}
+
+/* ---------- もんだい ---------- */
+function makeProblem({ dig, cnt, op }) {
+  const lo = dig === 1 ? 1 : 10 ** (dig - 1), hi = 10 ** dig - 1;
+  const nums = []; let total = 0, prev = 0;
+  for (let i = 0; i < cnt; i++) {
+    let n, t = 0;
+    do { n = Kit.randInt(lo, hi); t++; } while (t < 30 && (n === prev || (dig === 1 && Math.abs(n - prev) === 0)));
+    // ひき算：とちゅうの こたえが マイナスに ならないときだけ
+    const minus = op === 'mix' && i > 0 && Math.random() < .4 && total - n >= 0;
+    nums.push(minus ? -n : n); total += minus ? -n : n; prev = n;
+  }
+  return { nums, total };
+}
+
+/* ---------- フラッシュ ---------- */
+let P = null, run = 0;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function flash() {
+  const my = ++run;
+  const st = $('stage'), num = $('num');
+  st.hidden = false; num.className = ''; num.textContent = '';
+  $('stageInfo').textContent = `${P.cfg.name ? P.cfg.name + '・' : ''}${specText(P.cfg)}`;
+  Kit.keepAwake(true);
+  for (const c of ['3', '2', '1']) {
+    num.className = 'small'; num.textContent = c; if (O.snd) Kit.tone(660, .08, { type: 'sine', vol: .25 });
+    await sleep(600); if (my !== run) return;
+  }
+  num.textContent = ''; await sleep(400); if (my !== run) return;
+  const on = P.cfg.spd * 1000 * (P.cfg.spd <= .3 ? .8 : .7), off = P.cfg.spd * 1000 - on;
+  for (const n of P.nums) {
+    num.className = n < 0 ? 'minus' : ''; num.textContent = n < 0 ? '−' + (-n) : String(n);
+    if (O.snd) Kit.tone(n < 0 ? 520 : 880, .05, { type: 'sine', vol: .2 });
+    await sleep(on); if (my !== run) return;
+    num.textContent = ''; await sleep(off); if (my !== run) return;
+  }
+  st.hidden = true; Kit.keepAwake(false);
+  showAnswer();
+}
+$('stopBtn').onclick = () => { run++; $('stage').hidden = true; Kit.keepAwake(false); $('answer').hidden = true; $('result').hidden = true; $('menu').hidden = false; renderMenu(); };
+
+/* ---------- すすめかた ---------- */
+let T = null; // けんてい：{ rank, i, ok, marks }
+function start() {
+  Kit.sfx('tap');
+  if (O.tab === 'test') T = { rank: O.rank, i: 0, ok: 0, marks: [] }; else T = null;
+  next();
+}
+function next() {
+  const cfg = T ? RANKS[T.rank] : { dig: O.dig, cnt: O.cnt, spd: O.spd, op: O.op };
+  P = { cfg, ...makeProblem(cfg) };
+  $('menu').hidden = true; $('answer').hidden = true; $('result').hidden = true;
+  flash();
+}
+let typed = '';
+function showAnswer() {
+  typed = ''; $('ansBox').textContent = '';
+  $('dotsA').innerHTML = T ? [0, 1, 2].map(i => `<span>${T.marks[i] || (i === T.i ? '🔵' : '⚪')}</span>`).join('') : '';
+  $('answer').hidden = false;
+  $('replay').hidden = !!T; // けんていでは 見なおし なし
+}
+function key(k) {
+  if (k === 'del') typed = typed.slice(0, -1);
+  else if (k === 'ok') return check();
+  else if (typed.length < 7) typed = (typed === '0' ? '' : typed) + k;
+  $('ansBox').textContent = typed ? Number(typed).toLocaleString('ja-JP') : '';
+  Kit.sfx('tap');
+}
+const pad = $('pad');
+['7', '8', '9', '4', '5', '6', '1', '2', '3', 'del', '0', 'ok'].forEach(k => {
+  const b = Kit.el(`<button class="k-btn ${k === 'ok' ? 'is-sun' : ''}">${k === 'del' ? '⌫' : k === 'ok' ? '✔' : k}</button>`);
+  b.onclick = () => key(k); pad.appendChild(b);
+});
+$('ok').onclick = check;
+$('replay').onclick = () => { $('answer').hidden = true; flash(); };
+addEventListener('keydown', e => {
+  if ($('answer').hidden) return;
+  if (/^[0-9]$/.test(e.key)) key(e.key);
+  else if (e.key === 'Backspace') key('del');
+  else if (e.key === 'Enter') key('ok');
+});
+
+function check() {
+  if (!typed) return;
+  const right = Number(typed) === P.total;
+  Kit.sfx(right ? 'good' : 'bad'); if (!right) Kit.vibrate(80);
+  const seq = P.nums.map(n => `<span class="${n < 0 ? 'minus' : ''}">${n < 0 ? '−' + (-n) : n}</span>`).join('');
+  const body = `<div class="verdict">${right ? '⭕ せいかい！' : '❌ ざんねん'}</div>
+    <div class="seq">${seq}</div>
+    <div class="total">こたえ <b>${P.total.toLocaleString('ja-JP')}</b>${right ? '' : `<br><span class="k-muted">あなたの こたえ：${Number(typed).toLocaleString('ja-JP')}</span>`}</div>`;
+  $('answer').hidden = true; $('result').hidden = false;
+  if (!T) {
+    const k = `anzan_streak`; const s = right ? (Kit.store.get(k, 0) + 1) : 0; Kit.store.set(k, s);
+    $('result').innerHTML = `${body}${s >= 2 ? `<p>🔥 ${s}れんぞく せいかい！</p>` : ''}
+      <div class="k-row" style="justify-content:center"><button class="k-btn is-sun" id="nx">つぎの もんだい</button><button class="k-btn" id="again">おなじ もんだい</button><button class="k-btn is-small" id="back">せってい</button></div>`;
+    $('nx').onclick = next; $('again').onclick = () => { $('result').hidden = true; flash(); };
+  } else {
+    T.marks[T.i] = right ? '⭕' : '❌'; if (right) T.ok++; T.i++;
+    const done = T.i >= 3 || T.ok >= 2 || T.i - T.ok >= 2;
+    if (!done) {
+      $('result').innerHTML = `<div class="dots">${[0, 1, 2].map(i => `<span>${T.marks[i] || '⚪'}</span>`).join('')}</div>${body}
+        <button class="k-btn is-sun is-big" id="nx">${T.i + 1}もんめ へ</button>`;
+      $('nx').onclick = next;
+    } else {
+      const pass = T.ok >= 2, r = RANKS[T.rank];
+      if (pass && T.rank > cleared()) Kit.store.set('anzan:cleared', T.rank);
+      const hasNext = pass && T.rank + 1 < RANKS.length;
+      if (pass) { Kit.sfx('win'); Kit.confetti(); }
+      $('result').innerHTML = `<div class="dots">${T.marks.map(m => `<span>${m}</span>`).join('')}</div>${body}
+        <h2 style="margin:4px 0">${pass ? `🎉 ${r.name} ごうかく！` : `${r.name} ふごうかく…`}</h2>
+        ${pass ? (hasNext ? `<p>つぎは <b>${RANKS[T.rank + 1].name}</b>（${specText(RANKS[T.rank + 1])}）</p>` : '<p>ぜんぶ ごうかく！ すごすぎる！</p>') : '<p class="k-muted">れんしゅうモードで ゆっくりから ためしてみよう</p>'}
+        <div class="k-row" style="justify-content:center">
+          ${hasNext ? '<button class="k-btn is-sun" id="up">つぎの きゅうへ</button>' : ''}
+          <button class="k-btn ${hasNext ? '' : 'is-sun'}" id="retry">${pass ? 'もういちど' : 'もういちど チャレンジ'}</button>
+          <button class="k-btn is-small" id="back">もどる</button></div>`;
+      if (hasNext) $('up').onclick = () => { O.rank = T.rank + 1; save(); start(); };
+      $('retry').onclick = () => { O.rank = T.rank; save(); start(); };
+    }
+  }
+  const back = $('back'); if (back) back.onclick = () => { $('result').hidden = true; $('menu').hidden = false; renderMenu(); };
+}
+
+$('go').onclick = start;
+Kit.bar({ id: 'anzan', title: '🧮 フラッシュあんざん', help: `
+  <p>画面に つぎつぎ 出てくる かずを、あたまの中で たしていこう。さいごに こたえを 入れます。</p>
+  <p><b>🏅 けんてい</b>：20きゅう から めいじん まで。3もん中 2もん せいかいで ごうかく、つぎの きゅうに すすめます。</p>
+  <p><b>🎛️ れんしゅう</b>：けた・かず・はやさを じゆうに えらべます。「ひき算まじり」では ひく かずが <span style="color:#d6305f">−赤い字</span> で 出ます。「もういちど 見る」で 見なおしも できます。</p>
+  <p>キーボードの 数字キーと Enter でも こたえられます。</p>` });
+renderMenu();
+if (location.hash === '#debug') window.__anzan = { get P() { return P; } };
+</script>
+</body>
+</html>

@@ -7,6 +7,7 @@ self.ASOBI_GAMES = [
   { id: 'puchi', name: 'ぷちぷちエビ', icon: '🦐', color: 'orange', tag: 'ひとりで', who: '1人', desc: 'ねこを うごかして ぷちぷちを エビに！' },
   { id: 'puchic', name: 'ぷちぷちチャレンジ', icon: '🫧', color: 'sky', tag: 'たいせん', who: '1〜2人＋CPU', desc: 'ぷちぷちを つぶして とくてんを きそおう' },
   { id: 'reji', name: 'レジでおかいもの', icon: '👛', color: 'grass', tag: 'ひとりで', who: '1人', desc: 'こぜにが へるように はらう／おつりを わたす' },
+  { id: 'anzan', name: 'フラッシュあんざん', icon: '🧮', color: 'sky', tag: 'ひとりで', who: '1人', desc: 'つぎつぎ出る かずを あたまで たそう。きゅうに チャレンジ' },
   { id: 'babanuki', name: 'ババぬき', icon: '🃏', color: 'berry', tag: 'みんなで', who: '1人＋CPU', desc: 'CPUと対戦。ジジぬきもできるよ' },
   { id: 'connect4', name: 'よんもくならべ', icon: '🔴', color: 'sun', tag: 'たいせん', who: '1〜2人', desc: 'たて・よこ・ななめに4つそろえよう' },
   { id: 'dots', name: 'ドット＆ボックス', icon: '✏️', color: 'sky', tag: 'たいせん', who: '2〜4人', desc: '線をひいて、はこをたくさん取ろう' },
