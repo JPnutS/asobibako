@@ -18,7 +18,7 @@ self.ASOBI_GAMES = [
   { id: 'thread', name: 'いととおし', icon: '🧵', color: 'sky', tag: 'ひとりで', who: '1人', desc: 'おしてのぼる、はなしておりる' },
   { id: 'swing', name: 'スイングヒーロー', icon: '🕸️', color: 'orange', tag: 'ひとりで', who: '1人', desc: 'いとをつけて、どこまでのぼれる？' },
   { id: 'beads', name: 'アイロンビーズ', icon: '🎨', color: 'sun', tag: 'つくる', who: '', desc: '写真から図案。ぬりなおしもできる' },
-  { id: 'mirror', name: 'どうがはんてん', icon: '🪞', color: 'grass', tag: 'つくる', who: '', desc: 'ダンスれんしゅうに。反転・スロー・くりかえし' },
+  { id: 'mirror', name: 'どうがはんてん', icon: '🪞', color: 'grass', tag: 'つくる', who: '', desc: 'ダンスれんしゅうに。はんてん・スロー・くりかえし・じぶんとくらべる' },
   { id: 'oshi', name: '推し活ノート', icon: '💖', color: 'berry', tag: 'つくる', who: '', desc: 'カウントダウン・推し貯金・きろく' },
   { id: 'kaimono', name: 'おかいもの算数', icon: '🛒', color: 'grass', tag: 'べんり', who: '', desc: '何割引でいくら？どっちがおトク？計算のしかたが見える' },
 ];
