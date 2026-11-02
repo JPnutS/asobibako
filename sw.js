@@ -1,5 +1,5 @@
 /* オフライン用：はじめに全部をキャッシュし、その後は「キャッシュ→裏で更新」 */
-const VERSION = 'asobibako-v40';
+const VERSION = 'asobibako-v41';
 importScripts('common/games.js', 'tools/items.js');
 const CORE = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png',
   'common/kit.css', 'common/kit.js', 'common/net.js', 'common/vendor/peerjs.min.js', 'common/games.js', 'common/vendor/three.module.min.js',
@@ -10,7 +10,8 @@ const CORE = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-192.
   ...self.OTONA_ITEMS.map(g => `tools/games/${g.id}/index.html`)];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));
+  // cache:'reload'：ブラウザの古いキャッシュを使わず、かならず最新を取りに行く（ファイルどうしの食いちがいを防ぐ）
+  e.waitUntil(caches.open(VERSION).then(c => c.addAll(CORE.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k))))
