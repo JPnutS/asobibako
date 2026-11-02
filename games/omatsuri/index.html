@@ -8,217 +8,153 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
 <link rel="stylesheet" href="../../common/kit.css">
 <style>
-  .k-wrap { max-width: 520px; }
-  :root { --used: #ff8a3d; --plan: #4cb8ff; --left: #4fcf7a; --over: #ff3b5c; }
-  .big { font-family: var(--display); font-weight: 400; font-variant-numeric: tabular-nums; }
+  /* 履歴つきの電卓：上に 最初の金額、まん中に 履歴、下に 残り と キー */
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; }
+  .calc { flex: 1; min-height: 0; width: 100%; max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px;
+    padding: 10px max(12px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-bottom)); }
+  .num { font-variant-numeric: tabular-nums; }
 
-  /* おこづかい */
-  .budget { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; font-weight: 900; }
-.slot { font: 400 1.7rem var(--display); text-align: right; padding: 4px 12px; min-width: 0; border: 3px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); cursor: pointer; font-variant-numeric: tabular-nums; }
-  .slot.on { border-color: var(--orange); box-shadow: 0 0 0 4px #ffc89e; }
-  .slot.empty { color: var(--muted); }
-  .bar { height: 22px; border: 3px solid var(--line); border-radius: 12px; overflow: hidden; display: flex; background: var(--left); }
-  .bar i { display: block; height: 100%; transition: width .3s; }
-  .bar .u { background: var(--used); }
-  .bar .p { background: repeating-linear-gradient(-45deg, var(--plan) 0 8px, #9fd8ff 8px 16px); }
-  .bar .o { background: repeating-linear-gradient(-45deg, var(--over) 0 8px, #ff9aac 8px 16px); }
-  .legend { display: grid; grid-template-columns: 1fr 1fr 1.5fr; align-items: stretch; gap: 6px; text-align: center; font-size: .82rem; font-weight: 700; }
-  .legend div { border-radius: 10px; padding: 4px 2px; border: 2px solid var(--line); color: #2a2238; }
-  .legend b { display: block; font-size: 1.1rem; font-variant-numeric: tabular-nums; }
-  .legend .lg-l b { font-family: var(--display); font-weight: 400; font-size: clamp(1.15rem, 5.4vw, 1.7rem); white-space: nowrap; }
-  .lg-l { border-width: 3px !important; }
-  .lg-u { background: #ffe0c9; } .lg-p { background: #d6efff; border-style: dashed !important; } .lg-l { background: #d5f6df; }
+  .start { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 6px 12px; border: 3px solid var(--line); border-radius: 14px; background: var(--card); cursor: pointer; font: inherit; color: inherit; text-align: left; }
+  .start span { font-weight: 900; }
+  .start b { font-family: var(--display); font-weight: 400; font-size: 1.7rem; }
+  .start.on { border-color: var(--orange); box-shadow: 0 0 0 4px #ffc89e; }
 
-  /* でんたく */
-  .pad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-  .pad .k00 { grid-column: 4; grid-row: 3 / span 2; }
-  .pad .k0 { grid-column: 1 / span 3; }
-  .qty { display: flex; justify-content: flex-end; align-items: center; gap: 8px; font-weight: 700; }
-  .qty button { width: 38px; height: 34px; border: 2px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); font: 900 1.2rem var(--font); cursor: pointer; }
-  .qty b { min-width: 1.6em; text-align: center; font-size: 1.3rem; font-variant-numeric: tabular-nums; }
-  .it .pr small { display: block; font-size: .7rem; color: var(--muted); font-weight: 700; text-align: right; }
-  .pad .k-btn { min-height: 50px; font-size: 1.4rem; padding: 4px; }
-  .ifbox { border: 3px dashed var(--plan); border-radius: 16px; padding: 8px 12px; background: #eef8ff; color: #2a2238; display: grid; gap: 2px; }
-  .ifbox.over { border-color: var(--over); background: #fff0f3; }
-  .ifbox .ttl { font-weight: 900; color: #1d6fae; font-size: .9rem; }
-  .ifbox.over .ttl { color: #c4193b; }
-  .ifbox .calc { font-weight: 700; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; }
-  .ifbox .calc { flex-wrap: nowrap; white-space: nowrap; }
-  .ifbox .calc .slot { font-size: 1.4rem; min-width: 4.2em; padding: 2px 10px; }
-  .ifbox .big { font-size: 1.9rem; text-align: right; }
-  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .two .k-btn { white-space: nowrap; font-size: clamp(.9rem, 4.2vw, 1.1rem); padding-left: 6px; padding-right: 6px; }
-  .btn-plan { background: #d6efff; color: #2a2238; border-style: dashed !important; }
+  .tape { flex: 1; min-height: 70px; overflow-y: auto; border-top: 2px dashed var(--muted); border-bottom: 2px dashed var(--muted); padding: 4px 2px; display: flex; flex-direction: column; gap: 2px; }
+  .tape .empty { margin: auto; color: var(--muted); font-size: .9rem; text-align: center; }
+  .row { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 3px 4px; border-radius: 8px; }
+  .row input { border: 0; border-bottom: 1px dotted var(--muted); background: transparent; color: var(--ink); font: 700 .95rem var(--font); min-width: 0; padding: 3px 0; }
+  .row input:focus { outline: none; border-bottom-color: var(--sky); }
+  .row .amt { font-weight: 900; font-size: 1.05rem; }
+  .row .more { border: 0; background: none; color: var(--muted); font-size: 1.1rem; padding: 2px 6px; cursor: pointer; }
+  .row.hold { background: repeating-linear-gradient(-45deg, transparent 0 6px, rgba(76,184,255,.12) 6px 12px); }
+  .row.hold .amt { color: #1d7fc4; }
+  .row.hold .amt::before { content: '保留 '; font-size: .7rem; border: 1.5px solid #1d7fc4; border-radius: 6px; padding: 0 4px; margin-right: 4px; vertical-align: 2px; }
 
-  /* リスト */
-  h2.sec { font-size: 1.05rem; margin: 0; }
-  .list { display: grid; gap: 6px; }
-  .it { display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px; align-items: center; border: 2px solid var(--line); border-radius: 12px; padding: 6px 8px; background: var(--card); }
-  .it.plan { border-style: dashed; background: #eef8ff; color: #2a2238; }
-  .it.plan.off { opacity: .5; }
-  .it .nm { border: 0; border-bottom: 2px dotted var(--muted); background: transparent; color: inherit; font: 700 1rem var(--font); min-width: 0; padding: 2px 0; }
-  .it .nm:focus { outline: none; border-bottom-color: var(--sky); }
-  .it .tm { font-size: .72rem; color: var(--muted); }
-  .it .pr { font-weight: 900; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .it .acts { display: flex; gap: 4px; }
-  .mini { border: 2px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); font: 900 .8rem var(--font); padding: 4px 8px; cursor: pointer; white-space: nowrap; }
-  .mini.go { background: var(--used); color: #2a2238; }
-  .chk { width: 24px; height: 24px; accent-color: var(--plan); }
-  .empty { color: var(--muted); font-size: .88rem; }
-  .sumline { display: flex; justify-content: space-between; font-weight: 900; padding: 0 4px; }
-  .reset { justify-self: center; }
+  .left { text-align: right; line-height: 1.15; }
+  .left .lbl { font-weight: 900; font-size: .9rem; color: var(--muted); }
+  .left .big { font-family: var(--display); font-size: clamp(2.4rem, 12vw, 3.2rem); display: block; }
+  .left .big.minus { color: #e0234a; }
+  .left .if { font-size: .9rem; font-weight: 700; color: #1d7fc4; }
+
+  .disp { display: flex; justify-content: space-between; align-items: center; border: 3px solid var(--line); border-radius: 12px; padding: 4px 12px; background: var(--soft); min-height: 50px; }
+  .disp .hint { font-size: .85rem; font-weight: 700; color: var(--muted); }
+  .disp .v { font-family: var(--display); font-size: 1.7rem; }
+
+  .keys { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: minmax(48px, 7.2vh); gap: 6px; }
+  .keys .k-btn { min-height: 0; padding: 2px; font-size: 1.35rem; }
+  .keys .k-btn.s { font-size: .95rem; }
+  .keys .buy { grid-column: 4; grid-row: 3 / span 2; flex-direction: column; gap: 0; }
+  .keys .hold { background: #d6efff; color: #2a2238; border-style: dashed; }
+  .keys .buy small, .keys .hold small { font-size: .7rem; font-weight: 700; }
 </style>
 </head>
 <body>
-<main class="k-wrap k-stack">
-  <section class="k-card k-stack">
-    <div class="budget"><span>👛 おこづかい</span><button class="slot" id="budget" aria-label="おこづかいを 入れる"></button><span>円</span></div>
-    <div class="bar" id="bar"></div>
-    <div class="legend">
-      <div class="lg-u">使った<b id="lgU"></b></div>
-      <div class="lg-p">買う予定<b id="lgP"></b></div>
-      <div class="lg-l">残り<b id="lgL"></b></div>
-    </div>
-    <div class="ifbox" id="ifbox"></div>
-    <div class="pad" id="pad"></div>
-    <div class="two" id="two">
-      <button class="k-btn btn-plan" id="toPlan">📝 予定に入れる</button>
-      <button class="k-btn is-orange" id="toBuy">✅ 買った</button>
-    </div>
-    <button class="k-btn is-sun" id="budgetOk" hidden>👛 この金額で決定</button>
-  </section>
-
-  <section class="k-card k-stack">
-    <h2 class="sec">📝 買う予定（まだ払っていない）</h2>
-    <div class="list" id="planList"></div>
-  </section>
-
-  <section class="k-card k-stack">
-    <h2 class="sec">✅ 買った物（支払い済み）</h2>
-    <div class="list" id="boughtList"></div>
-  </section>
-  <button class="k-btn is-small reset" id="reset">🗑️ すべて消して最初から</button>
-</main>
+<div class="calc">
+  <button class="start" id="start"><span>👛 最初の金額</span><b class="num" id="startV"></b></button>
+  <div class="tape" id="tape"></div>
+  <div class="left"><span class="lbl">残り</span><span class="big num" id="left"></span><span class="if" id="ifHold"></span></div>
+  <div class="disp"><span class="hint" id="hint"></span><span class="v num" id="disp"></span></div>
+  <div class="keys" id="keys"></div>
+</div>
 
 <script src="../../common/kit.js"></script>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
 const yen = n => (n < 0 ? '−' : '') + Math.abs(n).toLocaleString('ja-JP') + '円';
-const KEY = 'omatsuri:state';
-const fresh = () => ({ budget: 0, bought: [], plan: [] });
-let st = Object.assign(fresh(), Kit.store.get(KEY, {}));
+const KEY = 'omatsuri:state2';
+let st = Kit.store.get(KEY, null);
+if (!st) { // まえの形（買った／買うかも）から うつす
+  const o = Kit.store.get('omatsuri:state', {}) || {};
+  st = { budget: o.budget || 0, items: [
+    ...(o.bought || []).map(b => ({ name: b.name || '', amt: b.price, hold: false, t: b.t || Date.now() })),
+    ...(o.plan || []).map(p => ({ name: p.name || '', amt: p.price, hold: true, t: Date.now() })),
+  ] };
+}
 const save = () => Kit.store.set(KEY, st);
-let price = 0, qty = 1, target = 'price', fresh1 = false; // target：でんたくで 入れる先（price／budget）
+let input = 0, mode = st.budget ? 'item' : 'budget'; // mode：budget＝最初の金額を入力中
 
-const usedSum = () => st.bought.reduce((s, b) => s + b.price, 0);
-const planSum = () => st.plan.filter(p => p.on).reduce((s, p) => s + p.price, 0);
-const time = t => { const d = new Date(t); return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`; };
+const usedSum = () => st.items.filter(i => !i.hold).reduce((s, i) => s + i.amt, 0);
+const holdSum = () => st.items.filter(i => i.hold).reduce((s, i) => s + i.amt, 0);
 
 function render() {
-  const used = usedSum(), plan = planSum(), left = st.budget - used, after = left - plan;
-  // バー：使った（オレンジ）／買うかも（青しま、たりない ぶんは 赤しま）／残り（みどり）
-  const B = Math.max(st.budget, used + plan, 1), pct = v => Math.max(0, v) / B * 100 + '%';
-  const planIn = Math.min(plan, Math.max(0, left));
-  $('bar').innerHTML = `<i class="u" style="width:${pct(used)}"></i><i class="p" style="width:${pct(planIn)}"></i><i class="o" style="width:${pct(plan - planIn)}"></i>`;
-  $('bar').style.background = after <= 0 ? 'var(--soft)' : 'var(--left)';
-  $('lgU').textContent = yen(used); $('lgP').textContent = yen(plan);
-  $('lgL').textContent = yen(after); $('lgL').style.color = after < 0 ? 'var(--over)' : '';
+  $('startV').textContent = st.budget ? yen(st.budget) : '—';
+  $('start').classList.toggle('on', mode === 'budget');
+  const left = st.budget - usedSum(), hold = holdSum();
+  $('left').textContent = yen(left);
+  $('left').classList.toggle('minus', left < 0);
+  $('ifHold').textContent = hold ? `保留も買うと ${yen(left - hold)}` : '';
 
-  // おこづかいの わく
-  const bs = $('budget');
-  bs.textContent = st.budget ? st.budget.toLocaleString('ja-JP') : 'タップして入力';
-  bs.classList.toggle('empty', !st.budget); bs.classList.toggle('on', target === 'budget');
-  // でんたくの上：いま 残り − [ねだん] ＝ 残り
-  const total = price * qty, box = $('ifbox'), a1 = left - total;
-  box.className = 'ifbox' + (a1 < 0 ? ' over' : '');
-  box.innerHTML = `<div class="ttl">${target === 'budget' ? '👛 おこづかいの金額を入力' : !price ? '🔢 値段を入力してください' : a1 < 0 ? '😱 お金が足りません' : '💭 これを買うと'}</div>
-    ${target === 'budget' ? '<div class="calc" hidden></div>' : `<div class="calc">今の残り ${yen(left)} − <button class="slot ${target === 'price' ? 'on' : ''} ${price ? '' : 'empty'}" id="price">${price ? price.toLocaleString('ja-JP') : '？'}</button>円</div>
-    <div class="qty">個数 <button id="qm" aria-label="へらす">−</button><b>${qty}</b><button id="qp" aria-label="ふやす">＋</button>${qty > 1 && price ? `<span>＝ ${yen(total)}</span>` : ''}</div>
-    <div class="big">${a1 < 0 ? `${yen(-a1)} 足りない` : `残り ${yen(a1)}`}</div>`}`;
-  if ($('qm')) { $('qm').onclick = () => { qty = Math.max(1, qty - 1); Kit.sfx('tap'); render(); }; $('qp').onclick = () => { qty = Math.min(99, qty + 1); Kit.sfx('tap'); render(); }; }
-  if ($('price')) $('price').onclick = () => setTarget('price');
-  $('two').hidden = target === 'budget'; $('budgetOk').hidden = target !== 'budget';
-  $('toBuy').disabled = $('toPlan').disabled = !price;
-
-  // 買うかも
-  const pl = $('planList');
-  pl.innerHTML = st.plan.length ? '' : '<div class="empty">値段を入れて「📝 予定に入れる」を押すと、ここに追加されます。</div>';
-  st.plan.forEach(p => {
-    const r = Kit.el(`<div class="it plan ${p.on ? '' : 'off'}"><input type="checkbox" class="chk" ${p.on ? 'checked' : ''} aria-label="計算に入れる"><input class="nm" maxlength="14" placeholder="名前"><span class="pr">${prText(p)}</span><span class="acts"><button class="mini go">✅ 買った</button><button class="mini" aria-label="消す">✖</button></span></div>`);
-    const nm = r.querySelector('.nm'); nm.value = p.name || '';
-    nm.oninput = () => { p.name = nm.value; save(); };
-    r.querySelector('.chk').onchange = e => { p.on = e.target.checked; save(); Kit.sfx('tap'); render(); };
-    r.querySelector('.go').onclick = () => { st.plan = st.plan.filter(q => q !== p); buy(p); };
-    r.querySelector('.acts .mini:last-child').onclick = () => { st.plan = st.plan.filter(q => q !== p); save(); Kit.sfx('drop'); render(); };
-    pl.appendChild(r);
+  const tape = $('tape');
+  tape.innerHTML = st.items.length ? '' : '<div class="empty">金額を入れて「買った」を押すと<br>ここに 書かれていきます</div>';
+  st.items.forEach(it => {
+    const r = Kit.el(`<div class="row ${it.hold ? 'hold' : ''}"><input maxlength="14" placeholder="名前"><span class="amt num">−${it.amt.toLocaleString('ja-JP')}</span><button class="more" aria-label="なおす">⋯</button></div>`);
+    const nm = r.querySelector('input'); nm.value = it.name;
+    nm.oninput = () => { it.name = nm.value; save(); };
+    r.querySelector('.more').onclick = () => editItem(it);
+    tape.appendChild(r);
   });
-  if (st.plan.length > 1) pl.appendChild(Kit.el(`<div class="sumline"><span>✔ した物を全部買うと</span><span style="color:${after < 0 ? 'var(--over)' : ''}">${after < 0 ? `${yen(-after)} 足りない` : `残り ${yen(after)}`}</span></div>`));
+  tape.scrollTop = tape.scrollHeight;
 
-  // 買った
-  const bl = $('boughtList');
-  bl.innerHTML = st.bought.length ? '' : '<div class="empty">まだ何も買っていません。</div>';
-  st.bought.slice().reverse().forEach(b => {
-    const r = Kit.el(`<div class="it"><span class="tm">${time(b.t)}</span><input class="nm" maxlength="14" placeholder="名前"><span class="pr">${prText(b)}</span><span class="acts"><button class="mini again" title="同じ物をもう一度買った">＋1回</button><button class="mini undo" aria-label="取り消す">↩</button></span></div>`);
-    const nm = r.querySelector('.nm'); nm.value = b.name || '';
-    nm.oninput = () => { b.name = nm.value; save(); };
-    r.querySelector('.again').onclick = () => buy(b);
-    r.querySelector('.undo').onclick = async () => {
-      if (!(await Kit.ask(`${b.name ? `「${Kit.esc(b.name)}」` : ''}${yen(b.price)} を取り消しますか？`, '取り消す', 'やめる'))) return;
-      st.bought = st.bought.filter(q => q !== b); save(); render();
-    };
-    bl.appendChild(r);
-  });
+  $('disp').textContent = input ? input.toLocaleString('ja-JP') : '0';
+  $('hint').textContent = mode === 'budget' ? '最初の金額を入力' : '値段';
+  document.querySelector('.buy').innerHTML = mode === 'budget' ? '決定' : '買った<small>はらった</small>';
+  document.querySelector('.hold').hidden = mode === 'budget';
 }
 
-const prText = it => (it.qty > 1 ? `<small>${yen(it.unit)}×${it.qty}</small>` : '') + yen(it.price);
-const entry = () => ({ name: '', unit: price, qty, price: price * qty });
-function buy(it) {
-  st.bought.push({ name: it.name || '', unit: it.unit || it.price, qty: it.qty || 1, price: it.price, t: Date.now() });
-  save(); Kit.sfx('coin'); Kit.vibrate(20);
-  price = 0; qty = 1; render();
-  const L = st.budget - usedSum();
-  Kit.toast(L < 0 ? `⚠️ ${yen(-L)} オーバー` : `残り ${yen(L)}`);
+function editItem(it) {
+  const name = it.name ? `「${Kit.esc(it.name)}」` : '';
+  Kit.modal({ title: `${name}${yen(it.amt)}`, body: '', actions: [
+    { label: '🗑️ 消す', cls: 'is-berry', onClick: () => { st.items = st.items.filter(i => i !== it); save(); Kit.sfx('drop'); render(); } },
+    { label: '🔢 金額を直す', onClick: () => { st.items = st.items.filter(i => i !== it); input = it.amt; editing = it; save(); render(); } },
+    it.hold ? { label: '✅ 買った', primary: true, onClick: () => { it.hold = false; it.t = Date.now(); save(); Kit.sfx('coin'); render(); } }
+            : { label: '⏸ 保留にもどす', onClick: () => { it.hold = true; save(); render(); } },
+  ] });
 }
-$('toBuy').onclick = () => { if (price) buy(entry()); };
-$('toPlan').onclick = () => {
-  if (!price) return;
-  st.plan.push({ ...entry(), on: true }); save(); Kit.sfx('pop');
-  price = 0; qty = 1; render();
-};
+let editing = null; // 「金額を直す」中の項目（名前と 保留かどうかを のこす）
 
-// でんたく
-['7', '8', '9', 'C', '4', '5', '6', '⌫', '1', '2', '3', '00', '0'].forEach(k => {
-  const b = Kit.el(`<button class="k-btn ${k === 'C' ? 'is-berry' : ''} ${k === '00' ? 'k00' : k === '0' ? 'k0' : ''}">${k}</button>`);
+function add(hold) {
+  if (mode === 'budget') { if (!input) return; st.budget = input; input = 0; mode = 'item'; save(); Kit.sfx('good'); render(); return; }
+  if (!input) return;
+  st.items.push({ name: editing ? editing.name : '', amt: input, hold, t: Date.now() });
+  editing = null; input = 0; save();
+  Kit.sfx(hold ? 'pop' : 'coin'); Kit.vibrate(15);
+  render();
+}
+
+const KEYS = [['7'], ['8'], ['9'], ['⌫', 's'], ['4'], ['5'], ['6'], ['C', 's is-berry'], ['1'], ['2'], ['3'], ['0'], ['00'], ['保留', 's hold']];
+KEYS.forEach(([k, cls = '']) => {
+  const b = Kit.el(`<button class="k-btn ${cls}">${k === '保留' ? '保留<small>まだ</small>' : k}</button>`);
   b.onclick = () => {
-    let v = target === 'budget' ? st.budget : price;
-    if (fresh1 && /\d/.test(k)) v = 0; fresh1 = false; // おこづかいを なおすときは 入れなおし
-    if (k === 'C') v = 0;
-    else if (k === '⌫') v = Math.floor(v / 10);
-    else { const n = Number(String(v) + k); if (n < 1000000) v = n; }
-    if (target === 'budget') { st.budget = v; save(); } else price = v;
+    if (k === '保留') return add(true);
+    if (k === 'C') input = 0;
+    else if (k === '⌫') input = Math.floor(input / 10);
+    else { const v = Number(String(input) + k); if (v < 1000000) input = v; }
     Kit.sfx('tap'); render();
   };
-  $('pad').appendChild(b);
+  $('keys').appendChild(b);
 });
+// 「買った」は 右下の 大きいキー（7 8 9 ⌫ ／ 4 5 6 C ／ 1 2 3 買 ／ 0 00 保留 買）
+const buyBtn = Kit.el('<button class="k-btn is-orange buy"></button>');
+buyBtn.onclick = () => add(false);
+$('keys').appendChild(buyBtn);
 
-// おこづかいも おなじ でんたくで
-function setTarget(t) { target = t; fresh1 = t === 'budget' && st.budget > 0; Kit.sfx('select'); render(); }
-$('budget').onclick = () => setTarget(target === 'budget' ? 'price' : 'budget');
-$('budgetOk').onclick = () => setTarget('price');
-
-$('reset').onclick = async () => {
-  if (!(await Kit.ask('おこづかい・買った物・予定をすべて消しますか？', '消す', 'やめる'))) return;
-  st = fresh(); save(); price = 0; qty = 1; target = 'budget'; render();
+$('start').onclick = () => {
+  mode = mode === 'budget' ? 'item' : 'budget'; input = 0; Kit.sfx('select'); render();
 };
 
 Kit.bar({ id: 'omatsuri', title: '💰 おこづかい電卓', help: `
-  <p>一番上の「おこづかい」をタップして、電卓で金額を入力します。</p>
-  <p>買う物の値段を入力すると、「今の残り − 値段」と、買った後の残りが表示されます。同じ物をいくつか買うときは「個数」を増やします。</p>
-  <p><b>✅ 買った</b>：支払ったら押します。<span style="color:#ff8a3d;font-weight:900">オレンジ</span>の「使った」に入り、残りが減ります。同じ物をもう一度買ったら「＋1回」、間違えたら「↩」で取り消せます。</p>
-  <p><b>📝 予定に入れる</b>：まだ支払っていない物です。<span style="color:#4cb8ff;font-weight:900">青いしま模様</span>で表示され、✔ を付けたり外したりして、組み合わせを比べられます。</p>
-  <p>名前はリストの中で入力できます。データはこの端末に自動で保存されます。</p>` });
-if (!st.budget) target = 'budget';
+  <p>① 上の「最初の金額」を押して、もらったお金を入れて「決定」。</p>
+  <p>② 買った物の値段を入れて「<b>買った</b>」。残りが減って、上に記録されます。名前は記録の行に書けます。</p>
+  <p>③ まだ買うか決めていない物は「<b>保留</b>」。残りは減らずに、「保留も買うと ○円」が出ます。</p>
+  <p>記録の「⋯」で、消す・金額を直す・保留→買った ができます。</p>` });
+const reset = Kit.el('<button class="k-btn k-icon" aria-label="ぜんぶ消す" title="ぜんぶ消す">🗑️</button>');
+reset.onclick = async () => {
+  if (!(await Kit.ask('最初の金額と記録を全部消しますか？', '消す', 'やめる'))) return;
+  st = { budget: 0, items: [] }; save(); input = 0; mode = 'budget'; render();
+};
+document.querySelector('.kbar-extra').appendChild(reset);
 render();
 </script>
 </body>
