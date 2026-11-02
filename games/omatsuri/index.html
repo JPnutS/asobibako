@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>おまつりおこづかい</title>
+<title>おこづかい電卓</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
 <link rel="stylesheet" href="../../common/kit.css">
 <style>
@@ -30,7 +30,13 @@
   .lg-u { background: #ffe0c9; } .lg-p { background: #d6efff; border-style: dashed !important; } .lg-l { background: #d5f6df; }
 
   /* でんたく */
-  .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .pad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .pad .k00 { grid-column: 4; grid-row: 3 / span 2; }
+  .pad .k0 { grid-column: 1 / span 3; }
+  .qty { display: flex; justify-content: flex-end; align-items: center; gap: 8px; font-weight: 700; }
+  .qty button { width: 38px; height: 34px; border: 2px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); font: 900 1.2rem var(--font); cursor: pointer; }
+  .qty b { min-width: 1.6em; text-align: center; font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+  .it .pr small { display: block; font-size: .7rem; color: var(--muted); font-weight: 700; text-align: right; }
   .pad .k-btn { min-height: 50px; font-size: 1.4rem; padding: 4px; }
   .ifbox { border: 3px dashed var(--plan); border-radius: 16px; padding: 8px 12px; background: #eef8ff; color: #2a2238; display: grid; gap: 2px; }
   .ifbox.over { border-color: var(--over); background: #fff0f3; }
@@ -41,6 +47,7 @@
   .ifbox .calc .slot { font-size: 1.4rem; min-width: 4.2em; padding: 2px 10px; }
   .ifbox .big { font-size: 1.9rem; text-align: right; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .two .k-btn { white-space: nowrap; font-size: clamp(.9rem, 4.2vw, 1.1rem); padding-left: 6px; padding-right: 6px; }
   .btn-plan { background: #d6efff; color: #2a2238; border-style: dashed !important; }
 
   /* リスト */
@@ -69,7 +76,7 @@
     <div class="bar" id="bar"></div>
     <div class="legend">
       <div class="lg-u">使った<b id="lgU"></b></div>
-      <div class="lg-p">買うかも<b id="lgP"></b></div>
+      <div class="lg-p">買う予定<b id="lgP"></b></div>
       <div class="lg-l">残り<b id="lgL"></b></div>
     </div>
   </section>
@@ -78,22 +85,22 @@
     <div class="ifbox" id="ifbox"></div>
     <div class="pad" id="pad"></div>
     <div class="two" id="two">
-      <button class="k-btn btn-plan" id="toPlan">🤔 買うかも</button>
-      <button class="k-btn is-orange" id="toBuy">✅ 買った！</button>
+      <button class="k-btn btn-plan" id="toPlan">📝 予定に入れる</button>
+      <button class="k-btn is-orange" id="toBuy">✅ 買った</button>
     </div>
-    <button class="k-btn is-sun" id="budgetOk" hidden>👛 おこづかいは これで OK</button>
+    <button class="k-btn is-sun" id="budgetOk" hidden>👛 この金額で決定</button>
   </section>
 
   <section class="k-card k-stack">
-    <h2 class="sec">🤔 買うかも（まだ はらってない）</h2>
+    <h2 class="sec">📝 買う予定（まだ払っていない）</h2>
     <div class="list" id="planList"></div>
   </section>
 
   <section class="k-card k-stack">
-    <h2 class="sec">✅ 買った（はらった）</h2>
+    <h2 class="sec">✅ 買った物（支払い済み）</h2>
     <div class="list" id="boughtList"></div>
   </section>
-  <button class="k-btn is-small reset" id="reset">🗑️ ぜんぶ けして さいしょから</button>
+  <button class="k-btn is-small reset" id="reset">🗑️ すべて消して最初から</button>
 </main>
 
 <script src="../../common/kit.js"></script>
@@ -105,7 +112,7 @@ const KEY = 'omatsuri:state';
 const fresh = () => ({ budget: 0, bought: [], plan: [] });
 let st = Object.assign(fresh(), Kit.store.get(KEY, {}));
 const save = () => Kit.store.set(KEY, st);
-let price = 0, target = 'price', fresh1 = false; // target：でんたくで 入れる先（price／budget）
+let price = 0, qty = 1, target = 'price', fresh1 = false; // target：でんたくで 入れる先（price／budget）
 
 const usedSum = () => st.bought.reduce((s, b) => s + b.price, 0);
 const planSum = () => st.plan.filter(p => p.on).reduce((s, p) => s + p.price, 0);
@@ -123,64 +130,69 @@ function render() {
 
   // おこづかいの わく
   const bs = $('budget');
-  bs.textContent = st.budget ? st.budget.toLocaleString('ja-JP') : 'タップして 入れる';
+  bs.textContent = st.budget ? st.budget.toLocaleString('ja-JP') : 'タップして入力';
   bs.classList.toggle('empty', !st.budget); bs.classList.toggle('on', target === 'budget');
   // でんたくの上：いま 残り − [ねだん] ＝ 残り
-  const box = $('ifbox'), a1 = left - price;
+  const total = price * qty, box = $('ifbox'), a1 = left - total;
   box.className = 'ifbox' + (a1 < 0 ? ' over' : '');
-  box.innerHTML = `<div class="ttl">${target === 'budget' ? '👛 おこづかいを 入れてね' : !price ? '💭 ねだんを 入れると…' : a1 < 0 ? '😱 お金が たりない！' : '💭 これを 買ったら'}</div>
-    ${target === 'budget' ? '<div class="calc" hidden></div>' : `<div class="calc">いま 残り ${yen(left)} − <button class="slot ${target === 'price' ? 'on' : ''} ${price ? '' : 'empty'}" id="price">${price ? price.toLocaleString('ja-JP') : '？'}</button>円</div>
-    <div class="big">${a1 < 0 ? `${yen(-a1)} たりない` : `残り ${yen(a1)}`}</div>`}`;
+  box.innerHTML = `<div class="ttl">${target === 'budget' ? '👛 おこづかいの金額を入力' : !price ? '🔢 値段を入力してください' : a1 < 0 ? '😱 お金が足りません' : '💭 これを買うと'}</div>
+    ${target === 'budget' ? '<div class="calc" hidden></div>' : `<div class="calc">今の残り ${yen(left)} − <button class="slot ${target === 'price' ? 'on' : ''} ${price ? '' : 'empty'}" id="price">${price ? price.toLocaleString('ja-JP') : '？'}</button>円</div>
+    <div class="qty">個数 <button id="qm" aria-label="へらす">−</button><b>${qty}</b><button id="qp" aria-label="ふやす">＋</button>${qty > 1 && price ? `<span>＝ ${yen(total)}</span>` : ''}</div>
+    <div class="big">${a1 < 0 ? `${yen(-a1)} 足りない` : `残り ${yen(a1)}`}</div>`}`;
+  if ($('qm')) { $('qm').onclick = () => { qty = Math.max(1, qty - 1); Kit.sfx('tap'); render(); }; $('qp').onclick = () => { qty = Math.min(99, qty + 1); Kit.sfx('tap'); render(); }; }
   if ($('price')) $('price').onclick = () => setTarget('price');
   $('two').hidden = target === 'budget'; $('budgetOk').hidden = target !== 'budget';
   $('toBuy').disabled = $('toPlan').disabled = !price;
 
   // 買うかも
   const pl = $('planList');
-  pl.innerHTML = st.plan.length ? '' : '<div class="empty">ねだんを 入れて「🤔 買うかも」を おすと ここに 入るよ</div>';
+  pl.innerHTML = st.plan.length ? '' : '<div class="empty">値段を入れて「📝 予定に入れる」を押すと、ここに追加されます。</div>';
   st.plan.forEach(p => {
-    const r = Kit.el(`<div class="it plan ${p.on ? '' : 'off'}"><input type="checkbox" class="chk" ${p.on ? 'checked' : ''} aria-label="けいさんに 入れる"><input class="nm" maxlength="14" placeholder="なまえ"><span class="pr">${yen(p.price)}</span><span class="acts"><button class="mini go">✅ 買った</button><button class="mini" aria-label="けす">✖</button></span></div>`);
+    const r = Kit.el(`<div class="it plan ${p.on ? '' : 'off'}"><input type="checkbox" class="chk" ${p.on ? 'checked' : ''} aria-label="計算に入れる"><input class="nm" maxlength="14" placeholder="名前"><span class="pr">${prText(p)}</span><span class="acts"><button class="mini go">✅ 買った</button><button class="mini" aria-label="消す">✖</button></span></div>`);
     const nm = r.querySelector('.nm'); nm.value = p.name || '';
     nm.oninput = () => { p.name = nm.value; save(); };
     r.querySelector('.chk').onchange = e => { p.on = e.target.checked; save(); Kit.sfx('tap'); render(); };
-    r.querySelector('.go').onclick = () => { st.plan = st.plan.filter(q => q !== p); buy(p.price, p.name); };
+    r.querySelector('.go').onclick = () => { st.plan = st.plan.filter(q => q !== p); buy(p); };
     r.querySelector('.acts .mini:last-child').onclick = () => { st.plan = st.plan.filter(q => q !== p); save(); Kit.sfx('drop'); render(); };
     pl.appendChild(r);
   });
-  if (st.plan.length > 1) pl.appendChild(Kit.el(`<div class="sumline"><span>✔ したもの ぜんぶ 買ったら</span><span style="color:${after < 0 ? 'var(--over)' : ''}">${after < 0 ? `${yen(-after)} たりない` : `残り ${yen(after)}`}</span></div>`));
+  if (st.plan.length > 1) pl.appendChild(Kit.el(`<div class="sumline"><span>✔ した物を全部買うと</span><span style="color:${after < 0 ? 'var(--over)' : ''}">${after < 0 ? `${yen(-after)} 足りない` : `残り ${yen(after)}`}</span></div>`));
 
   // 買った
   const bl = $('boughtList');
-  bl.innerHTML = st.bought.length ? '' : '<div class="empty">まだ なにも 買っていないよ</div>';
+  bl.innerHTML = st.bought.length ? '' : '<div class="empty">まだ何も買っていません。</div>';
   st.bought.slice().reverse().forEach(b => {
-    const r = Kit.el(`<div class="it"><span class="tm">${time(b.t)}</span><input class="nm" maxlength="14" placeholder="なまえ"><span class="pr">${yen(b.price)}</span><span class="acts"><button class="mini" aria-label="とりけす">↩</button></span></div>`);
+    const r = Kit.el(`<div class="it"><span class="tm">${time(b.t)}</span><input class="nm" maxlength="14" placeholder="名前"><span class="pr">${prText(b)}</span><span class="acts"><button class="mini again" title="同じ物をもう一度買った">＋1回</button><button class="mini undo" aria-label="取り消す">↩</button></span></div>`);
     const nm = r.querySelector('.nm'); nm.value = b.name || '';
     nm.oninput = () => { b.name = nm.value; save(); };
-    r.querySelector('.mini').onclick = async () => {
-      if (!(await Kit.ask(`${b.name ? `「${Kit.esc(b.name)}」` : ''}${yen(b.price)} を とりけす？`, 'とりけす', 'やめる'))) return;
+    r.querySelector('.again').onclick = () => buy(b);
+    r.querySelector('.undo').onclick = async () => {
+      if (!(await Kit.ask(`${b.name ? `「${Kit.esc(b.name)}」` : ''}${yen(b.price)} を取り消しますか？`, '取り消す', 'やめる'))) return;
       st.bought = st.bought.filter(q => q !== b); save(); render();
     };
     bl.appendChild(r);
   });
 }
 
-function buy(p, name = '') {
-  st.bought.push({ name, price: p, t: Date.now() });
+const prText = it => (it.qty > 1 ? `<small>${yen(it.unit)}×${it.qty}</small>` : '') + yen(it.price);
+const entry = () => ({ name: '', unit: price, qty, price: price * qty });
+function buy(it) {
+  st.bought.push({ name: it.name || '', unit: it.unit || it.price, qty: it.qty || 1, price: it.price, t: Date.now() });
   save(); Kit.sfx('coin'); Kit.vibrate(20);
-  price = 0; render();
+  price = 0; qty = 1; render();
   const L = st.budget - usedSum();
-  Kit.toast(L < 0 ? `⚠️ ${yen(-L)} オーバー！` : `のこり ${yen(L)}`);
+  Kit.toast(L < 0 ? `⚠️ ${yen(-L)} オーバー` : `残り ${yen(L)}`);
 }
-$('toBuy').onclick = () => { if (price) buy(price); };
+$('toBuy').onclick = () => { if (price) buy(entry()); };
 $('toPlan').onclick = () => {
   if (!price) return;
-  st.plan.push({ name: '', price, on: true }); save(); Kit.sfx('pop');
-  price = 0; render();
+  st.plan.push({ ...entry(), on: true }); save(); Kit.sfx('pop');
+  price = 0; qty = 1; render();
 };
 
 // でんたく
-['7', '8', '9', '4', '5', '6', '1', '2', '3', 'C', '0', '⌫'].forEach(k => {
-  const b = Kit.el(`<button class="k-btn ${k === 'C' ? 'is-berry' : ''}">${k}</button>`);
+['7', '8', '9', 'C', '4', '5', '6', '⌫', '1', '2', '3', '00', '0'].forEach(k => {
+  const b = Kit.el(`<button class="k-btn ${k === 'C' ? 'is-berry' : ''} ${k === '00' ? 'k00' : k === '0' ? 'k0' : ''}">${k}</button>`);
   b.onclick = () => {
     let v = target === 'budget' ? st.budget : price;
     if (fresh1 && /\d/.test(k)) v = 0; fresh1 = false; // おこづかいを なおすときは 入れなおし
@@ -199,15 +211,16 @@ $('budget').onclick = () => setTarget(target === 'budget' ? 'price' : 'budget');
 $('budgetOk').onclick = () => setTarget('price');
 
 $('reset').onclick = async () => {
-  if (!(await Kit.ask('おこづかい・買ったもの・リストを ぜんぶ けす？', 'けす', 'やめる'))) return;
-  st = fresh(); save(); price = 0; target = 'budget'; render();
+  if (!(await Kit.ask('おこづかい・買った物・予定をすべて消しますか？', '消す', 'やめる'))) return;
+  st = fresh(); save(); price = 0; qty = 1; target = 'budget'; render();
 };
 
-Kit.bar({ id: 'omatsuri', title: '🏮 おまつりおこづかい', help: `
-  <p>いちばん上の おこづかいを タップして でんたくで 入れて、ねだんを でんたくで 入れよう。下に「これを 買ったら 残り○円」が 出ます。</p>
-  <p><b>✅ 買った！</b>：お金を はらったら おす。<span style="color:#ff8a3d;font-weight:900">オレンジ</span>の「使った」が ふえます。まちがえたら ↩ で とりけせます。</p>
-  <p><b>🤔 買うかも</b>：まだ はらっていない よてい。<span style="color:#4cb8ff;font-weight:900">青い しましま</span>に なり、✔ を つけたり はずしたりして 組み合わせを くらべられます。</p>
-  <p>なまえは リストの中で 入れられます。データは この たんまつに 自動で のこります。</p>` });
+Kit.bar({ id: 'omatsuri', title: '💰 おこづかい電卓', help: `
+  <p>一番上の「おこづかい」をタップして、電卓で金額を入力します。</p>
+  <p>買う物の値段を入力すると、「今の残り − 値段」と、買った後の残りが表示されます。同じ物をいくつか買うときは「個数」を増やします。</p>
+  <p><b>✅ 買った</b>：支払ったら押します。<span style="color:#ff8a3d;font-weight:900">オレンジ</span>の「使った」に入り、残りが減ります。同じ物をもう一度買ったら「＋1回」、間違えたら「↩」で取り消せます。</p>
+  <p><b>📝 予定に入れる</b>：まだ支払っていない物です。<span style="color:#4cb8ff;font-weight:900">青いしま模様</span>で表示され、✔ を付けたり外したりして、組み合わせを比べられます。</p>
+  <p>名前はリストの中で入力できます。データはこの端末に自動で保存されます。</p>` });
 if (!st.budget) target = 'budget';
 render();
 </script>

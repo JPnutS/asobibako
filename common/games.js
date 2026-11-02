@@ -21,6 +21,6 @@ self.ASOBI_GAMES = [
   { id: 'beads', name: 'アイロンビーズ', icon: '🎨', color: 'sun', tag: 'つくる', who: '', desc: '写真から図案。ぬりなおしもできる' },
   { id: 'mirror', name: 'どうがはんてん', icon: '🪞', color: 'grass', tag: 'つくる', who: '', desc: 'ダンスれんしゅうに。はんてん・スロー・くりかえし・じぶんとくらべる' },
   { id: 'oshi', name: '推し活ノート', icon: '💖', color: 'berry', tag: 'つくる', who: '', desc: 'カウントダウン・推し貯金・きろく' },
-  { id: 'omatsuri', name: 'おまつりおこづかい', icon: '🏮', color: 'orange', tag: 'べんり', who: '', desc: '使った・残り・「これを買ったら？」が すぐ わかる' },
+  { id: 'omatsuri', name: 'おこづかい電卓', icon: '💰', color: 'orange', tag: 'べんり', who: '', desc: '使った金額と残り、「これを買うと？」がすぐわかる' },
   { id: 'kaimono', name: 'おかいもの算数', icon: '🛒', color: 'grass', tag: 'べんり', who: '', desc: '何割引でいくら？どっちがおトク？計算のしかたが見える' },
 ];
