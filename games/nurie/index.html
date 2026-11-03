@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>おえかき・ぬりえ</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; }
+  .scr { flex: 1; min-height: 0; }
+  .scr[hidden] { display: none !important; }
+
+  /* はじめ */
+  #home .k-wrap { max-width: 520px; }
+  .big-choice { display: grid; gap: 12px; }
+  .big-choice .k-btn { flex-direction: column; gap: 2px; padding: 16px; font-size: 1.3rem; }
+  .big-choice small { font-size: .85rem; font-weight: 700; opacity: .85; }
+
+  /* とりこみ */
+  #imp .k-wrap { max-width: 640px; }
+  .url { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+  .prev { position: relative; border: 3px solid var(--line); border-radius: 14px; background: #fff; overflow: hidden; display: grid; place-items: center; min-height: 160px; }
+  .prev canvas { max-width: 100%; max-height: 52vh; display: block; }
+  .prev .busy { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(255,255,255,.75); font-weight: 900; color: #2a2238; }
+  .slider { display: grid; grid-template-columns: 6.5em 1fr 2em; gap: 8px; align-items: center; font-weight: 700; }
+  .slider input { width: 100%; accent-color: var(--orange); }
+
+  /* ぬる */
+  #paint { display: flex; flex-direction: column; }
+  #stage { flex: 1; min-height: 0; position: relative; overflow: hidden; background: #d9d2c0; touch-action: none; }
+  #board { position: absolute; left: 0; top: 0; transform-origin: 0 0; box-shadow: 0 4px 18px rgba(0,0,0,.25); }
+  #board canvas { position: absolute; left: 0; top: 0; }
+  #cvLine { pointer-events: none; }
+  .tools { background: var(--card); border-top: 3px solid var(--line); padding: 6px max(8px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-bottom)); display: grid; gap: 6px; }
+  .trow { display: flex; gap: 5px; align-items: center; overflow-x: auto; scrollbar-width: none; }
+  .tb { flex: 1 0 38px; max-width: 56px; height: 44px; border: 2.5px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); font: 900 1.25rem var(--font); display: grid; place-items: center; cursor: pointer; padding: 0 6px; }
+  .tb[aria-pressed="true"] { background: var(--sun); color: #2a2238; }
+  .tb:disabled { opacity: .35; }
+  .tb small { font-size: .62rem; display: block; line-height: 1; }
+  .sz { display: flex; gap: 4px; align-items: center; flex: none; }
+  .sz[hidden], .sep[hidden] { display: none; }
+  .sz button { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--line); background: var(--card); display: grid; place-items: center; cursor: pointer; }
+  .sz button[aria-pressed="true"] { background: var(--sun); }
+  .sz i { display: block; border-radius: 50%; background: #2a2238; }
+  .sw { flex: none; width: 36px; height: 36px; border-radius: 50%; border: 2.5px solid var(--line); cursor: pointer; }
+  .sw[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--card), 0 0 0 6px var(--line); transform: scale(.9); }
+  .sw.custom { position: relative; overflow: hidden; background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); }
+  .sw.custom input { position: absolute; inset: -10px; opacity: 0; cursor: pointer; }
+  .sep { flex: none; width: 2px; height: 30px; background: var(--soft); }
+</style>
+</head>
+<body>
+<!-- はじめ -->
+<section id="home" class="scr"><main class="k-wrap k-stack">
+  <div class="big-choice">
+    <button class="k-btn is-sun" id="goDraw">🖍️ おえかき<small>まっしろな 紙に かく</small></button>
+    <button class="k-btn is-sky" id="goImp">🖼️ ぬりえを つくる<small>写真や 絵から 線だけの ぬりえに</small></button>
+    <button class="k-btn is-grass" id="goSample">🏠 おためし ぬりえ<small>用意してある ぬりえで あそぶ</small></button>
+    <button class="k-btn" id="goCont" hidden>⏯ つづきから</button>
+  </div>
+</main></section>
+
+<!-- とりこみ -->
+<section id="imp" class="scr" hidden><main class="k-wrap k-stack">
+  <div class="k-card k-stack">
+    <label class="k-btn is-sky" style="cursor:pointer">📷 写真・画像を えらぶ<input type="file" accept="image/*" id="file" hidden></label>
+    <div class="url"><input class="k-input" id="url" placeholder="画像のリンク（https://…）" inputmode="url"><button class="k-btn is-small" id="urlGo">読みこむ</button></div>
+    <div class="prev" id="prev"><span class="k-muted">ここに ぬりえが 出るよ</span></div>
+    <div id="adj" class="k-stack" hidden>
+      <div class="k-chips" id="kind"></div>
+      <div class="slider" id="detRow"><span>こまかさ</span><input type="range" id="det" min="1" max="5" step="1"><b id="detV"></b></div>
+      <div class="slider"><span>線の太さ</span><input type="range" id="thk" min="1" max="4" step="1"><b id="thkV"></b></div>
+      <button class="k-btn is-small" id="peek">👀 元の画像を見る（おしている間）</button>
+    </div>
+  </div>
+  <div class="k-row" style="justify-content:space-between">
+    <button class="k-btn" id="impBack">もどる</button>
+    <button class="k-btn is-orange is-big" id="impOk" disabled>🖌️ これで ぬる</button>
+  </div>
+</main></section>
+
+<!-- ぬる -->
+<section id="paint" class="scr" hidden>
+  <div id="stage"><div id="board"><canvas id="cvColor"></canvas><canvas id="cvLine"></canvas></div></div>
+  <div class="tools">
+    <div class="trow">
+      <button class="tb" data-tool="fill" aria-label="ぬりつぶし">🪣</button>
+      <button class="tb" data-tool="pen" aria-label="ペン">🖍️</button>
+      <button class="tb" data-tool="eraser" aria-label="けしゴム">🧽</button>
+      <span class="sep"></span>
+      <button class="tb" id="undo" aria-label="もどす">↩</button>
+      <button class="tb" id="redo" aria-label="やりなおす">↪</button>
+      <button class="tb" id="fit" aria-label="ぜんたい">🔍</button>
+      <button class="tb" id="saveImg" aria-label="がぞうを ほぞん">💾</button>
+      <button class="tb" id="toHome" aria-label="さいしょへ">🚪</button>
+    </div>
+    <div class="trow"><span class="sz" id="sizes"></span><span class="sep" id="szSep"></span><span class="trow" id="pal" style="overflow:visible"></span></div>
+  </div>
+</section>
+
+<script src="../../common/kit.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const screens = ['home', 'imp', 'paint'];
+const show = id => screens.forEach(s => $(s).hidden = s !== id);
+
+/* =========================================================
+   線図化：色ごとに 領域を わけて（k-means）、小さい領域を まとめ、
+   領域の さかいめを 線にする → 線が とじるので バケツで ぬりやすい。
+   白黒の 線画なら こい ところを そのまま 線にする。
+   ========================================================= */
+const MAXSIDE = 1000;
+function toData(img) {
+  const s = Math.min(1, MAXSIDE / Math.max(img.width, img.height));
+  const w = Math.max(1, Math.round(img.width * s)), h = Math.max(1, Math.round(img.height * s));
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.drawImage(img, 0, 0, w, h);
+  return { w, h, d: g.getImageData(0, 0, w, h).data, canvas: c };
+}
+// すでに 線画？（ほとんどが 白か 黒で、色が うすい）
+function looksLineArt({ d }) {
+  let bw = 0, n = 0;
+  for (let i = 0; i < d.length; i += 16) {
+    const r = d[i], g = d[i + 1], b = d[i + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    if (mx - mn < 40 && (mn > 200 || mx < 90)) bw++; n++;
+  }
+  return bw / n > 0.88;
+}
+// 3チャンネルの ぼかし（箱ぼかし×2）
+function blur3(src, w, h, r) {
+  if (r < 1) return Float32Array.from(src.filter((_, i) => i % 4 !== 3));
+  let a = new Float32Array(w * h * 3);
+  for (let i = 0, j = 0; i < src.length; i += 4, j += 3) { a[j] = src[i]; a[j + 1] = src[i + 1]; a[j + 2] = src[i + 2]; }
+  const tmp = new Float32Array(a.length);
+  const pass = (from, to, horiz) => {
+    const L = horiz ? w : h, M = horiz ? h : w, n = 2 * r + 1;
+    for (let m = 0; m < M; m++) for (let c = 0; c < 3; c++) {
+      const idx = k => (horiz ? (m * w + k) : (k * w + m)) * 3 + c;
+      let s = 0;
+      for (let k = -r; k <= r; k++) s += from[idx(Math.min(L - 1, Math.max(0, k)))];
+      for (let k = 0; k < L; k++) {
+        to[idx(k)] = s / n;
+        s += from[idx(Math.min(L - 1, k + r + 1))] - from[idx(Math.max(0, k - r))];
+      }
+    }
+  };
+  for (let t = 0; t < 2; t++) { pass(a, tmp, true); pass(tmp, a, false); }
+  return a;
+}
+function kmeans(px, n, K) {
+  // k-means++ で はじめの 色を えらぶ（間引いた 画素で）
+  const step = Math.max(1, Math.floor(n / 6000)), S = [];
+  for (let i = 0; i < n; i += step) S.push(i);
+  const C = [];
+  const d2 = (i, c) => { const a = px[i * 3] - c[0], b = px[i * 3 + 1] - c[1], e = px[i * 3 + 2] - c[2]; return a * a + b * b + e * e; };
+  let f = S[Math.floor(Math.random() * S.length)]; C.push([px[f * 3], px[f * 3 + 1], px[f * 3 + 2]]);
+  const dist = S.map(i => d2(i, C[0]));
+  while (C.length < K) {
+    let sum = dist.reduce((s, v) => s + v, 0), r = Math.random() * sum, k = 0;
+    while (k < S.length - 1 && (r -= dist[k]) > 0) k++;
+    const c = [px[S[k] * 3], px[S[k] * 3 + 1], px[S[k] * 3 + 2]]; C.push(c);
+    S.forEach((i, j) => { dist[j] = Math.min(dist[j], d2(i, c)); });
+  }
+  for (let it = 0; it < 8; it++) {
+    const acc = C.map(() => [0, 0, 0, 0]);
+    for (const i of S) { let b = 0, bd = 1e18; C.forEach((c, k) => { const v = d2(i, c); if (v < bd) { bd = v; b = k; } }); const a = acc[b]; a[0] += px[i * 3]; a[1] += px[i * 3 + 1]; a[2] += px[i * 3 + 2]; a[3]++; }
+    acc.forEach((a, k) => { if (a[3]) C[k] = [a[0] / a[3], a[1] / a[3], a[2] / a[3]]; });
+  }
+  const lab = new Uint8Array(n);
+  for (let i = 0; i < n; i++) { let b = 0, bd = 1e18; for (let k = 0; k < K; k++) { const v = d2(i, C[k]); if (v < bd) { bd = v; b = k; } } lab[i] = b; }
+  return lab;
+}
+// 小さい 領域を まわりの 領域に まとめる
+function mergeSmall(lab, w, h, minA) {
+  const n = w * h, seen = new Int32Array(n).fill(-1), q = new Int32Array(n);
+  let id = 0;
+  for (let s = 0; s < n; s++) {
+    if (seen[s] >= 0) continue;
+    const L = lab[s]; let qh = 0, qt = 0; q[qt++] = s; seen[s] = id;
+    const nb = new Map();
+    while (qh < qt) {
+      const p = q[qh++], x = p % w;
+      const nbs = [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, p - w, p + w];
+      for (const t of nbs) {
+        if (t < 0 || t >= n) continue;
+        if (lab[t] === L) { if (seen[t] < 0) { seen[t] = id; q[qt++] = t; } }
+        else nb.set(lab[t], (nb.get(lab[t]) || 0) + 1);
+      }
+    }
+    if (qt < minA && nb.size) {
+      let best = -1, bc = -1; nb.forEach((c, k) => { if (c > bc) { bc = c; best = k; } });
+      for (let i = 0; i < qt; i++) lab[q[i]] = best;
+    }
+    id++;
+  }
+}
+// 3×3 で いちばん 多い 色に そろえる（さかいめの ギザギザを へらす）
+function modeFilter(lab, w, h) {
+  const o = lab.slice(), cnt = new Uint8Array(32);
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const p = y * w + x; let best = lab[p], bc = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const v = lab[p + dy * w + dx]; if (++cnt[v] > bc) { bc = cnt[v]; best = v; } }
+    o[p] = bc >= 5 ? best : lab[p];
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) cnt[lab[p + dy * w + dx]] = 0;
+  }
+  lab.set(o);
+}
+function dilate(m, w, h, times) {
+  for (let t = 0; t < times; t++) {
+    const o = m.slice();
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const p = y * w + x; if (m[p]) continue;
+      if ((x > 0 && m[p - 1]) || (x < w - 1 && m[p + 1]) || (y > 0 && m[p - w]) || (y < h - 1 && m[p + w])) o[p] = 1;
+    }
+    m.set(o);
+  }
+  return m;
+}
+function removeSpecks(m, w, h, minA) {
+  const n = w * h, seen = new Uint8Array(n), q = new Int32Array(n);
+  for (let s = 0; s < n; s++) {
+    if (!m[s] || seen[s]) continue;
+    let qh = 0, qt = 0; q[qt++] = s; seen[s] = 1;
+    while (qh < qt) { const p = q[qh++], x = p % w; for (const t of [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, p - w, p + w]) if (t >= 0 && t < n && m[t] && !seen[t]) { seen[t] = 1; q[qt++] = t; } }
+    if (qt < minA) for (let i = 0; i < qt; i++) m[q[i]] = 0;
+  }
+}
+function lineArt(src, kind, detail, thick) {
+  const { w, h, d } = src, n = w * h;
+  let m = new Uint8Array(n);
+  if (kind === 'line') {
+    const px = blur3(d, w, h, detail >= 4 ? 0 : 1), cut = [130, 150, 165, 180, 195][detail - 1];
+    for (let i = 0; i < n; i++) m[i] = (px[i * 3] * .3 + px[i * 3 + 1] * .59 + px[i * 3 + 2] * .11) < cut ? 1 : 0;
+    removeSpecks(m, w, h, [40, 24, 14, 8, 4][detail - 1]);
+    dilate(m, w, h, thick - 1);
+  } else {
+    const px = blur3(d, w, h, [4, 3, 2, 2, 1][detail - 1]);
+    const lab = kmeans(px, n, [4, 6, 8, 11, 14][detail - 1]);
+    const minA = Math.max(12, Math.round(n * [0.004, 0.002, 0.001, 0.0005, 0.00025][detail - 1]));
+    mergeSmall(lab, w, h, minA); modeFilter(lab, w, h); modeFilter(lab, w, h); mergeSmall(lab, w, h, minA);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const p = y * w + x;
+      if ((x < w - 1 && lab[p] !== lab[p + 1]) || (y < h - 1 && lab[p] !== lab[p + w])) m[p] = 1;
+    }
+    dilate(m, w, h, thick - 1);
+  }
+  // ふちに わくを つける（はしまで 色が もれないように）
+  for (let x = 0; x < w; x++) { m[x] = 1; m[n - 1 - x] = 1; }
+  for (let y = 0; y < h; y++) { m[y * w] = 1; m[y * w + w - 1] = 1; }
+  return { w, h, m };
+}
+function maskToCanvas({ w, h, m }) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'), im = g.createImageData(w, h);
+  for (let i = 0; i < w * h; i++) { const o = i * 4; im.data[o] = im.data[o + 1] = im.data[o + 2] = 34; im.data[o + 3] = m[i] ? 255 : 0; }
+  g.putImageData(im, 0, 0); return c;
+}
+
+/* ---------- とりこみ 画面 ---------- */
+const IO = Object.assign({ det: 3, thk: 2 }, Kit.store.get('nurie:imp', {}));
+let SRC = null, KIND = 'color', ART = null, artTimer = 0;
+function setBusy(msg) { const p = $('prev'); p.querySelector('.busy')?.remove(); if (msg) p.appendChild(Kit.el(`<div class="busy">${msg}</div>`)); }
+async function loadImage(blob) {
+  setBusy('よみこみ中…');
+  try {
+    const bmp = await createImageBitmap(blob);
+    SRC = toData(bmp); KIND = looksLineArt(SRC) ? 'line' : 'color';
+    $('adj').hidden = false; renderAdj(); remake();
+  } catch (e) { setBusy(''); Kit.toast('画像を 読みこめませんでした'); }
+}
+function renderAdj() {
+  const k = $('kind'); k.innerHTML = '';
+  [['color', '🌈 カラーの 写真・絵'], ['line', '✏️ 白黒の 線画']].forEach(([v, l]) => {
+    const b = Kit.el(`<button class="k-chip" aria-pressed="${KIND === v}">${l}</button>`);
+    b.onclick = () => { KIND = v; Kit.sfx('select'); renderAdj(); remake(); };
+    k.appendChild(b);
+  });
+  $('det').value = IO.det; $('thk').value = IO.thk;
+  $('detV').textContent = IO.det; $('thkV').textContent = IO.thk;
+}
+function remake() {
+  if (!SRC) return;
+  setBusy('ぬりえに しているよ…');
+  clearTimeout(artTimer);
+  artTimer = setTimeout(() => {
+    ART = lineArt(SRC, KIND, IO.det, IO.thk);
+    const c = maskToCanvas(ART), p = $('prev');
+    const show = document.createElement('canvas'); show.width = ART.w; show.height = ART.h;
+    const g = show.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, ART.w, ART.h); g.drawImage(c, 0, 0);
+    p.innerHTML = ''; p.appendChild(show); show.id = 'prevCv';
+    $('impOk').disabled = false;
+  }, 30);
+}
+$('det').oninput = e => { IO.det = +e.target.value; Kit.store.set('nurie:imp', IO); renderAdj(); remake(); };
+$('thk').oninput = e => { IO.thk = +e.target.value; Kit.store.set('nurie:imp', IO); renderAdj(); remake(); };
+$('file').onchange = e => { const f = e.target.files[0]; if (f) loadImage(f); e.target.value = ''; };
+$('urlGo').onclick = async () => {
+  const u = $('url').value.trim(); if (!/^https?:\/\//.test(u)) return Kit.toast('https:// から はじまる リンクを 入れてね');
+  setBusy('よみこみ中…');
+  try {
+    const r = await fetch(u, { mode: 'cors' }); if (!r.ok) throw 0;
+    const b = await r.blob(); if (!b.type.startsWith('image/')) throw 0;
+    loadImage(b);
+  } catch (e) {
+    setBusy('');
+    Kit.modal({ title: 'このリンクは 読みこめませんでした', body: '<p>サイトによっては、画像を ほかのアプリから 読みこめないように なっています。</p><p>画像を 長おし（右クリック）して <b>保存</b> してから、「📷 写真・画像を えらぶ」で 入れてね。</p>' });
+  }
+};
+const peek = $('peek');
+const peekOn = () => { const c = $('prevCv'); if (c && SRC) c.getContext('2d').drawImage(SRC.canvas, 0, 0); };
+const peekOff = () => { if (ART) { const c = $('prevCv'), g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(maskToCanvas(ART), 0, 0); } };
+peek.onpointerdown = peekOn; peek.onpointerup = peek.onpointerleave = peek.onpointercancel = peekOff;
+$('impBack').onclick = () => show('home');
+$('impOk').onclick = () => { if (ART) startPaint(ART.w, ART.h, maskToCanvas(ART)); };
+
+/* ---------- おためし ぬりえ（コードで かく） ---------- */
+function sampleLine() {
+  const w = 900, h = 700, c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'); g.strokeStyle = '#222'; g.lineWidth = 6; g.lineJoin = g.lineCap = 'round';
+  const P = f => { g.beginPath(); f(); g.stroke(); };
+  g.strokeRect(3, 3, w - 6, h - 6);
+  P(() => { g.moveTo(0, 520); g.bezierCurveTo(250, 470, 600, 560, 900, 500); });           // じめん
+  P(() => { g.rect(330, 300, 260, 230); });                                                  // いえ
+  P(() => { g.moveTo(300, 305); g.lineTo(460, 170); g.lineTo(620, 305); g.closePath(); });   // やね
+  P(() => { g.rect(430, 410, 60, 120); });                                                   // ドア
+  P(() => { g.rect(355, 340, 60, 50); g.moveTo(385, 340); g.lineTo(385, 390); g.moveTo(355, 365); g.lineTo(415, 365); });
+  P(() => { g.rect(510, 340, 60, 50); g.moveTo(540, 340); g.lineTo(540, 390); g.moveTo(510, 365); g.lineTo(570, 365); });
+  P(() => { g.arc(140, 120, 55, 0, 7); });                                                   // たいよう
+  for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; P(() => { g.moveTo(140 + Math.cos(a) * 70, 120 + Math.sin(a) * 70); g.lineTo(140 + Math.cos(a) * 100, 120 + Math.sin(a) * 100); }); }
+  P(() => { g.rect(720, 390, 40, 130); });                                                   // き
+  P(() => { g.arc(740, 330, 85, 0, 7); });
+  P(() => { g.moveTo(560, 120); g.arc(600, 110, 35, Math.PI, 0); g.arc(650, 115, 30, Math.PI * 1.2, .2); g.lineTo(560, 125); g.closePath(); }); // くも
+  for (const [x, y] of [[120, 600], [250, 630], [620, 610], [800, 620]]) P(() => { g.arc(x, y, 18, 0, 7); for (let k = 0; k < 5; k++) { const a = k / 5 * 6.28; g.moveTo(x + Math.cos(a) * 18 + 16 * Math.cos(a), y + Math.sin(a) * 18 + 16 * Math.sin(a)); g.arc(x + Math.cos(a) * 30, y + Math.sin(a) * 30, 12, a, a + 6.28); } });
+  return c;
+}
+
+/* =========================================================
+   ぬる 画面：下が 色の キャンバス（白から はじまる）、上が 線の キャンバス
+   ========================================================= */
+const cvC = $('cvColor'), cvL = $('cvLine'), gC = cvC.getContext('2d', { willReadFrequently: true }), gL = cvL.getContext('2d', { willReadFrequently: true });
+const PAL = ['#2a2238', '#ffffff', '#ff4d4d', '#ff9a3c', '#ffd23f', '#a8e05f', '#3cc46a', '#1f9e89', '#4cb8ff', '#2f6fde', '#8a5cf5', '#ff7eb6', '#ffc7d9', '#c98a5a', '#7a4b2a', '#f5deb3', '#9aa3ad', '#5c636b'];
+const SIZES = [4, 10, 22, 44];
+const T = Object.assign({ tool: 'fill', color: '#ff4d4d', size: 10 }, Kit.store.get('nurie:tool', {}));
+let W = 0, H = 0, view = { s: 1, x: 0, y: 0 }, undo = [], redo = [];
+
+function startPaint(w, h, lineCanvas, colorCanvas = null) {
+  W = cvC.width = cvL.width = w; H = cvC.height = cvL.height = h;
+  gC.fillStyle = '#fff'; gC.fillRect(0, 0, w, h); if (colorCanvas) gC.drawImage(colorCanvas, 0, 0);
+  gL.clearRect(0, 0, w, h); if (lineCanvas) gL.drawImage(lineCanvas, 0, 0);
+  $('board').style.width = w + 'px'; $('board').style.height = h + 'px';
+  undo = []; redo = [];
+  if (!lineCanvas && T.tool === 'fill') T.tool = 'pen';
+  show('paint'); renderTools();
+  requestAnimationFrame(fit);
+  autosave();
+}
+function fit() {
+  const r = $('stage').getBoundingClientRect(), s = Math.min(r.width / W, r.height / H) * .96;
+  view = { s, x: (r.width - W * s) / 2, y: (r.height - H * s) / 2 }; applyView();
+}
+function applyView() { $('board').style.transform = `translate(${view.x}px,${view.y}px) scale(${view.s})`; }
+addEventListener('resize', () => { if (!$('paint').hidden) fit(); });
+
+function renderTools() {
+  document.querySelectorAll('[data-tool]').forEach(b => { b.setAttribute('aria-pressed', b.dataset.tool === T.tool); b.onclick = () => { T.tool = b.dataset.tool; Kit.sfx('select'); renderTools(); }; });
+  const sz = $('sizes'); sz.innerHTML = ''; sz.hidden = $('szSep').hidden = T.tool === 'fill';
+  SIZES.forEach(s => {
+    const b = Kit.el(`<button aria-pressed="${T.size === s}" aria-label="ふとさ ${s}"><i style="width:${Math.max(4, Math.min(24, s / 2))}px;height:${Math.max(4, Math.min(24, s / 2))}px"></i></button>`);
+    b.onclick = () => { T.size = s; Kit.sfx('tap'); renderTools(); }; sz.appendChild(b);
+  });
+  const pal = $('pal'); pal.innerHTML = '';
+  PAL.forEach(c => {
+    const b = Kit.el(`<button class="sw" style="background:${c}" aria-pressed="${T.color === c}" aria-label="${c}"></button>`);
+    b.onclick = () => { T.color = c; if (T.tool === 'eraser') T.tool = 'pen'; Kit.sfx('tap'); renderTools(); }; pal.appendChild(b);
+  });
+  const cu = Kit.el(`<label class="sw custom" aria-pressed="${!PAL.includes(T.color)}" title="すきな色"><input type="color" value="${PAL.includes(T.color) ? '#ff8800' : T.color}"></label>`);
+  if (!PAL.includes(T.color)) cu.style.background = T.color;
+  cu.querySelector('input').oninput = e => { T.color = e.target.value; if (T.tool === 'eraser') T.tool = 'pen'; renderTools(); };
+  pal.appendChild(cu);
+  $('undo').disabled = !undo.length; $('redo').disabled = !redo.length;
+  Kit.store.set('nurie:tool', T);
+}
+
+/* もどす／やりなおす：色の キャンバスだけ */
+function snap() { undo.push(gC.getImageData(0, 0, W, H)); if (undo.length > 15) undo.shift(); redo = []; }
+$('undo').onclick = () => { if (!undo.length) return; redo.push(gC.getImageData(0, 0, W, H)); gC.putImageData(undo.pop(), 0, 0); Kit.sfx('tap'); renderTools(); autosave(); };
+$('redo').onclick = () => { if (!redo.length) return; undo.push(gC.getImageData(0, 0, W, H)); gC.putImageData(redo.pop(), 0, 0); Kit.sfx('tap'); renderTools(); autosave(); };
+$('fit').onclick = () => { fit(); Kit.sfx('tap'); };
+
+/* バケツ：線と、ちがう色で かこまれた ところを ぬる。線の下にも 少し はみ出させて すきまを なくす */
+function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+function fillAt(x, y) {
+  x = Math.floor(x); y = Math.floor(y); if (x < 0 || y < 0 || x >= W || y >= H) return;
+  const cd = gC.getImageData(0, 0, W, H), c = cd.data, l = gL.getImageData(0, 0, W, H).data;
+  const p0 = y * W + x; if (l[p0 * 4 + 3] > 110) return;
+  const [r, g, b] = hexRgb(T.color), tr = c[p0 * 4], tg = c[p0 * 4 + 1], tb = c[p0 * 4 + 2];
+  if (Math.abs(tr - r) + Math.abs(tg - g) + Math.abs(tb - b) < 6) return;
+  const ok = p => l[p * 4 + 3] <= 110 && Math.abs(c[p * 4] - tr) + Math.abs(c[p * 4 + 1] - tg) + Math.abs(c[p * 4 + 2] - tb) < 90;
+  const mask = new Uint8Array(W * H), st = [p0]; mask[p0] = 1;
+  while (st.length) {
+    const p = st.pop(), px = p % W;
+    if (px > 0 && !mask[p - 1] && ok(p - 1)) { mask[p - 1] = 1; st.push(p - 1); }
+    if (px < W - 1 && !mask[p + 1] && ok(p + 1)) { mask[p + 1] = 1; st.push(p + 1); }
+    if (p >= W && !mask[p - W] && ok(p - W)) { mask[p - W] = 1; st.push(p - W); }
+    if (p < W * (H - 1) && !mask[p + W] && ok(p + W)) { mask[p + W] = 1; st.push(p + W); }
+  }
+  // 線の下へ 2px ひろげる（線の ふちの 白い すきまを けす）
+  for (let t = 0; t < 2; t++) {
+    const add = [];
+    for (let p = 0; p < W * H; p++) {
+      if (mask[p] || l[p * 4 + 3] <= 30) continue; const px = p % W;
+      if ((px > 0 && mask[p - 1]) || (px < W - 1 && mask[p + 1]) || (p >= W && mask[p - W]) || (p < W * (H - 1) && mask[p + W])) add.push(p);
+    }
+    add.forEach(p => mask[p] = 1);
+  }
+  snap();
+  for (let p = 0; p < W * H; p++) if (mask[p]) { c[p * 4] = r; c[p * 4 + 1] = g; c[p * 4 + 2] = b; c[p * 4 + 3] = 255; }
+  gC.putImageData(cd, 0, 0);
+  Kit.sfx('pop'); renderTools(); autosave();
+}
+
+/* ゆび：1本で かく／ぬる、2本で ずらす・ズーム */
+const ptrs = new Map(); let stroke = null, pinch = null, tapStart = null;
+const toBoard = (cx, cy) => { const r = $('stage').getBoundingClientRect(); return [(cx - r.left - view.x) / view.s, (cy - r.top - view.y) / view.s]; };
+const stage = $('stage');
+stage.addEventListener('pointerdown', e => {
+  stage.setPointerCapture(e.pointerId);
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size === 1) {
+    tapStart = { x: e.clientX, y: e.clientY, t: performance.now() };
+    if (T.tool !== 'fill') {
+      snap(); const [bx, by] = toBoard(e.clientX, e.clientY);
+      stroke = { last: [bx, by], moved: false };
+      dot(bx, by);
+    }
+  } else if (ptrs.size === 2) {
+    if (stroke) { gC.putImageData(undo.pop(), 0, 0); stroke = null; } // 2本目が きたら かきかけを とりけす
+    tapStart = null;
+    const [a, b] = [...ptrs.values()];
+    pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, v: { ...view } };
+  }
+});
+stage.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pinch && ptrs.size >= 2) {
+    const [a, b] = [...ptrs.values()], r = stage.getBoundingClientRect();
+    const d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    const s = Kit.clamp(pinch.v.s * d / pinch.d, .2, 12);
+    const bx = (pinch.mx - r.left - pinch.v.x) / pinch.v.s, by = (pinch.my - r.top - pinch.v.y) / pinch.v.s;
+    view = { s, x: mx - r.left - bx * s, y: my - r.top - by * s }; applyView();
+  } else if (stroke) {
+    const [bx, by] = toBoard(e.clientX, e.clientY);
+    line(stroke.last, [bx, by]); stroke.last = [bx, by]; stroke.moved = true;
+  }
+});
+const up = e => {
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.delete(e.pointerId);
+  if (stroke && ptrs.size === 0) { stroke = null; renderTools(); autosave(); }
+  if (tapStart && ptrs.size === 0 && T.tool === 'fill' && Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y) < 12) {
+    const [bx, by] = toBoard(e.clientX, e.clientY); fillAt(bx, by);
+  }
+  if (ptrs.size < 2) pinch = null;
+  if (ptrs.size === 0) tapStart = null;
+};
+stage.addEventListener('pointerup', up); stage.addEventListener('pointercancel', up);
+stage.addEventListener('wheel', e => { // パソコン：ホイールで ズーム
+  e.preventDefault(); const r = stage.getBoundingClientRect();
+  const s = Kit.clamp(view.s * (e.deltaY < 0 ? 1.15 : 1 / 1.15), .2, 12), bx = (e.clientX - r.left - view.x) / view.s, by = (e.clientY - r.top - view.y) / view.s;
+  view = { s, x: e.clientX - r.left - bx * s, y: e.clientY - r.top - by * s }; applyView();
+}, { passive: false });
+function brush() { gC.strokeStyle = gC.fillStyle = T.tool === 'eraser' ? '#ffffff' : T.color; gC.lineWidth = T.size; gC.lineCap = gC.lineJoin = 'round'; }
+function dot(x, y) { brush(); gC.beginPath(); gC.arc(x, y, T.size / 2, 0, 7); gC.fill(); }
+function line(a, b) { brush(); gC.beginPath(); gC.moveTo(a[0], a[1]); gC.lineTo(b[0], b[1]); gC.stroke(); }
+
+/* ほぞん：画像として ダウンロード */
+$('saveImg').onclick = () => {
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d'); g.drawImage(cvC, 0, 0); g.drawImage(cvL, 0, 0);
+  c.toBlob(b => {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `nurie-${Date.now()}.png`;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    Kit.toast('画像を ほぞんしたよ');
+  }, 'image/png');
+};
+$('toHome').onclick = () => { saveNow(); show('home'); checkCont(); };
+
+/* じどう ほぞん（IndexedDB）：つづきから できるように */
+const DB = () => new Promise((res, rej) => { const r = indexedDB.open('asobibako-nurie', 1); r.onupgradeneeded = () => r.result.createObjectStore('w'); r.onsuccess = () => res(r.result); r.onerror = rej; });
+async function dbPut(v) { try { const d = await DB(); d.transaction('w', 'readwrite').objectStore('w').put(v, 'work'); } catch (e) {} }
+async function dbGet() { try { const d = await DB(); return await new Promise(res => { const q = d.transaction('w').objectStore('w').get('work'); q.onsuccess = () => res(q.result); q.onerror = () => res(null); }); } catch (e) { return null; } }
+let saveT = 0;
+function autosave() { clearTimeout(saveT); saveT = setTimeout(saveNow, 1200); }
+function saveNow() {
+  clearTimeout(saveT); if (!W) return;
+  cvC.toBlob(cb => cvL.toBlob(lb => dbPut({ w: W, h: H, color: cb, line: lb })));
+}
+async function checkCont() { const v = await dbGet(); $('goCont').hidden = !v; }
+$('goCont').onclick = async () => {
+  const v = await dbGet(); if (!v) return;
+  const [cb, lb] = await Promise.all([createImageBitmap(v.color), createImageBitmap(v.line)]);
+  startPaint(v.w, v.h, lb, cb);
+};
+addEventListener('pagehide', saveNow);
+
+$('goDraw').onclick = () => { Kit.sfx('tap'); startPaint(1000, 750, null); };
+$('goSample').onclick = () => { Kit.sfx('tap'); startPaint(900, 700, sampleLine()); };
+$('goImp').onclick = () => { Kit.sfx('tap'); show('imp'); };
+
+Kit.bar({ id: 'nurie', title: '🖌️ おえかき・ぬりえ', help: `
+  <p><b>🖍️ おえかき</b>：まっしろな 紙に ペンで かこう。</p>
+  <p><b>🖼️ ぬりえを つくる</b>：写真や 絵を えらぶと、線だけの ぬりえに します。「こまかさ」で 線の 多さ、「線の太さ」で 太さを かえられます。白黒の 線画は そのまま 使えます。</p>
+  <p><b>🪣 バケツ</b>：さわった ところを 線まで ぬりつぶします。<b>🖍️ ペン</b>・<b>🧽 けしゴム</b>は 太さを えらべます。</p>
+  <p>2本の ゆびで 広げると 大きく なります（ずらすことも できます）。🔍で もとに もどります。💾で 画像として ほぞん。とちゅうの 絵は じどうで のこるので「つづきから」で 続けられます。</p>` });
+checkCont();
+if (location.hash === '#debug') window.__nurie = { lineArt, toData, looksLineArt, fillAt, get W() { return W; } };
+</script>
+</body>
+</html>
