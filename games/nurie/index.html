@@ -24,6 +24,7 @@
   .url { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
   .prev { position: relative; border: 3px solid var(--line); border-radius: 14px; background: #fff; overflow: hidden; display: grid; place-items: center; min-height: 160px; }
   .prev canvas { max-width: 100%; max-height: 52vh; display: block; }
+  .prev.drop, body.drop #imp .prev { outline: 4px dashed var(--orange); outline-offset: -8px; }
   .prev .busy { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(255,255,255,.75); font-weight: 900; color: #2a2238; }
   .slider { display: grid; grid-template-columns: 6.5em 1fr 2em; gap: 8px; align-items: center; font-weight: 700; }
   .slider input { width: 100%; accent-color: var(--orange); }
@@ -67,8 +68,9 @@
 <section id="imp" class="scr" hidden><main class="k-wrap k-stack">
   <div class="k-card k-stack">
     <label class="k-btn is-sky" style="cursor:pointer">📷 写真・画像を えらぶ<input type="file" accept="image/*" id="file" hidden></label>
+    <button class="k-btn is-small" id="pasteBtn">📋 コピーした 画像を はりつけ</button>
     <div class="url"><input class="k-input" id="url" placeholder="画像のリンク（https://…）" inputmode="url"><button class="k-btn is-small" id="urlGo">読みこむ</button></div>
-    <div class="prev" id="prev"><span class="k-muted">ここに ぬりえが 出るよ</span></div>
+    <div class="prev" id="prev"><span class="k-muted" style="text-align:center;padding:10px">ここに ぬりえが 出るよ<br>（画像を ここに ドラッグしても OK）</span></div>
     <div id="adj" class="k-stack" hidden>
       <div class="k-chips" id="kind"></div>
       <div class="slider" id="detRow"><span>こまかさ</span><input type="range" id="det" min="1" max="5" step="1"><b id="detV"></b></div>
@@ -94,7 +96,7 @@
       <button class="tb" id="undo" aria-label="もどす">↩</button>
       <button class="tb" id="redo" aria-label="やりなおす">↪</button>
       <button class="tb" id="fit" aria-label="ぜんたい">🔍</button>
-      <button class="tb" id="saveImg" aria-label="がぞうを ほぞん">💾</button>
+      <button class="tb" id="saveImg" aria-label="共有・ほぞん">📤</button>
       <button class="tb" id="toHome" aria-label="さいしょへ">🚪</button>
     </div>
     <div class="trow"><span class="sz" id="sizes"></span><span class="sep" id="szSep"></span><span class="trow" id="pal" style="overflow:visible"></span></div>
@@ -315,6 +317,31 @@ const peekOn = () => { const c = $('prevCv'); if (c && SRC) c.getContext('2d').d
 const peekOff = () => { if (ART) { const c = $('prevCv'), g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(maskToCanvas(ART), 0, 0); } };
 peek.onpointerdown = peekOn; peek.onpointerup = peek.onpointerleave = peek.onpointercancel = peekOff;
 $('impBack').onclick = () => show('home');
+
+/* はりつけ（Ctrl+V／ボタン）と ドラッグ＆ドロップ */
+const takeImage = blob => { if ($('imp').hidden) show('imp'); loadImage(blob); };
+addEventListener('paste', e => {
+  if (!$('paint').hidden || document.activeElement === $('url')) return;
+  const it = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
+  if (it) { e.preventDefault(); takeImage(it.getAsFile()); }
+});
+$('pasteBtn').onclick = async () => {
+  try {
+    for (const item of await navigator.clipboard.read()) {
+      const t = item.types.find(t => t.startsWith('image/'));
+      if (t) return takeImage(await item.getType(t));
+    }
+    Kit.toast('コピーした 画像が ありません');
+  } catch (e) { Kit.toast('はりつけ できませんでした（パソコンなら Ctrl+V でも OK）'); }
+};
+addEventListener('dragover', e => { if ($('paint').hidden && [...e.dataTransfer.types].includes('Files')) { e.preventDefault(); document.body.classList.add('drop'); } });
+addEventListener('dragleave', e => { if (!e.relatedTarget) document.body.classList.remove('drop'); });
+addEventListener('drop', e => {
+  document.body.classList.remove('drop');
+  if (!$('paint').hidden) return;
+  const f = [...e.dataTransfer.files].find(f => f.type.startsWith('image/'));
+  if (f) { e.preventDefault(); takeImage(f); }
+});
 $('impOk').onclick = () => { if (ART) startPaint(ART.w, ART.h, maskToCanvas(ART)); };
 
 /* ---------- おためし ぬりえ（コードで かく） ---------- */
@@ -478,14 +505,22 @@ function brush() { gC.strokeStyle = gC.fillStyle = T.tool === 'eraser' ? '#fffff
 function dot(x, y) { brush(); gC.beginPath(); gC.arc(x, y, T.size / 2, 0, 7); gC.fill(); }
 function line(a, b) { brush(); gC.beginPath(); gC.moveTo(a[0], a[1]); gC.lineTo(b[0], b[1]); gC.stroke(); }
 
-/* ほぞん：画像として ダウンロード */
+/* 共有：スマホは 共有メニュー（LINE・写真に保存 など）、できない ときは ダウンロード */
+function download(b) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `nurie-${Date.now()}.png`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  Kit.toast('画像を ほぞんしたよ');
+}
 $('saveImg').onclick = () => {
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d'); g.drawImage(cvC, 0, 0); g.drawImage(cvL, 0, 0);
-  c.toBlob(b => {
-    const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `nurie-${Date.now()}.png`;
-    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    Kit.toast('画像を ほぞんしたよ');
+  c.toBlob(async b => {
+    const f = new File([b], `nurie-${Date.now()}.png`, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [f] })) {
+      try { await navigator.share({ files: [f], title: 'ぬりえ' }); return; }
+      catch (e) { if (e.name === 'AbortError') return; }
+    }
+    download(b);
   }, 'image/png');
 };
 $('toHome').onclick = () => { saveNow(); show('home'); checkCont(); };
@@ -516,7 +551,7 @@ Kit.bar({ id: 'nurie', title: '🖌️ おえかき・ぬりえ', help: `
   <p><b>🖍️ おえかき</b>：まっしろな 紙に ペンで かこう。</p>
   <p><b>🖼️ ぬりえを つくる</b>：写真や 絵を えらぶと、線だけの ぬりえに します。「こまかさ」で 線の 多さ、「線の太さ」で 太さを かえられます。白黒の 線画は そのまま 使えます。</p>
   <p><b>🪣 バケツ</b>：さわった ところを 線まで ぬりつぶします。<b>🖍️ ペン</b>・<b>🧽 けしゴム</b>は 太さを えらべます。</p>
-  <p>2本の ゆびで 広げると 大きく なります（ずらすことも できます）。🔍で もとに もどります。💾で 画像として ほぞん。とちゅうの 絵は じどうで のこるので「つづきから」で 続けられます。</p>` });
+  <p>2本の ゆびで 広げると 大きく なります（ずらすことも できます）。🔍で もとに もどります。📤で LINEなどに 共有したり、写真に ほぞんしたり できます。画像は はりつけ（📋・Ctrl+V）や ドラッグでも 入れられます。とちゅうの 絵は じどうで のこるので「つづきから」で 続けられます。</p>` });
 checkCont();
 if (location.hash === '#debug') window.__nurie = { lineArt, toData, looksLineArt, fillAt, get W() { return W; } };
 </script>
