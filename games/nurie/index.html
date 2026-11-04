@@ -34,10 +34,15 @@
   #stage { flex: 1; min-height: 0; position: relative; overflow: hidden; background: #d9d2c0; touch-action: none; }
   #board { position: absolute; left: 0; top: 0; transform-origin: 0 0; box-shadow: 0 4px 18px rgba(0,0,0,.25); }
   #board canvas { position: absolute; left: 0; top: 0; }
-  #cvLine { pointer-events: none; }
+  #cvLine, #cvTmp { pointer-events: none; }
+  .sub { display: flex; gap: 5px; overflow-x: auto; scrollbar-width: none; }
+  .sub[hidden] { display: none; }
+  .sub button { flex: none; height: 36px; padding: 0 9px; border: 2px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); font: 900 .8rem var(--font); cursor: pointer; white-space: nowrap; }
+  .sub button[aria-pressed="true"] { background: var(--sun); color: #2a2238; }
+  .sub .gap { flex: none; width: 6px; }
   .tools { background: var(--card); border-top: 3px solid var(--line); padding: 6px max(8px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-bottom)); display: grid; gap: 6px; }
-  .trow { display: flex; gap: 5px; align-items: center; overflow-x: auto; scrollbar-width: none; }
-  .tb { flex: 1 0 38px; max-width: 56px; height: 44px; border: 2.5px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); font: 900 1.25rem var(--font); display: grid; place-items: center; cursor: pointer; padding: 0 6px; }
+  .trow { display: flex; gap: 4px; align-items: center; overflow-x: auto; scrollbar-width: none; }
+  .tb { flex: 1 1 32px; min-width: 30px; max-width: 56px; height: 42px; font-size: 1.1rem !important; border: 2.5px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); font: 900 1.25rem var(--font); display: grid; place-items: center; cursor: pointer; padding: 0 2px; }
   .tb[aria-pressed="true"] { background: var(--sun); color: #2a2238; }
   .tb:disabled { opacity: .35; }
   .tb small { font-size: .62rem; display: block; line-height: 1; }
@@ -86,11 +91,12 @@
 
 <!-- ぬる -->
 <section id="paint" class="scr" hidden>
-  <div id="stage"><div id="board"><canvas id="cvColor"></canvas><canvas id="cvLine"></canvas></div></div>
+  <div id="stage"><div id="board"><canvas id="cvColor"></canvas><canvas id="cvTmp"></canvas><canvas id="cvLine"></canvas></div></div>
   <div class="tools">
     <div class="trow">
       <button class="tb" data-tool="fill" aria-label="ぬりつぶし">🪣</button>
-      <button class="tb" data-tool="pen" aria-label="ペン">🖍️</button>
+      <button class="tb" data-tool="pen" aria-label="かく">🖍️</button>
+      <button class="tb" data-tool="shape" aria-label="図形">🔷</button>
       <button class="tb" data-tool="eraser" aria-label="けしゴム">🧽</button>
       <span class="sep"></span>
       <button class="tb" id="undo" aria-label="もどす">↩</button>
@@ -99,6 +105,7 @@
       <button class="tb" id="saveImg" aria-label="共有・ほぞん">📤</button>
       <button class="tb" id="toHome" aria-label="さいしょへ">🚪</button>
     </div>
+    <div class="sub" id="sub"></div>
     <div class="trow"><span class="sz" id="sizes"></span><span class="sep" id="szSep"></span><span class="trow" id="pal" style="overflow:visible"></span></div>
   </div>
 </section>
@@ -371,11 +378,14 @@ function sampleLine() {
 const cvC = $('cvColor'), cvL = $('cvLine'), gC = cvC.getContext('2d', { willReadFrequently: true }), gL = cvL.getContext('2d', { willReadFrequently: true });
 const PAL = ['#2a2238', '#ffffff', '#ff4d4d', '#ff9a3c', '#ffd23f', '#a8e05f', '#3cc46a', '#1f9e89', '#4cb8ff', '#2f6fde', '#8a5cf5', '#ff7eb6', '#ffc7d9', '#c98a5a', '#7a4b2a', '#f5deb3', '#9aa3ad', '#5c636b'];
 const SIZES = [4, 10, 22, 44];
-const T = Object.assign({ tool: 'fill', color: '#ff4d4d', size: 10 }, Kit.store.get('nurie:tool', {}));
+const T = Object.assign({ tool: 'fill', color: '#ff4d4d', size: 10, brush: 'pen', shape: 'circle', sfill: false }, Kit.store.get('nurie:tool', {}));
+const cvT = $('cvTmp'), gT = cvT.getContext('2d');
+const BRUSHES = [['pen', '🖊️ ペン'], ['fude', '🖌️ 筆'], ['pencil', '✏️ えんぴつ'], ['spray', '💨 スプレー']];
+const SHAPES = [['circle', '⚪ 丸'], ['tri', '🔺 三角'], ['rect', '⬜ 四角'], ['line', '／ 線'], ['star', '⭐ 星'], ['heart', '❤️ ハート']];
 let W = 0, H = 0, view = { s: 1, x: 0, y: 0 }, undo = [], redo = [];
 
 function startPaint(w, h, lineCanvas, colorCanvas = null) {
-  W = cvC.width = cvL.width = w; H = cvC.height = cvL.height = h;
+  W = cvC.width = cvL.width = cvT.width = w; H = cvC.height = cvL.height = cvT.height = h;
   gC.fillStyle = '#fff'; gC.fillRect(0, 0, w, h); if (colorCanvas) gC.drawImage(colorCanvas, 0, 0);
   gL.clearRect(0, 0, w, h); if (lineCanvas) gL.drawImage(lineCanvas, 0, 0);
   $('board').style.width = w + 'px'; $('board').style.height = h + 'px';
@@ -394,7 +404,21 @@ addEventListener('resize', () => { if (!$('paint').hidden) fit(); });
 
 function renderTools() {
   document.querySelectorAll('[data-tool]').forEach(b => { b.setAttribute('aria-pressed', b.dataset.tool === T.tool); b.onclick = () => { T.tool = b.dataset.tool; Kit.sfx('select'); renderTools(); }; });
-  const sz = $('sizes'); sz.innerHTML = ''; sz.hidden = $('szSep').hidden = T.tool === 'fill';
+  // ペンの しゅるい／図形の しゅるい
+  const sub = $('sub'); sub.innerHTML = ''; sub.hidden = T.tool !== 'pen' && T.tool !== 'shape';
+  const opt = (list, key) => list.forEach(([v, l]) => {
+    const b = Kit.el(`<button aria-pressed="${T[key] === v}">${l}</button>`);
+    b.onclick = () => { T[key] = v; Kit.sfx('tap'); renderTools(); }; sub.appendChild(b);
+  });
+  if (T.tool === 'pen') opt(BRUSHES, 'brush');
+  if (T.tool === 'shape') {
+    opt(SHAPES, 'shape'); sub.appendChild(Kit.el('<span class="gap"></span>'));
+    [[false, '◯ わくだけ'], [true, '● ぬりつぶす']].forEach(([v, l]) => {
+      const b = Kit.el(`<button aria-pressed="${T.sfill === v}">${l}</button>`);
+      b.onclick = () => { T.sfill = v; Kit.sfx('tap'); renderTools(); }; sub.appendChild(b);
+    });
+  }
+  const sz = $('sizes'); sz.innerHTML = ''; sz.hidden = $('szSep').hidden = T.tool === 'fill' || (T.tool === 'shape' && T.sfill);
   SIZES.forEach(s => {
     const b = Kit.el(`<button aria-pressed="${T.size === s}" aria-label="ふとさ ${s}"><i style="width:${Math.max(4, Math.min(24, s / 2))}px;height:${Math.max(4, Math.min(24, s / 2))}px"></i></button>`);
     b.onclick = () => { T.size = s; Kit.sfx('tap'); renderTools(); }; sz.appendChild(b);
@@ -459,13 +483,9 @@ stage.addEventListener('pointerdown', e => {
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (ptrs.size === 1) {
     tapStart = { x: e.clientX, y: e.clientY, t: performance.now() };
-    if (T.tool !== 'fill') {
-      snap(); const [bx, by] = toBoard(e.clientX, e.clientY);
-      stroke = { last: [bx, by], moved: false };
-      dot(bx, by);
-    }
+    if (T.tool !== 'fill') { snap(); strokeBegin(...toBoard(e.clientX, e.clientY)); }
   } else if (ptrs.size === 2) {
-    if (stroke) { gC.putImageData(undo.pop(), 0, 0); stroke = null; } // 2本目が きたら かきかけを とりけす
+    if (stroke) strokeCancel(); // 2本目が きたら かきかけを とりけす
     tapStart = null;
     const [a, b] = [...ptrs.values()];
     pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, v: { ...view } };
@@ -481,14 +501,13 @@ stage.addEventListener('pointermove', e => {
     const bx = (pinch.mx - r.left - pinch.v.x) / pinch.v.s, by = (pinch.my - r.top - pinch.v.y) / pinch.v.s;
     view = { s, x: mx - r.left - bx * s, y: my - r.top - by * s }; applyView();
   } else if (stroke) {
-    const [bx, by] = toBoard(e.clientX, e.clientY);
-    line(stroke.last, [bx, by]); stroke.last = [bx, by]; stroke.moved = true;
+    strokeMove(...toBoard(e.clientX, e.clientY));
   }
 });
 const up = e => {
   if (!ptrs.has(e.pointerId)) return;
   ptrs.delete(e.pointerId);
-  if (stroke && ptrs.size === 0) { stroke = null; renderTools(); autosave(); }
+  if (stroke && ptrs.size === 0) { strokeEnd(); renderTools(); autosave(); }
   if (tapStart && ptrs.size === 0 && T.tool === 'fill' && Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y) < 12) {
     const [bx, by] = toBoard(e.clientX, e.clientY); fillAt(bx, by);
   }
@@ -501,9 +520,80 @@ stage.addEventListener('wheel', e => { // パソコン：ホイールで ズー�
   const s = Kit.clamp(view.s * (e.deltaY < 0 ? 1.15 : 1 / 1.15), .2, 12), bx = (e.clientX - r.left - view.x) / view.s, by = (e.clientY - r.top - view.y) / view.s;
   view = { s, x: e.clientX - r.left - bx * s, y: e.clientY - r.top - by * s }; applyView();
 }, { passive: false });
-function brush() { gC.strokeStyle = gC.fillStyle = T.tool === 'eraser' ? '#ffffff' : T.color; gC.lineWidth = T.size; gC.lineCap = gC.lineJoin = 'round'; }
-function dot(x, y) { brush(); gC.beginPath(); gC.arc(x, y, T.size / 2, 0, 7); gC.fill(); }
-function line(a, b) { brush(); gC.beginPath(); gC.moveTo(a[0], a[1]); gC.lineTo(b[0], b[1]); gC.stroke(); }
+/* ---------- ペンの しゅるい ---------- */
+const kind = () => T.tool === 'eraser' ? 'pen' : T.brush;
+function brush(g = gC) { g.strokeStyle = g.fillStyle = T.tool === 'eraser' ? '#ffffff' : T.color; g.lineWidth = T.size; g.lineCap = g.lineJoin = 'round'; g.globalAlpha = 1; }
+function circle(x, y, r) { gC.beginPath(); gC.arc(x, y, Math.max(.5, r), 0, 7); gC.fill(); }
+function pencilAt(x, y) { // こまかい 点を ちらして えんぴつの ざらざら
+  const r = Math.max(1.2, T.size * .22), n = Math.ceil(r * 1.6);
+  gC.globalAlpha = .45;
+  for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, d = r * Math.sqrt(Math.random()); gC.fillRect(x + Math.cos(a) * d, y + Math.sin(a) * d, 1.3, 1.3); }
+  gC.globalAlpha = 1;
+}
+function sprayAt(x, y) { // まるい はんいに 点を ふきつける
+  const R = T.size * 1.3, n = 8 + T.size;
+  for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, d = R * Math.sqrt(Math.random()); gC.fillRect(x + Math.cos(a) * d, y + Math.sin(a) * d, 1.6, 1.6); }
+}
+function strokeBegin(x, y) {
+  stroke = { a: [x, y], last: [x, y], t: performance.now(), w: T.size * .45 };
+  if (T.tool === 'shape') return;
+  brush();
+  const k = kind();
+  if (k === 'pen') circle(x, y, T.size / 2);
+  else if (k === 'fude') circle(x, y, stroke.w / 2);
+  else if (k === 'pencil') pencilAt(x, y);
+  else if (k === 'spray') { sprayAt(x, y); stroke.timer = setInterval(() => { brush(); sprayAt(...stroke.last); }, 40); }
+}
+function strokeMove(x, y) {
+  const [px, py] = stroke.last, d = Math.hypot(x - px, y - py);
+  if (T.tool === 'shape') { stroke.last = [x, y]; gT.clearRect(0, 0, W, H); drawShape(gT, stroke.a, stroke.last); return; }
+  brush();
+  const k = kind();
+  if (k === 'pen') { gC.beginPath(); gC.moveTo(px, py); gC.lineTo(x, y); gC.stroke(); }
+  else if (k === 'fude') { // はやく うごかすと ほそく、ゆっくりだと ふとく
+    const now = performance.now(), sp = d / Math.max(1, now - stroke.t) * view.s;
+    const target = T.size * Kit.clamp(1.35 - sp * .55, .25, 1.35), w0 = stroke.w, w1 = w0 + (target - w0) * .35;
+    const steps = Math.max(1, Math.ceil(d / Math.max(.8, w1 / 5)));
+    for (let i = 1; i <= steps; i++) { const t = i / steps; circle(px + (x - px) * t, py + (y - py) * t, (w0 + (w1 - w0) * t) / 2); }
+    stroke.w = w1; stroke.t = now;
+  } else {
+    const step = k === 'spray' ? T.size * .6 : 1.5, steps = Math.max(1, Math.ceil(d / step));
+    for (let i = 1; i <= steps; i++) { const t = i / steps; (k === 'spray' ? sprayAt : pencilAt)(px + (x - px) * t, py + (y - py) * t); }
+  }
+  stroke.last = [x, y];
+}
+function strokeEnd() {
+  clearInterval(stroke.timer);
+  if (T.tool === 'shape') {
+    gT.clearRect(0, 0, W, H);
+    const [a, b] = [stroke.a, stroke.last];
+    if (Math.hypot(a[0] - b[0], a[1] - b[1]) < 4) undo.pop(); // さわっただけ
+    else { drawShape(gC, a, b); Kit.sfx('pop'); }
+  }
+  stroke = null;
+}
+function strokeCancel() { clearInterval(stroke.timer); gT.clearRect(0, 0, W, H); gC.putImageData(undo.pop(), 0, 0); stroke = null; }
+
+/* ---------- 図形：ドラッグした 四角の 中に かく ---------- */
+function drawShape(g, a, b) {
+  const x0 = Math.min(a[0], b[0]), y0 = Math.min(a[1], b[1]), w = Math.abs(b[0] - a[0]), h = Math.abs(b[1] - a[1]), cx = x0 + w / 2, cy = y0 + h / 2;
+  brush(g); g.beginPath();
+  const sh = T.shape;
+  if (sh === 'line') { g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); return; }
+  if (sh === 'circle') g.ellipse(cx, cy, w / 2, h / 2, 0, 0, 7);
+  else if (sh === 'rect') g.rect(x0, y0, w, h);
+  else if (sh === 'tri') { g.moveTo(cx, y0); g.lineTo(x0 + w, y0 + h); g.lineTo(x0, y0 + h); g.closePath(); }
+  else if (sh === 'star') {
+    for (let i = 0; i < 10; i++) { const r = i % 2 ? .4 : 1, an = -Math.PI / 2 + i * Math.PI / 5; g.lineTo(cx + Math.cos(an) * w / 2 * r, cy + .08 * h + Math.sin(an) * h / 2 * r); }
+    g.closePath();
+  } else if (sh === 'heart') {
+    g.moveTo(cx, y0 + h * .3);
+    g.bezierCurveTo(cx, y0, x0, y0, x0, y0 + h * .32); g.bezierCurveTo(x0, y0 + h * .6, cx, y0 + h * .8, cx, y0 + h);
+    g.bezierCurveTo(cx, y0 + h * .8, x0 + w, y0 + h * .6, x0 + w, y0 + h * .32); g.bezierCurveTo(x0 + w, y0, cx, y0, cx, y0 + h * .3);
+    g.closePath();
+  }
+  if (T.sfill) g.fill(); else g.stroke();
+}
 
 /* 共有：スマホは 共有メニュー（LINE・写真に保存 など）、できない ときは ダウンロード */
 function download(b) {
@@ -550,7 +640,7 @@ $('goImp').onclick = () => { Kit.sfx('tap'); show('imp'); };
 Kit.bar({ id: 'nurie', title: '🖌️ おえかき・ぬりえ', help: `
   <p><b>🖍️ おえかき</b>：まっしろな 紙に ペンで かこう。</p>
   <p><b>🖼️ ぬりえを つくる</b>：写真や 絵を えらぶと、線だけの ぬりえに します。「こまかさ」で 線の 多さ、「線の太さ」で 太さを かえられます。白黒の 線画は そのまま 使えます。</p>
-  <p><b>🪣 バケツ</b>：さわった ところを 線まで ぬりつぶします。<b>🖍️ ペン</b>・<b>🧽 けしゴム</b>は 太さを えらべます。</p>
+  <p><b>🪣 バケツ</b>：さわった ところを 線まで ぬりつぶします。<b>🖍️ かく</b>は ペン・筆・えんぴつ・スプレーから えらべます（筆は ゆっくり かくと 太く なります）。<b>🔷 図形</b>は 丸・三角・四角・線・星・ハートを ドラッグで かけます。<b>🧽 けしゴム</b>も 太さを えらべます。</p>
   <p>2本の ゆびで 広げると 大きく なります（ずらすことも できます）。🔍で もとに もどります。📤で LINEなどに 共有したり、写真に ほぞんしたり できます。画像は はりつけ（📋・Ctrl+V）や ドラッグでも 入れられます。とちゅうの 絵は じどうで のこるので「つづきから」で 続けられます。</p>` });
 checkCont();
 if (location.hash === '#debug') window.__nurie = { lineArt, toData, looksLineArt, fillAt, get W() { return W; } };
