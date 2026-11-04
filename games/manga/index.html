@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>マンガイラスト練習</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; }
+  .scr { flex: 1; min-height: 0; }
+  .scr[hidden] { display: none !important; }
+
+  /* レッスン一覧 */
+  #list .k-wrap { max-width: 560px; }
+  .lessons { display: grid; gap: 10px; }
+  .lesson { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; text-align: left; padding: 12px 14px; border: 3px solid var(--line); border-radius: 16px; background: var(--card); color: var(--ink); box-shadow: 0 5px 0 var(--line); cursor: pointer; font: inherit; }
+  .lesson:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--line); }
+  .lesson .ic { font-size: 2rem; }
+  .lesson b { display: block; font-size: 1.05rem; }
+  .lesson small { color: var(--muted); font-weight: 700; font-size: .8rem; }
+  .lesson .done { font-size: 1.3rem; }
+
+  /* れんしゅう */
+  #draw { display: flex; flex-direction: column; }
+  .lbar { background: var(--card); border-bottom: 3px solid var(--line); padding: 6px 10px; display: grid; gap: 4px; }
+  .lrow { display: flex; align-items: center; gap: 8px; }
+  .lrow h2 { flex: 1; min-width: 0; font-size: 1rem; margin: 0; }
+  .lrow .no { font-weight: 900; color: var(--muted); font-size: .85rem; white-space: nowrap; }
+  .lnav { width: 40px; height: 36px; border: 2.5px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); font: 900 1rem var(--font); cursor: pointer; }
+  .lnav.next { background: var(--sun); color: #2a2238; width: auto; padding: 0 10px; }
+  .lnav:disabled { opacity: .3; }
+  .tip { font-size: .85rem; font-weight: 700; line-height: 1.5; color: var(--ink); }
+  .tip .score { color: #d6305f; font-weight: 900; }
+  #stage { flex: 1; min-height: 0; position: relative; overflow: hidden; background: #d9d2c0; touch-action: none; }
+  #board { position: absolute; left: 0; top: 0; transform-origin: 0 0; background: #fff; box-shadow: 0 4px 18px rgba(0,0,0,.25); }
+  #board canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+  .pop { position: absolute; pointer-events: none; font: 400 1.6rem var(--display); color: #d6305f; text-shadow: 0 0 4px #fff, 0 0 4px #fff; animation: pop 1.2s ease-out forwards; white-space: nowrap; }
+  @keyframes pop { from { transform: translate(-50%, -20%) scale(.6); opacity: 0; } 20% { opacity: 1; transform: translate(-50%, -60%) scale(1.1); } to { transform: translate(-50%, -140%); opacity: 0; } }
+  .tools { background: var(--card); border-top: 3px solid var(--line); padding: 6px max(8px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-bottom)); display: grid; gap: 6px; }
+  .trow { display: flex; gap: 4px; align-items: center; overflow-x: auto; scrollbar-width: none; }
+  #row2 { flex-wrap: wrap; row-gap: 6px; }
+  .tb { flex: 1 1 32px; min-width: 30px; max-width: 56px; height: 40px; border: 2.5px solid var(--line); border-radius: 11px; background: var(--card); color: var(--ink); font: 900 1.05rem var(--font); display: grid; place-items: center; cursor: pointer; padding: 0 2px; }
+  .tb[aria-pressed="true"] { background: var(--sun); color: #2a2238; }
+  .tb:disabled { opacity: .35; }
+  .seg { flex: none; display: flex; border: 2.5px solid var(--line); border-radius: 11px; overflow: hidden; }
+  .seg button { border: 0; background: var(--card); color: var(--ink); font: 900 .78rem var(--font); padding: 0 9px; height: 35px; cursor: pointer; white-space: nowrap; }
+  .seg button + button { border-left: 2px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: var(--sun); color: #2a2238; }
+  .seg button.blue[aria-pressed="true"] { background: #9ec9ff; }
+  .sw { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 2.5px solid var(--line); cursor: pointer; }
+  .sw[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--line); }
+  .sz { flex: none; width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--line); background: var(--card); display: grid; place-items: center; cursor: pointer; }
+  .sz[aria-pressed="true"] { background: var(--sun); }
+  .sz i { display: block; border-radius: 50%; background: #2a2238; }
+  .tips h3 { margin: 10px 0 2px; font-size: 1rem; }
+  .tips p { margin: 0; line-height: 1.7; }
+</style>
+</head>
+<body>
+<section id="list" class="scr"><main class="k-wrap k-stack">
+  <p class="k-muted" style="margin:0">うすく 出る お手本を なぞって、マンガっぽい 絵の 描き方を 身につけよう。上手な人も みんな やっている 練習の しかたです。</p>
+  <div class="lessons" id="lessons"></div>
+  <button class="k-btn is-grape" id="tipsBtn">💡 イラストが 上手になる コツ</button>
+  <a class="k-btn" href="../nurie/index.html">🖌️ おえかき・ぬりえ へ</a>
+</main></section>
+
+<section id="draw" class="scr" hidden>
+  <div class="lbar">
+    <div class="lrow"><button class="lnav" id="prevStep" aria-label="まえ">◀</button><h2 id="stTitle"></h2><span class="no" id="stNo"></span><button class="lnav next" id="nextStep">つぎ ▶</button></div>
+    <div class="tip" id="stTip"></div>
+  </div>
+  <div id="stage"><div id="board"><canvas id="cvGuide"></canvas><canvas id="cvSketch"></canvas><canvas id="cvInk"></canvas><canvas id="cvTmp"></canvas></div></div>
+  <div class="tools">
+    <div class="trow">
+      <span class="seg" id="layerSeg"><button class="blue" data-layer="sketch">下書き</button><button data-layer="ink">清書</button></span>
+      <button class="tb" id="eraser" aria-label="消しゴム">🧽</button>
+      <button class="tb" id="undo" aria-label="もどす">↩</button>
+      <button class="tb" id="redo" aria-label="やりなおす">↪</button>
+      <button class="tb" id="guideBtn" aria-label="お手本">👁</button>
+      <button class="tb" id="flipBtn" aria-label="左右反転">↔</button>
+      <button class="tb" id="fit" aria-label="ぜんたい">🔍</button>
+      <button class="tb" id="share" aria-label="共有">📤</button>
+      <button class="tb" id="exit" aria-label="レッスン一覧へ">🚪</button>
+    </div>
+    <div class="trow" id="row2"></div>
+  </div>
+</section>
+<input type="file" accept="image/*" id="file" hidden>
+
+<script src="../../common/kit.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const show = id => ['list', 'draw'].forEach(s => $(s).hidden = s !== id);
+
+/* =========================================================
+   お手本の かたち：かんたんな 命令の リスト。
+   すべて 点の 列（ポリライン）に して、かく・点数を つける の 両方に つかう
+   ========================================================= */
+const N = 48;
+function sample(it) {
+  const [k, ...a] = it, pts = [];
+  const push = f => { for (let i = 0; i <= N; i++) pts.push(f(i / N)); };
+  if (k === 'L') push(t => [a[0] + (a[2] - a[0]) * t, a[1] + (a[3] - a[1]) * t]);
+  else if (k === 'C') push(t => [a[0] + Math.cos(t * 6.2832) * a[2], a[1] + Math.sin(t * 6.2832) * a[2]]);
+  else if (k === 'E') push(t => [a[0] + Math.cos(t * 6.2832) * a[2], a[1] + Math.sin(t * 6.2832) * a[3]]);
+  else if (k === 'A') push(t => { const an = a[4] + (a[5] - a[4]) * t; return [a[0] + Math.cos(an) * a[2], a[1] + Math.sin(an) * a[3]]; });
+  else if (k === 'Q') push(t => { const u = 1 - t; return [u * u * a[0] + 2 * u * t * a[2] + t * t * a[4], u * u * a[1] + 2 * u * t * a[3] + t * t * a[5]]; });
+  else if (k === 'B') push(t => { const u = 1 - t; return [u * u * u * a[0] + 3 * u * u * t * a[2] + 3 * u * t * t * a[4] + t * t * t * a[6], u * u * u * a[1] + 3 * u * u * t * a[3] + 3 * u * t * t * a[5] + t * t * t * a[7]]; });
+  else if (k === 'P') return a[0].map(p => [...p]);
+  return pts;
+}
+// 左右反転（顔の 右半分を つくる）
+const mir = (items, cx = 400) => items.map(([k, ...a]) => {
+  if (k === 'P') return ['P', a[0].map(([x, y]) => [2 * cx - x, y])];
+  if (k === 'A') return ['A', 2 * cx - a[0], a[1], a[2], a[3], Math.PI - a[5], Math.PI - a[4]];
+  if (k === 'C' || k === 'E') return [k, 2 * cx - a[0], ...a.slice(1)];
+  return [k, ...a.map((v, i) => i % 2 ? v : 2 * cx - v)];
+});
+const both = items => [...items, ...mir(items)];
+const D = items => items.map(it => ({ dash: true, it })); // 点線（アタリ）
+
+/* ---------- 顔（正面） 800×800 ---------- */
+const F = {
+  head: [['C', 400, 330, 170]],
+  cross: D([['L', 400, 150, 400, 620], ['L', 225, 420, 575, 420]]),
+  jaw: both([['B', 232, 380, 245, 470, 330, 560, 400, 595]]),
+  eyes: both([['B', 272, 420, 288, 392, 345, 386, 374, 402], ['L', 272, 420, 262, 430], ['E', 328, 434, 21, 29], ['E', 328, 440, 9, 13], ['C', 320, 423, 5], ['Q', 302, 462, 326, 468, 350, 460]]),
+  face: [...both([['Q', 285, 372, 322, 356, 360, 366]]), ['P', [[403, 486], [396, 500]]], ['Q', 378, 538, 400, 547, 422, 538]],
+  ears: both([['B', 233, 414, 208, 408, 208, 474, 240, 484], ['L', 366, 582, 362, 680], ['Q', 362, 672, 300, 690, 220, 722]]),
+  hair: [...both([['B', 214, 480, 186, 300, 246, 140, 400, 138]]),
+    ['Q', 392, 160, 300, 240, 262, 388], ['Q', 392, 160, 350, 280, 318, 380], ['Q', 400, 165, 395, 300, 372, 392],
+    ['Q', 408, 160, 440, 290, 432, 386], ['Q', 410, 160, 480, 260, 492, 378], ['Q', 412, 158, 520, 220, 540, 380],
+    ['Q', 262, 388, 280, 360, 300, 360], ['Q', 540, 380, 525, 352, 505, 356]],
+};
+/* ---------- 顔（ななめ） ---------- */
+const S = {
+  head: [['C', 400, 330, 170]],
+  cross: D([['A', 400, 330, 92, 170, -Math.PI / 2, Math.PI / 2], ['Q', 492, 330, 486, 470, 470, 600], ['Q', 228, 412, 400, 440, 570, 410]]),
+  jaw: [['B', 234, 390, 240, 480, 330, 570, 468, 597], ['B', 562, 400, 556, 470, 520, 560, 468, 597]],
+  eyes: [['B', 305, 420, 320, 392, 380, 386, 410, 402], ['L', 305, 420, 295, 430], ['E', 362, 436, 22, 30], ['E', 362, 442, 9, 13], ['C', 354, 424, 5], ['Q', 334, 466, 360, 472, 386, 462],
+    ['B', 490, 404, 500, 393, 530, 391, 548, 404], ['E', 522, 436, 13, 28], ['E', 524, 442, 6, 12], ['Q', 504, 466, 520, 470, 536, 464]],
+  face: [['Q', 312, 375, 350, 358, 398, 368], ['Q', 492, 366, 515, 358, 545, 368], ['P', [[506, 470], [516, 500], [500, 505]]], ['Q', 446, 545, 468, 552, 490, 542]],
+  ears: [['B', 236, 415, 210, 410, 212, 476, 246, 488], ['L', 382, 585, 378, 690], ['L', 500, 582, 506, 690]],
+  hair: [['B', 214, 486, 186, 300, 250, 140, 410, 138], ['B', 410, 138, 560, 140, 604, 280, 582, 430],
+    ['Q', 420, 160, 330, 240, 300, 392], ['Q', 424, 160, 380, 290, 362, 384], ['Q', 430, 164, 438, 300, 425, 392],
+    ['Q', 436, 160, 488, 280, 498, 384], ['Q', 440, 158, 548, 230, 566, 392]],
+};
+/* ---------- 表情（顔の りんかくは グレーで 出しておく） ---------- */
+const BASE = [...F.head.map(i => ['A', 400, 330, 170, 170, Math.PI * .86, Math.PI * 2.14]), ...F.jaw, ...F.ears, ...F.hair];
+const EXP = {
+  smile: [...both([['B', 288, 432, 300, 410, 350, 408, 364, 430], ['Q', 288, 366, 324, 346, 360, 360]]), ['B', 368, 528, 380, 568, 420, 568, 432, 528], ['L', 368, 528, 432, 528]],
+  angry: [...both([['L', 286, 362, 370, 388], ['B', 282, 420, 300, 414, 340, 408, 372, 412], ['E', 330, 434, 15, 19], ['Q', 300, 456, 330, 460, 356, 452]]), ['B', 376, 550, 388, 536, 412, 536, 424, 550]],
+  surprise: [...both([['Q', 288, 352, 324, 330, 362, 346], ['E', 326, 430, 30, 33], ['C', 326, 432, 6]]), ['E', 400, 548, 14, 19]],
+  sad: [...both([['L', 290, 382, 366, 360], ['B', 284, 418, 300, 410, 348, 406, 368, 414], ['E', 328, 438, 19, 24], ['Q', 302, 462, 326, 466, 350, 460]]), ['Q', 382, 548, 400, 536, 418, 548], ['B', 296, 470, 284, 492, 300, 504, 304, 488]],
+};
+/* ---------- 体（6頭身） 600×1000 ---------- */
+const HU = 140, TOP = 70;
+function bones(P, lines) { return lines.map(([a, b]) => ['L', ...P[a], ...P[b]]); }
+function flesh(P, segs) { // 骨の まわりに つつ（肉づけ）
+  const out = [];
+  segs.forEach(([a, b, w]) => {
+    const [x0, y0] = P[a], [x1, y1] = P[b], L = Math.hypot(x1 - x0, y1 - y0), nx = -(y1 - y0) / L * w, ny = (x1 - x0) / L * w;
+    out.push(['L', x0 + nx, y0 + ny, x1 + nx, y1 + ny], ['L', x0 - nx, y0 - ny, x1 - nx, y1 - ny]);
+  });
+  return out;
+}
+const STAND = { neck: [300, 222], sh: [300, 262], shL: [212, 268], shR: [388, 268], elL: [196, 430], elR: [404, 430], haL: [192, 572], haR: [408, 572],
+  hip: [300, 520], hiL: [250, 520], hiR: [350, 520], knL: [252, 730], knR: [348, 730], ftL: [250, 925], ftR: [350, 925] };
+const RUN = { neck: [318, 224], sh: [314, 262], shL: [236, 268], shR: [392, 262], elL: [190, 380], elR: [460, 360], haL: [250, 470], haR: [520, 250],
+  hip: [290, 512], hiL: [250, 512], hiR: [330, 512], knL: [190, 690], knR: [420, 640], ftL: [120, 880], ftR: [400, 860] };
+const BONES = [['neck', 'sh'], ['shL', 'shR'], ['sh', 'hip'], ['hiL', 'hiR'], ['shL', 'elL'], ['elL', 'haL'], ['shR', 'elR'], ['elR', 'haR'], ['hiL', 'knL'], ['knL', 'ftL'], ['hiR', 'knR'], ['knR', 'ftR']];
+const JOINTS = P => ['shL', 'shR', 'elL', 'elR', 'hiL', 'hiR', 'knL', 'knR'].map(k => ['C', ...P[k], 10]);
+const body = (P, head) => [head, ...bones(P, BONES), ...JOINTS(P), ['C', ...P.haL, 14], ['C', ...P.haR, 14]];
+const FLESH = P => [['P', [P.shL, P.shR, [P.shR[0] - 18, P.sh[1] + 160], [P.hiR[0] + 14, P.hip[1]], [P.hiL[0] - 14, P.hip[1]], [P.shL[0] + 18, P.sh[1] + 160], P.shL]],
+  ...flesh(P, [['shL', 'elL', 20], ['elL', 'haL', 16], ['shR', 'elR', 20], ['elR', 'haR', 16], ['hiL', 'knL', 30], ['knL', 'ftL', 22], ['hiR', 'knR', 30], ['knR', 'ftR', 22]])];
+const GRID = Array.from({ length: 7 }, (_, k) => ({ dash: true, label: k < 6 ? String(k + 1) : '', it: ['L', 60, TOP + k * HU, 540, TOP + k * HU] }));
+
+/* ---------- 線の 練習 ---------- */
+const DRILL = {
+  hor: Array.from({ length: 5 }, (_, k) => ['L', 120, 150 + k * 125, 680, 150 + k * 125]),
+  dia: Array.from({ length: 5 }, (_, k) => ['L', 110 + k * 90, 680, 330 + k * 90, 120]),
+  circ: [['C', 225, 225, 120], ['C', 575, 225, 120], ['C', 225, 575, 120], ['C', 575, 575, 120]],
+  wave: Array.from({ length: 3 }, (_, k) => ['B', 100, 200 + k * 200, 290, 80 + k * 200, 510, 320 + k * 200, 700, 200 + k * 200]),
+  hair: Array.from({ length: 6 }, (_, k) => ['Q', 130 + k * 100, 140, 70 + k * 100 + 60, 420, 150 + k * 100, 680]),
+};
+
+/* ---------- レッスン ---------- */
+const LESSONS = [
+  { id: 'line', icon: '〰️', name: '線の 練習', sub: 'まっすぐ・丸・波線・入り抜き。点数が 出るよ', w: 800, h: 800, steps: [
+    { t: 'よこ線', page: 1, layer: 'ink', brush: 'pen', size: 4, guide: [DRILL.hor], score: true, tip: '左から右へ「シュッ」と 一気に。手首では なく、ひじや 肩から うごかすと まっすぐに なるよ。' },
+    { t: 'ななめ線', page: 2, layer: 'ink', brush: 'pen', size: 4, guide: [DRILL.dia], score: true, tip: 'かきにくい 向きは 紙（画面）を 回すのも あり。2本指で 回すかわりに、自分が かきやすい 向きを さがそう。' },
+    { t: '丸', page: 3, layer: 'ink', brush: 'pen', size: 4, guide: [DRILL.circ], score: true, tip: 'かく前に 空中で 2〜3回 なぞって 手に おぼえさせてから、一気に かこう。' },
+    { t: '波線', page: 4, layer: 'ink', brush: 'pen', size: 4, guide: [DRILL.wave], score: true, tip: 'かみの毛や 服の しわは 波線の なかま。止まらずに なめらかに。' },
+    { t: '入り抜き', page: 5, layer: 'ink', brush: 'fude', size: 12, guide: [DRILL.hair], score: true, tip: '筆ペンで、かき始めと 終わりを「すっ」と はやく うごかすと 細くなる（入り抜き）。マンガっぽい線の ひみつ！' },
+  ] },
+  { id: 'front', icon: '🙂', name: '顔（正面）', sub: 'アタリ（下書きの 目じるし）から 顔を かく', w: 800, h: 800, steps: [
+    { t: '頭の 丸', layer: 'sketch', brush: 'pencil', size: 4, guide: [F.head], tip: 'まず 下書き（青）で、頭の 大きな 丸。うまく かけなくても 何回 かさねても OK。' },
+    { t: '十字線', layer: 'sketch', brush: 'pencil', size: 4, guide: [F.head, F.cross], tip: 'たての 中心線と、目の 高さの 線。目の 線は 丸の 下半分に くるのが マンガの バランス。' },
+    { t: 'あご', layer: 'sketch', brush: 'pencil', size: 4, guide: [F.head, F.cross, F.jaw], tip: 'ほおから あごへ。あごの 先は 中心線の 上。左右を 同じ 長さに。' },
+    { t: '目', layer: 'ink', brush: 'pen', size: 4, guide: [F.head, F.cross, F.jaw, F.eyes], tip: 'ここから 清書（黒）。上まぶたは 太く、下まぶたは 細く 短く。光（白い 丸）を のこすと キラッと する。' },
+    { t: 'まゆ・鼻・口', layer: 'ink', brush: 'pen', size: 4, guide: [F.head, F.cross, F.jaw, F.eyes, F.face], tip: '鼻と 口は 小さく かくと かわいく、大きく すると 大人っぽく なるよ。' },
+    { t: '耳・首', layer: 'ink', brush: 'pen', size: 4, guide: [F.head, F.cross, F.jaw, F.eyes, F.face, F.ears], tip: '耳は 目と 鼻の 間の 高さ。首は 思ったより 細めが マンガらしい。' },
+    { t: 'かみの毛', layer: 'ink', brush: 'fude', size: 7, guide: [F.head, F.cross, F.jaw, F.eyes, F.face, F.ears, F.hair], tip: 'かみは 頭の 丸より ひとまわり 大きく。毛先は 筆で「入り抜き」を つかって シュッと。' },
+    { t: '仕上げ', layer: 'ink', brush: 'pen', size: 4, guide: [], hideSketch: true, done: true, tip: '下書きを かくしたよ。お手本（👁）を 消して 見てみよう。↔で 左右反転すると ゆがみが わかる！' },
+  ] },
+  { id: 'side', icon: '😊', name: '顔（ななめ）', sub: '少し 横を 向いた 顔。中心線が カーブする', w: 800, h: 800, steps: [
+    { t: '頭と 中心線', layer: 'sketch', brush: 'pencil', size: 4, guide: [S.head, S.cross], tip: '顔が 右を 向くと、中心線は 丸の 右がわに カーブする。目の 線も 少し まがるよ。' },
+    { t: 'あご', layer: 'sketch', brush: 'pencil', size: 4, guide: [S.head, S.cross, S.jaw], tip: 'あごの 先は 中心線の 下。向こうがわの ほおは 短く、手前の ほおは 長く。' },
+    { t: '目', layer: 'ink', brush: 'pen', size: 4, guide: [S.head, S.cross, S.jaw, S.eyes], tip: '向こうの 目は 細く 小さく。これで「ななめ」に 見える。' },
+    { t: 'まゆ・鼻・口', layer: 'ink', brush: 'pen', size: 4, guide: [S.head, S.cross, S.jaw, S.eyes, S.face], tip: '鼻は 中心線の 上に。少し 横に 出すと 立体的。' },
+    { t: '耳・首・かみ', layer: 'ink', brush: 'fude', size: 7, guide: [S.head, S.cross, S.jaw, S.eyes, S.face, S.ears, S.hair], tip: '耳は 手前がわだけ 見える。首は 頭の まん中より 後ろから 出るよ。' },
+    { t: '仕上げ', layer: 'ink', brush: 'pen', size: 4, guide: [], hideSketch: true, done: true, tip: '下書きを かくしたよ。↔で 左右反転して、ゆがみを チェック！' },
+  ] },
+  { id: 'exp', icon: '😆', name: '表情', sub: 'まゆ・目・口で 気もちを あらわす', w: 800, h: 800, steps: [
+    { t: 'えがお', page: 1, layer: 'ink', brush: 'pen', size: 4, base: BASE, guide: [EXP.smile], tip: '目を ∩ の 形に とじて、口を 大きく。まゆも 少し 上がる。' },
+    { t: 'おこり', page: 2, layer: 'ink', brush: 'pen', size: 4, base: BASE, guide: [EXP.angry], tip: 'まゆを 中心に むけて 下げる（ハの 字の さかさ）。黒目は 小さめに。' },
+    { t: 'びっくり', page: 3, layer: 'ink', brush: 'pen', size: 4, base: BASE, guide: [EXP.surprise], tip: 'まゆを 高く、目を まん丸、黒目を 小さく。口は 小さな「お」。' },
+    { t: 'かなしい', page: 4, layer: 'ink', brush: 'pen', size: 4, base: BASE, guide: [EXP.sad], done: true, tip: 'まゆを ハの 字に。口は へ の 字。なみだを そえると もっと 伝わる。' },
+  ] },
+  { id: 'body', icon: '🧍', name: '体の バランス', sub: '頭身（頭 何こ分の 高さか）を 棒人間で', w: 600, h: 1000, steps: [
+    { t: '6頭身の 棒人間', page: 1, layer: 'sketch', brush: 'pencil', size: 4, guide: [GRID, body(STAND, ['E', 300, 140, 52, 70])], tip: '頭 6こ分の 高さ。まん中（3こ目の 線）が こし。ひざは 4こ目と 5こ目の 間。' },
+    { t: '肉づけ', page: 1, layer: 'ink', brush: 'pen', size: 4, guide: [GRID, body(STAND, ['E', 300, 140, 52, 70]), FLESH(STAND)], tip: '骨の まわりに つつを かぶせる イメージ。うで・あしは 先に いくほど 細く。' },
+    { t: '走る ポーズ', page: 2, layer: 'sketch', brush: 'pencil', size: 4, guide: [GRID, body(RUN, ['E', 322, 144, 52, 70])], done: true, tip: '体を 前に かたむけて、うでと あしを 前後 反対に。動きは まず 棒人間で 考えると かんたん！' },
+  ] },
+  { id: 'trace', icon: '📄', name: '好きな 絵で トレース', sub: '自分で えらんだ 絵を うすく 出して なぞる', trace: true, steps: [
+    { t: 'トレース', layer: 'sketch', brush: 'pencil', size: 4, guide: [], done: true, tip: '好きな 絵を なぞると、線の 形や バランスが 手に しみこむよ。（なぞった 絵は 自分の 練習用に。ネットに 出すのは やめよう）' },
+  ] },
+];
+
+/* ---------- じょうたい ---------- */
+const done = Kit.store.get('manga:done', {});
+const best = Kit.store.get('manga:best', {});
+const cvG = $('cvGuide'), cvS = $('cvSketch'), cvI = $('cvInk'), cvT = $('cvTmp');
+const gG = cvG.getContext('2d'), gS = cvS.getContext('2d', { willReadFrequently: true }), gI = cvI.getContext('2d', { willReadFrequently: true }), gT = cvT.getContext('2d');
+const T = Object.assign({ color: '#2a2238' }, Kit.store.get('manga:tool', {}));
+let L = null, step = 0, layer = 'sketch', brushK = 'pen', size = 4, eraser = false, showGuide = true, flip = false;
+let W = 800, H = 800, view = { s: 1, x: 0, y: 0 }, undo = [], redo = [], pages = new Map(), curPage = null, traceImg = null, scores = [];
+const ctxOf = l => l === 'sketch' ? gS : gI;
+const SKETCH = '#4a90ff';
+const INKS = ['#2a2238', '#555b66', '#d6305f', '#2f6fde', '#7a4b2a'];
+
+function renderList() {
+  const r = $('lessons'); r.innerHTML = '';
+  LESSONS.forEach(l => {
+    const b = Kit.el(`<button class="lesson"><span class="ic">${l.icon}</span><span><b>${l.name}</b><small>${l.sub}</small></span><span class="done">${done[l.id] ? '✅' : ''}</span></button>`);
+    b.onclick = () => openLesson(l);
+    r.appendChild(b);
+  });
+}
+function openLesson(l) {
+  Kit.sfx('tap');
+  if (l.trace) { $('file').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; traceImg = await createImageBitmap(f); begin(l); }; $('file').click(); return; }
+  traceImg = null; begin(l);
+}
+function begin(l) {
+  L = l; step = 0; pages = new Map(); curPage = null; flip = false; showGuide = true;
+  if (l.trace) { const s = Math.min(1, 1000 / Math.max(traceImg.width, traceImg.height)); W = Math.round(traceImg.width * s); H = Math.round(traceImg.height * s); }
+  else { W = l.w; H = l.h; }
+  [cvG, cvS, cvI, cvT].forEach(c => { c.width = W; c.height = H; });
+  $('board').style.width = W + 'px'; $('board').style.height = H + 'px';
+  show('draw'); goStep(0); requestAnimationFrame(fit);
+}
+
+/* ステップ：ページが かわる ときは 絵を しまって、つぎの ページを 出す */
+function goStep(i) {
+  step = i; const st = L.steps[i], pg = st.page || 0;
+  if (pg !== curPage) {
+    if (curPage !== null) pages.set(curPage, [gS.getImageData(0, 0, W, H), gI.getImageData(0, 0, W, H)]);
+    gS.clearRect(0, 0, W, H); gI.clearRect(0, 0, W, H);
+    const saved = pages.get(pg); if (saved) { gS.putImageData(saved[0], 0, 0); gI.putImageData(saved[1], 0, 0); }
+    curPage = pg; undo = []; redo = [];
+  }
+  layer = st.layer; brushK = st.brush; size = st.size; eraser = false; scores = [];
+  cvS.style.opacity = st.hideSketch ? 0 : 1;
+  if (st.done) { done[L.id] = true; Kit.store.set('manga:done', done); }
+  drawGuide(); renderBar(); renderTools();
+}
+function drawGuide() {
+  gG.clearRect(0, 0, W, H);
+  const st = L.steps[step];
+  if (traceImg) { gG.globalAlpha = .35; gG.drawImage(traceImg, 0, 0, W, H); gG.globalAlpha = 1; }
+  cvG.style.opacity = showGuide ? 1 : 0;
+  const stroke = (raw, color, width) => {
+    const o = raw.it ? raw : { it: raw };
+    const pts = sample(o.it);
+    gG.save(); gG.strokeStyle = color; gG.lineWidth = width; gG.lineCap = gG.lineJoin = 'round';
+    if (o.dash) gG.setLineDash([12, 10]);
+    gG.beginPath(); pts.forEach(([x, y], k) => k ? gG.lineTo(x, y) : gG.moveTo(x, y)); gG.stroke(); gG.restore();
+    if (o.label) { gG.fillStyle = 'rgba(214,48,95,.6)'; gG.font = '900 28px sans-serif'; gG.fillText(o.label, 18, (o.it[2] + o.it[4]) / 2 + HU / 2 + 10); }
+  };
+  (st.base || []).forEach(it => stroke(it, 'rgba(120,120,130,.55)', 4));
+  const g = st.guide;
+  g.forEach((grp, k) => grp.forEach(it => stroke(it, k === g.length - 1 ? 'rgba(255,70,120,.55)' : 'rgba(255,70,120,.22)', k === g.length - 1 ? 6 : 4)));
+}
+function renderBar() {
+  const st = L.steps[step];
+  $('stTitle').textContent = `${L.icon} ${st.t}`;
+  $('stNo').textContent = `${step + 1}/${L.steps.length}`;
+  const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+  const key = `${L.id}:${step}`;
+  $('stTip').innerHTML = `${Kit.esc(st.tip)}${st.score ? `<br><span class="score">${avg != null ? `平均 ${avg}点` : 'なぞると 点数が 出るよ'}${best[key] ? `（さいこう ${best[key]}点）` : ''}</span>` : ''}`;
+  $('prevStep').disabled = step === 0;
+  $('nextStep').textContent = step === L.steps.length - 1 ? 'おわる ✔' : 'つぎ ▶';
+}
+$('prevStep').onclick = () => { if (step > 0) { Kit.sfx('tap'); goStep(step - 1); } };
+$('nextStep').onclick = () => {
+  if (step < L.steps.length - 1) { Kit.sfx('select'); goStep(step + 1); return; }
+  done[L.id] = true; Kit.store.set('manga:done', done); Kit.sfx('win'); Kit.confetti();
+  Kit.modal({ title: '🎉 レッスン クリア！', body: '<p>📤で 作品を のこしておくと、あとで くらべて 上達が わかるよ。くりかえし やるほど うまく なる！</p>', actions: [{ label: 'もう少し かく' }, { label: 'レッスン一覧へ', primary: true, onClick: () => { show('list'); renderList(); } }] });
+};
+
+/* ---------- 道具 ---------- */
+function renderTools() {
+  document.querySelectorAll('#layerSeg button').forEach(b => {
+    b.setAttribute('aria-pressed', b.dataset.layer === layer);
+    b.onclick = () => { layer = b.dataset.layer; eraser = false; if (layer === 'sketch') cvS.style.opacity = 1; Kit.sfx('tap'); renderTools(); };
+  });
+  $('eraser').setAttribute('aria-pressed', eraser);
+  $('guideBtn').setAttribute('aria-pressed', showGuide);
+  $('flipBtn').setAttribute('aria-pressed', flip);
+  $('undo').disabled = !undo.length; $('redo').disabled = !redo.length;
+  const r = $('row2'); r.innerHTML = '';
+  const seg = Kit.el('<span class="seg"></span>');
+  [['pen', '🖊️ ペン'], ['fude', '🖌️ 筆'], ['pencil', '✏️ えんぴつ']].forEach(([k, l]) => {
+    const b = Kit.el(`<button aria-pressed="${brushK === k && !eraser}">${l}</button>`);
+    b.onclick = () => { brushK = k; eraser = false; Kit.sfx('tap'); renderTools(); }; seg.appendChild(b);
+  });
+  r.appendChild(seg);
+  [4, 7, 12].forEach(s => {
+    const b = Kit.el(`<button class="sz" aria-pressed="${size === s}" aria-label="太さ ${s}"><i style="width:${Math.max(4, s * 1.2)}px;height:${Math.max(4, s * 1.2)}px"></i></button>`);
+    b.onclick = () => { size = s; Kit.sfx('tap'); renderTools(); }; r.appendChild(b);
+  });
+  if (layer === 'ink') INKS.forEach(c => {
+    const b = Kit.el(`<button class="sw" style="background:${c}" aria-pressed="${T.color === c}"></button>`);
+    b.onclick = () => { T.color = c; Kit.store.set('manga:tool', T); Kit.sfx('tap'); renderTools(); }; r.appendChild(b);
+  });
+}
+$('eraser').onclick = () => { eraser = !eraser; Kit.sfx('tap'); renderTools(); };
+$('guideBtn').onclick = () => { showGuide = !showGuide; cvG.style.opacity = showGuide ? 1 : 0; Kit.sfx('tap'); renderTools(); };
+$('flipBtn').onclick = () => { flip = !flip; applyView(); Kit.sfx('whoosh'); renderTools(); if (flip) Kit.toast('左右反転！ ゆがみが 見つけやすいよ'); };
+$('fit').onclick = () => { fit(); Kit.sfx('tap'); };
+$('exit').onclick = () => { show('list'); renderList(); };
+
+function snap() { const g = ctxOf(layer); undo.push({ layer, d: g.getImageData(0, 0, W, H) }); if (undo.length > 20) undo.shift(); redo = []; }
+$('undo').onclick = () => { const u = undo.pop(); if (!u) return; const g = ctxOf(u.layer); redo.push({ layer: u.layer, d: g.getImageData(0, 0, W, H) }); g.putImageData(u.d, 0, 0); scores.pop(); Kit.sfx('tap'); renderTools(); renderBar(); };
+$('redo').onclick = () => { const u = redo.pop(); if (!u) return; const g = ctxOf(u.layer); undo.push({ layer: u.layer, d: g.getImageData(0, 0, W, H) }); g.putImageData(u.d, 0, 0); Kit.sfx('tap'); renderTools(); };
+
+/* ---------- 画面の 大きさ・ズーム・反転 ---------- */
+function fit() {
+  const r = $('stage').getBoundingClientRect(), s = Math.min(r.width / W, r.height / H) * .96;
+  view = { s, x: (r.width - W * s) / 2, y: (r.height - H * s) / 2 }; applyView();
+}
+function applyView() { $('board').style.transform = `translate(${view.x}px,${view.y}px) scale(${view.s})${flip ? ` translate(${W}px,0) scale(-1,1)` : ''}`; }
+addEventListener('resize', () => { if (!$('draw').hidden) fit(); });
+const stage = $('stage');
+const toBoard = (cx, cy) => { const r = stage.getBoundingClientRect(); let x = (cx - r.left - view.x) / view.s; if (flip) x = W - x; return [x, (cy - r.top - view.y) / view.s]; };
+
+/* ---------- かく ---------- */
+const ptrs = new Map(); let stroke = null, pinch = null;
+function brushStyle() { gT.strokeStyle = gT.fillStyle = eraser ? '#ff8a3d' : layer === 'sketch' ? SKETCH : T.color; gT.lineCap = gT.lineJoin = 'round'; gT.lineWidth = size; }
+function dotT(x, y, r) { gT.beginPath(); gT.arc(x, y, Math.max(.5, r), 0, 7); gT.fill(); }
+function pencilAt(x, y) { const r = Math.max(1, size * .35), n = Math.ceil(r * 2); gT.globalAlpha = .5; for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, d = r * Math.sqrt(Math.random()); gT.fillRect(x + Math.cos(a) * d, y + Math.sin(a) * d, 1.2, 1.2); } gT.globalAlpha = 1; }
+function begin2(x, y) {
+  snap(); stroke = { last: [x, y], pts: [[x, y]], t: performance.now(), w: size * .3 };
+  cvT.style.opacity = eraser ? .5 : 1; brushStyle();
+  const k = eraser ? 'pen' : brushK;
+  if (k === 'pen') dotT(x, y, size / 2); else if (k === 'fude') dotT(x, y, stroke.w / 2); else pencilAt(x, y);
+}
+function move2(x, y) {
+  const [px, py] = stroke.last, d = Math.hypot(x - px, y - py); if (d < .5) return;
+  brushStyle(); const k = eraser ? 'pen' : brushK;
+  if (k === 'pen') { gT.beginPath(); gT.moveTo(px, py); gT.lineTo(x, y); gT.stroke(); }
+  else if (k === 'fude') { // はやいと 細く、ゆっくりだと 太く（入り抜き）
+    const now = performance.now(), sp = d / Math.max(1, now - stroke.t) * view.s;
+    const target = size * Kit.clamp(1.4 - sp * .6, .2, 1.4), w0 = stroke.w, w1 = w0 + (target - w0) * .35;
+    const n = Math.max(1, Math.ceil(d / Math.max(.7, w1 / 5)));
+    for (let i = 1; i <= n; i++) { const t = i / n; dotT(px + (x - px) * t, py + (y - py) * t, (w0 + (w1 - w0) * t) / 2); }
+    stroke.w = w1; stroke.t = now;
+  } else { const n = Math.max(1, Math.ceil(d / 1.2)); for (let i = 1; i <= n; i++) { const t = i / n; pencilAt(px + (x - px) * t, py + (y - py) * t); } }
+  stroke.last = [x, y]; stroke.pts.push([x, y]);
+}
+function end2() {
+  const g = ctxOf(layer);
+  if (eraser) { g.save(); g.globalCompositeOperation = 'destination-out'; g.drawImage(cvT, 0, 0); g.restore(); }
+  else g.drawImage(cvT, 0, 0);
+  gT.clearRect(0, 0, W, H);
+  if (L.steps[step].score && !eraser && stroke.pts.length > 3) scoreStroke(stroke.pts);
+  stroke = null; renderTools();
+}
+function cancel2() { gT.clearRect(0, 0, W, H); const u = undo.pop(); if (u) ctxOf(u.layer).putImageData(u.d, 0, 0); stroke = null; }
+
+/* 点数：いちばん 近い お手本の 線に どれだけ 近く、どれだけ 長く なぞれたか */
+function scoreStroke(pts) {
+  const lines = L.steps[step].guide.flat().map(it => sample(it.it || it));
+  const near = (p, line) => line.reduce((m, q) => Math.min(m, Math.hypot(p[0] - q[0], p[1] - q[1])), 1e9);
+  let bestL = null, bd = 1e9;
+  lines.forEach(line => { const d = pts.reduce((s, p) => s + near(p, line), 0) / pts.length; if (d < bd) { bd = d; bestL = line; } });
+  if (!bestL || bd > 60) return pop('？', pts[pts.length - 1]);
+  const cover = bestL.filter(q => near(q, pts) < 16).length / bestL.length;
+  const sc = Math.round(Kit.clamp(100 - Math.max(0, bd - 2) * 6, 0, 100) * (.3 + .7 * cover));
+  scores.push(sc);
+  const key = `${L.id}:${step}`, avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+  if (scores.length >= 3 && avg > (best[key] || 0)) { best[key] = avg; Kit.store.set('manga:best', best); }
+  Kit.sfx(sc >= 80 ? 'good' : 'tap');
+  pop(sc + '点', pts[pts.length - 1]); renderBar();
+}
+function pop(text, [x, y]) {
+  const r = stage.getBoundingClientRect(), sx = (flip ? W - x : x) * view.s + view.x, sy = y * view.s + view.y;
+  const el = Kit.el(`<div class="pop" style="left:${Kit.clamp(sx, 30, r.width - 30)}px;top:${Kit.clamp(sy, 40, r.height - 10)}px">${text}</div>`);
+  stage.appendChild(el); setTimeout(() => el.remove(), 1300);
+}
+
+stage.addEventListener('pointerdown', e => {
+  stage.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size === 1) begin2(...toBoard(e.clientX, e.clientY));
+  else if (ptrs.size === 2) {
+    if (stroke) cancel2();
+    const [a, b] = [...ptrs.values()];
+    pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, v: { ...view } };
+  }
+});
+stage.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pinch && ptrs.size >= 2) {
+    const [a, b] = [...ptrs.values()], r = stage.getBoundingClientRect();
+    const d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, s = Kit.clamp(pinch.v.s * d / pinch.d, .2, 10);
+    const bx = (pinch.mx - r.left - pinch.v.x) / pinch.v.s, by = (pinch.my - r.top - pinch.v.y) / pinch.v.s;
+    view = { s, x: mx - r.left - bx * s, y: my - r.top - by * s }; applyView();
+  } else if (stroke) move2(...toBoard(e.clientX, e.clientY));
+});
+const up = e => {
+  if (!ptrs.has(e.pointerId)) return; ptrs.delete(e.pointerId);
+  if (stroke && ptrs.size === 0) end2();
+  if (ptrs.size < 2) pinch = null;
+};
+stage.addEventListener('pointerup', up); stage.addEventListener('pointercancel', up);
+stage.addEventListener('wheel', e => {
+  e.preventDefault(); const r = stage.getBoundingClientRect();
+  const s = Kit.clamp(view.s * (e.deltaY < 0 ? 1.15 : 1 / 1.15), .2, 10), bx = (e.clientX - r.left - view.x) / view.s, by = (e.clientY - r.top - view.y) / view.s;
+  view = { s, x: e.clientX - r.left - bx * s, y: e.clientY - r.top - by * s }; applyView();
+}, { passive: false });
+
+/* ---------- 共有 ---------- */
+$('share').onclick = () => {
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
+  if (cvS.style.opacity !== '0') g.drawImage(cvS, 0, 0); g.drawImage(cvI, 0, 0);
+  c.toBlob(async b => {
+    const f = new File([b], `manga-${Date.now()}.png`, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [f] })) { try { await navigator.share({ files: [f] }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = f.name; document.body.appendChild(a); a.click(); a.remove();
+    Kit.toast('画像を ほぞんしたよ');
+  });
+};
+
+/* ---------- コツ ---------- */
+$('tipsBtn').onclick = () => Kit.modal({ title: '💡 イラストが 上手になる コツ', body: `<div class="tips" style="max-height:62vh;overflow:auto">
+  <h3>✏️ 毎日 少しずつ</h3><p>1日 10分でも 毎日 かく ほうが、週1回 2時間より ぐんと 伸びる。線の 練習を ウォーミングアップに しよう。</p>
+  <h3>🔵 アタリ → 清書</h3><p>いきなり 目から かかずに、丸と 十字線（アタリ）で 位置を 決めてから。下書きと 清書を 分けるのが プロの やりかた。</p>
+  <h3>🪞 左右反転で チェック</h3><p>自分の 絵は 見なれて ゆがみに 気づかない。↔で 反転すると「あれ？」が 見つかる。</p>
+  <h3>📚 好きな 絵を まねする（模写）</h3><p>好きな マンガの 顔を 見ながら かく、なぞる（トレース）。どこが 自分と ちがうか くらべるのが 大事。まねした 絵は 練習用に して、自分の 作品として 公開は しないでね。</p>
+  <h3>👀 本物を よく 見る</h3><p>鏡で 自分の 表情を 見たり、人の ポーズを 見たり。マンガの「くずし方」は 本物を 知っているほど 上手く なる。</p>
+  <h3>🗂 前の 絵を とっておく</h3><p>📤で 保存しておくと、1か月後に 見くらべて 上達が わかる。それが いちばんの やる気に なるよ。</p>
+  <h3>🎉 たのしむ</h3><p>うまく かけない 日が あっても 大丈夫。かきたい ものを かくのが いちばんの 練習！</p></div>` });
+
+Kit.bar({ id: 'manga', title: '✏️ マンガイラスト練習', help: `
+  <p>レッスンを えらぶと、うすい ピンクの お手本が 出ます。なぞって かいていこう。「つぎ ▶」で 次の ステップ。</p>
+  <p><b>下書き</b>（青）と <b>清書</b>（黒）は べつの 紙（レイヤー）。清書を かいてから 下書きを かくせます。</p>
+  <p>👁 お手本を 出す／かくす、↔ 左右反転、🧽 けしゴム（えらんでいる 紙だけ 消える）。2本指で ズーム。</p>
+  <p>線の 練習では、なぞった 線に 点数が 出ます。</p>` });
+renderList();
+if (location.hash === '#debug') window.__manga = { LESSONS, sample, get scores() { return scores; } };
+</script>
+</body>
+</html>
