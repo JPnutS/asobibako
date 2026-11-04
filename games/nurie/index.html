@@ -40,6 +40,10 @@
   .sub button { flex: none; height: 36px; padding: 0 9px; border: 2px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); font: 900 .8rem var(--font); cursor: pointer; white-space: nowrap; }
   .sub button[aria-pressed="true"] { background: var(--sun); color: #2a2238; }
   .sub .gap { flex: none; width: 6px; }
+  .alpha { flex: none; display: flex; align-items: center; gap: 4px; font: 900 .75rem var(--font); margin-right: 4px; }
+  .alpha[hidden] { display: none; }
+  .alpha input { width: 72px; accent-color: var(--orange); }
+  .alpha b { width: 2.6em; font-size: .7rem; }
   .tools { background: var(--card); border-top: 3px solid var(--line); padding: 6px max(8px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-bottom)); display: grid; gap: 6px; }
   .trow { display: flex; gap: 4px; align-items: center; overflow-x: auto; scrollbar-width: none; }
   .tb { flex: 1 1 32px; min-width: 30px; max-width: 56px; height: 42px; font-size: 1.1rem !important; border: 2.5px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); font: 900 1.25rem var(--font); display: grid; place-items: center; cursor: pointer; padding: 0 2px; }
@@ -378,7 +382,7 @@ function sampleLine() {
 const cvC = $('cvColor'), cvL = $('cvLine'), gC = cvC.getContext('2d', { willReadFrequently: true }), gL = cvL.getContext('2d', { willReadFrequently: true });
 const PAL = ['#2a2238', '#ffffff', '#ff4d4d', '#ff9a3c', '#ffd23f', '#a8e05f', '#3cc46a', '#1f9e89', '#4cb8ff', '#2f6fde', '#8a5cf5', '#ff7eb6', '#ffc7d9', '#c98a5a', '#7a4b2a', '#f5deb3', '#9aa3ad', '#5c636b'];
 const SIZES = [4, 10, 22, 44];
-const T = Object.assign({ tool: 'fill', color: '#ff4d4d', size: 10, brush: 'pen', shape: 'circle', sfill: false }, Kit.store.get('nurie:tool', {}));
+const T = Object.assign({ tool: 'fill', color: '#ff4d4d', size: 10, brush: 'pen', shape: 'circle', sfill: false, alpha: 1 }, Kit.store.get('nurie:tool', {}));
 const cvT = $('cvTmp'), gT = cvT.getContext('2d');
 const BRUSHES = [['pen', '🖊️ ペン'], ['fude', '🖌️ 筆'], ['pencil', '✏️ えんぴつ'], ['spray', '💨 スプレー']];
 const SHAPES = [['circle', '⚪ 丸'], ['tri', '🔺 三角'], ['rect', '⬜ 四角'], ['line', '／ 線'], ['star', '⭐ 星'], ['heart', '❤️ ハート']];
@@ -403,7 +407,7 @@ function applyView() { $('board').style.transform = `translate(${view.x}px,${vie
 addEventListener('resize', () => { if (!$('paint').hidden) fit(); });
 
 function renderTools() {
-  document.querySelectorAll('[data-tool]').forEach(b => { b.setAttribute('aria-pressed', b.dataset.tool === T.tool); b.onclick = () => { T.tool = b.dataset.tool; Kit.sfx('select'); renderTools(); }; });
+  document.querySelectorAll('[data-tool]').forEach(b => { b.setAttribute('aria-pressed', b.dataset.tool === T.tool); b.onclick = () => { commitPending(); T.tool = b.dataset.tool; Kit.sfx('select'); renderTools(); }; });
   // ペンの しゅるい／図形の しゅるい
   const sub = $('sub'); sub.innerHTML = ''; sub.hidden = T.tool !== 'pen' && T.tool !== 'shape';
   const opt = (list, key) => list.forEach(([v, l]) => {
@@ -432,14 +436,21 @@ function renderTools() {
   if (!PAL.includes(T.color)) cu.style.background = T.color;
   cu.querySelector('input').oninput = e => { T.color = e.target.value; if (T.tool === 'eraser') T.tool = 'pen'; renderTools(); };
   pal.appendChild(cu);
+  const al = Kit.el(`<label class="alpha" title="こさ"><span>こさ</span><input type="range" min="10" max="100" step="10" value="${Math.round(T.alpha * 100)}"><b>${Math.round(T.alpha * 100)}%</b></label>`);
+  al.hidden = T.tool === 'eraser';
+  al.querySelector('input').oninput = e => { T.alpha = +e.target.value / 100; al.querySelector('b').textContent = e.target.value + '%'; Kit.store.set('nurie:tool', T); if (pending) drawPending(); };
+  pal.prepend(al);
+  if (pending) drawPending();
   $('undo').disabled = !undo.length; $('redo').disabled = !redo.length;
   Kit.store.set('nurie:tool', T);
 }
 
 /* もどす／やりなおす：色の キャンバスだけ */
 function snap() { undo.push(gC.getImageData(0, 0, W, H)); if (undo.length > 15) undo.shift(); redo = []; }
-$('undo').onclick = () => { if (!undo.length) return; redo.push(gC.getImageData(0, 0, W, H)); gC.putImageData(undo.pop(), 0, 0); Kit.sfx('tap'); renderTools(); autosave(); };
-$('redo').onclick = () => { if (!redo.length) return; undo.push(gC.getImageData(0, 0, W, H)); gC.putImageData(redo.pop(), 0, 0); Kit.sfx('tap'); renderTools(); autosave(); };
+$('undo').onclick = () => {
+  if (pending) { pending = null; gT.clearRect(0, 0, W, H); gC.putImageData(undo.pop(), 0, 0); Kit.sfx('tap'); renderTools(); return; } // おいたばかりの 図形を とりけす
+  if (!undo.length) return; redo.push(gC.getImageData(0, 0, W, H)); gC.putImageData(undo.pop(), 0, 0); Kit.sfx('tap'); renderTools(); autosave(); };
+$('redo').onclick = () => { commitPending(); if (!redo.length) return; undo.push(gC.getImageData(0, 0, W, H)); gC.putImageData(redo.pop(), 0, 0); Kit.sfx('tap'); renderTools(); autosave(); };
 $('fit').onclick = () => { fit(); Kit.sfx('tap'); };
 
 /* バケツ：線と、ちがう色で かこまれた ところを ぬる。線の下にも 少し はみ出させて すきまを なくす */
@@ -469,7 +480,8 @@ function fillAt(x, y) {
     add.forEach(p => mask[p] = 1);
   }
   snap();
-  for (let p = 0; p < W * H; p++) if (mask[p]) { c[p * 4] = r; c[p * 4 + 1] = g; c[p * 4 + 2] = b; c[p * 4 + 3] = 255; }
+  const A = T.alpha; // こさ：もとの 色と まぜる
+  for (let p = 0; p < W * H; p++) if (mask[p]) { const o = p * 4; c[o] += (r - c[o]) * A; c[o + 1] += (g - c[o + 1]) * A; c[o + 2] += (b - c[o + 2]) * A; c[o + 3] = 255; }
   gC.putImageData(cd, 0, 0);
   Kit.sfx('pop'); renderTools(); autosave();
 }
@@ -483,7 +495,9 @@ stage.addEventListener('pointerdown', e => {
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (ptrs.size === 1) {
     tapStart = { x: e.clientX, y: e.clientY, t: performance.now() };
-    if (T.tool !== 'fill') { snap(); strokeBegin(...toBoard(e.clientX, e.clientY)); }
+    const [bx, by] = toBoard(e.clientX, e.clientY);
+    if (T.tool === 'shape' && inPending(bx, by)) stroke = { move: true, a: [bx, by], last: [bx, by], a0: pending.a, b0: pending.b };
+    else { commitPending(); if (T.tool !== 'fill') { snap(); strokeBegin(bx, by); } }
   } else if (ptrs.size === 2) {
     if (stroke) strokeCancel(); // 2本目が きたら かきかけを とりけす
     tapStart = null;
@@ -522,20 +536,21 @@ stage.addEventListener('wheel', e => { // パソコン：ホイールで ズー�
 }, { passive: false });
 /* ---------- ペンの しゅるい ---------- */
 const kind = () => T.tool === 'eraser' ? 'pen' : T.brush;
-function brush(g = gC) { g.strokeStyle = g.fillStyle = T.tool === 'eraser' ? '#ffffff' : T.color; g.lineWidth = T.size; g.lineCap = g.lineJoin = 'round'; g.globalAlpha = 1; }
-function circle(x, y, r) { gC.beginPath(); gC.arc(x, y, Math.max(.5, r), 0, 7); gC.fill(); }
+function brush(g = gT) { g.strokeStyle = g.fillStyle = T.tool === 'eraser' ? '#ffffff' : T.color; g.lineWidth = T.size; g.lineCap = g.lineJoin = 'round'; g.globalAlpha = 1; }
+function circle(x, y, r) { gT.beginPath(); gT.arc(x, y, Math.max(.5, r), 0, 7); gT.fill(); }
 function pencilAt(x, y) { // こまかい 点を ちらして えんぴつの ざらざら
   const r = Math.max(1.2, T.size * .22), n = Math.ceil(r * 1.6);
-  gC.globalAlpha = .45;
-  for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, d = r * Math.sqrt(Math.random()); gC.fillRect(x + Math.cos(a) * d, y + Math.sin(a) * d, 1.3, 1.3); }
-  gC.globalAlpha = 1;
+  gT.globalAlpha = .45;
+  for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, d = r * Math.sqrt(Math.random()); gT.fillRect(x + Math.cos(a) * d, y + Math.sin(a) * d, 1.3, 1.3); }
+  gT.globalAlpha = 1;
 }
 function sprayAt(x, y) { // まるい はんいに 点を ふきつける
   const R = T.size * 1.3, n = 8 + T.size;
-  for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, d = R * Math.sqrt(Math.random()); gC.fillRect(x + Math.cos(a) * d, y + Math.sin(a) * d, 1.6, 1.6); }
+  for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, d = R * Math.sqrt(Math.random()); gT.fillRect(x + Math.cos(a) * d, y + Math.sin(a) * d, 1.6, 1.6); }
 }
 function strokeBegin(x, y) {
   stroke = { a: [x, y], last: [x, y], t: performance.now(), w: T.size * .45 };
+  cvT.style.opacity = T.tool === 'eraser' ? 1 : T.alpha; // とちゅうは 上の キャンバスに かいて、さいごに こさを つけて かさねる
   if (T.tool === 'shape') return;
   brush();
   const k = kind();
@@ -546,10 +561,14 @@ function strokeBegin(x, y) {
 }
 function strokeMove(x, y) {
   const [px, py] = stroke.last, d = Math.hypot(x - px, y - py);
+  if (stroke.move) { // おいた 図形を うごかす
+    const dx = x - stroke.a[0], dy = y - stroke.a[1];
+    pending.a = [stroke.a0[0] + dx, stroke.a0[1] + dy]; pending.b = [stroke.b0[0] + dx, stroke.b0[1] + dy]; drawPending(); return;
+  }
   if (T.tool === 'shape') { stroke.last = [x, y]; gT.clearRect(0, 0, W, H); drawShape(gT, stroke.a, stroke.last); return; }
   brush();
   const k = kind();
-  if (k === 'pen') { gC.beginPath(); gC.moveTo(px, py); gC.lineTo(x, y); gC.stroke(); }
+  if (k === 'pen') { gT.beginPath(); gT.moveTo(px, py); gT.lineTo(x, y); gT.stroke(); }
   else if (k === 'fude') { // はやく うごかすと ほそく、ゆっくりだと ふとく
     const now = performance.now(), sp = d / Math.max(1, now - stroke.t) * view.s;
     const target = T.size * Kit.clamp(1.35 - sp * .55, .25, 1.35), w0 = stroke.w, w1 = w0 + (target - w0) * .35;
@@ -564,22 +583,46 @@ function strokeMove(x, y) {
 }
 function strokeEnd() {
   clearInterval(stroke.timer);
+  if (stroke.move) { stroke = null; return; }
   if (T.tool === 'shape') {
-    gT.clearRect(0, 0, W, H);
     const [a, b] = [stroke.a, stroke.last];
-    if (Math.hypot(a[0] - b[0], a[1] - b[1]) < 4) undo.pop(); // さわっただけ
-    else { drawShape(gC, a, b); Kit.sfx('pop'); }
+    if (Math.hypot(a[0] - b[0], a[1] - b[1]) < 4) { undo.pop(); gT.clearRect(0, 0, W, H); } // さわっただけ
+    else { pending = { a, b }; drawPending(); Kit.sfx('pop'); } // すぐには きめず、うごかせる ように
+  } else {
+    gC.globalAlpha = T.tool === 'eraser' ? 1 : T.alpha; gC.drawImage(cvT, 0, 0); gC.globalAlpha = 1;
+    gT.clearRect(0, 0, W, H);
   }
   stroke = null;
 }
-function strokeCancel() { clearInterval(stroke.timer); gT.clearRect(0, 0, W, H); gC.putImageData(undo.pop(), 0, 0); stroke = null; }
+function strokeCancel() {
+  clearInterval(stroke.timer);
+  if (!stroke.move) { gT.clearRect(0, 0, W, H); gC.putImageData(undo.pop(), 0, 0); }
+  stroke = null; if (pending) drawPending();
+}
+
+/* おいた 直後の 図形：わくの 中を ドラッグで うごかせる。ほかの 操作を すると きまる */
+let pending = null;
+const pendBox = () => { const { a, b } = pending, m = 14 / view.s; return [Math.min(a[0], b[0]) - m, Math.min(a[1], b[1]) - m, Math.max(a[0], b[0]) + m, Math.max(a[1], b[1]) + m]; };
+function drawPending() {
+  gT.clearRect(0, 0, W, H); if (!pending) return;
+  cvT.style.opacity = T.alpha;
+  drawShape(gT, pending.a, pending.b);
+  const [x0, y0, x1, y1] = pendBox();
+  gT.save(); gT.globalAlpha = 1; gT.setLineDash([8 / view.s, 6 / view.s]); gT.lineWidth = 2 / view.s; gT.strokeStyle = '#2a2238';
+  gT.strokeRect(x0, y0, x1 - x0, y1 - y0); gT.restore();
+}
+function commitPending() {
+  if (!pending) return;
+  drawShape(gC, pending.a, pending.b, T.alpha); pending = null; gT.clearRect(0, 0, W, H); autosave();
+}
+function inPending(x, y) { if (!pending) return false; const [x0, y0, x1, y1] = pendBox(); return x >= x0 && x <= x1 && y >= y0 && y <= y1; }
 
 /* ---------- 図形：ドラッグした 四角の 中に かく ---------- */
-function drawShape(g, a, b) {
+function drawShape(g, a, b, alpha = 1) {
   const x0 = Math.min(a[0], b[0]), y0 = Math.min(a[1], b[1]), w = Math.abs(b[0] - a[0]), h = Math.abs(b[1] - a[1]), cx = x0 + w / 2, cy = y0 + h / 2;
-  brush(g); g.beginPath();
+  brush(g); g.globalAlpha = alpha; g.beginPath();
   const sh = T.shape;
-  if (sh === 'line') { g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); return; }
+  if (sh === 'line') { g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); g.globalAlpha = 1; return; }
   if (sh === 'circle') g.ellipse(cx, cy, w / 2, h / 2, 0, 0, 7);
   else if (sh === 'rect') g.rect(x0, y0, w, h);
   else if (sh === 'tri') { g.moveTo(cx, y0); g.lineTo(x0 + w, y0 + h); g.lineTo(x0, y0 + h); g.closePath(); }
@@ -593,6 +636,7 @@ function drawShape(g, a, b) {
     g.closePath();
   }
   if (T.sfill) g.fill(); else g.stroke();
+  g.globalAlpha = 1;
 }
 
 /* 共有：スマホは 共有メニュー（LINE・写真に保存 など）、できない ときは ダウンロード */
@@ -602,6 +646,7 @@ function download(b) {
   Kit.toast('画像を ほぞんしたよ');
 }
 $('saveImg').onclick = () => {
+  commitPending();
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d'); g.drawImage(cvC, 0, 0); g.drawImage(cvL, 0, 0);
   c.toBlob(async b => {
@@ -613,7 +658,7 @@ $('saveImg').onclick = () => {
     download(b);
   }, 'image/png');
 };
-$('toHome').onclick = () => { saveNow(); show('home'); checkCont(); };
+$('toHome').onclick = () => { saveNow(true); show('home'); checkCont(); };
 
 /* じどう ほぞん（IndexedDB）：つづきから できるように */
 const DB = () => new Promise((res, rej) => { const r = indexedDB.open('asobibako-nurie', 1); r.onupgradeneeded = () => r.result.createObjectStore('w'); r.onsuccess = () => res(r.result); r.onerror = rej; });
@@ -621,7 +666,8 @@ async function dbPut(v) { try { const d = await DB(); d.transaction('w', 'readwr
 async function dbGet() { try { const d = await DB(); return await new Promise(res => { const q = d.transaction('w').objectStore('w').get('work'); q.onsuccess = () => res(q.result); q.onerror = () => res(null); }); } catch (e) { return null; } }
 let saveT = 0;
 function autosave() { clearTimeout(saveT); saveT = setTimeout(saveNow, 1200); }
-function saveNow() {
+function saveNow(commit = false) { // commit：おいたばかりの 図形も きめて ほぞん（ページを はなれる とき）
+  if (commit && pending) commitPending();
   clearTimeout(saveT); if (!W) return;
   cvC.toBlob(cb => cvL.toBlob(lb => dbPut({ w: W, h: H, color: cb, line: lb })));
 }
@@ -631,7 +677,7 @@ $('goCont').onclick = async () => {
   const [cb, lb] = await Promise.all([createImageBitmap(v.color), createImageBitmap(v.line)]);
   startPaint(v.w, v.h, lb, cb);
 };
-addEventListener('pagehide', saveNow);
+addEventListener('pagehide', () => saveNow(true));
 
 $('goDraw').onclick = () => { Kit.sfx('tap'); startPaint(1000, 750, null); };
 $('goSample').onclick = () => { Kit.sfx('tap'); startPaint(900, 700, sampleLine()); };
