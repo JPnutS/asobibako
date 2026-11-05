@@ -60,7 +60,15 @@
     const conns = new Map();   // peer id → { conn, seen }
     const buf = new Map(); let waiter = null;
 
-    function rawSend(msg, exceptId) { conns.forEach((c, id) => { if (id !== exceptId && c.conn.open) { try { c.conn.send(msg); } catch (e) { /* なにもしない */ } } }); }
+    // PeerJS は 1回に 約16KB までしか おくれないので、大きい ものは 小分けに して おくる
+    const PART = 5000; let partSeq = 0;
+    function frames(msg) {
+      const s = JSON.stringify(msg); if (s.length <= PART) return [msg];
+      const id = peer.id + '/' + (++partSeq), n = Math.ceil(s.length / PART);
+      return Array.from({ length: n }, (_, i) => ({ t: '_part', id, i, n, s: s.slice(i * PART, (i + 1) * PART) }));
+    }
+    function sendOn(conn, msg) { try { frames(msg).forEach(f => conn.send(f)); } catch (e) { /* なにもしない */ } }
+    function rawSend(msg, exceptId) { const fs = frames(msg); conns.forEach((c, id) => { if (id !== exceptId && c.conn.open) { try { fs.forEach(f => c.conn.send(f)); } catch (e) { /* なにもしない */ } } }); }
     function pump() {
       if (!waiter || !buf.has(room.seq)) return;
       const m = buf.get(room.seq); buf.delete(room.seq); room.seq++;
@@ -92,6 +100,14 @@
       conn.on('data', msg => {
         c.seen = Date.now();
         if (!msg || typeof msg !== 'object') return;
+        if (msg.t === '_part') { // 小分けを くみたてる
+          const ps = c.parts || (c.parts = new Map());
+          let a = ps.get(msg.id); if (!a) { a = []; a.got = 0; ps.set(msg.id, a); }
+          if (a[msg.i] == null) { a[msg.i] = msg.s; a.got++; }
+          if (a.got < msg.n) return;
+          ps.delete(msg.id);
+          try { msg = JSON.parse(a.join('')); } catch (e) { return; }
+        }
         if (room.isHost) {
           if (msg.t === 'hello') return hello(id, conn, msg);
           if (!room.players.some(p => p.id === id)) return;
@@ -122,7 +138,7 @@
       room.players.push({ id, name: nm });
       rawSend({ t: 'lobby', players: room.players });
       if (room.started) { // とちゅうから 入った 人：その人だけに スタートを おくる
-        try { conn.send({ t: 'start', r: room.round, seed: room.seed, players: room.players, opts: room.opts }); } catch (e) { /* なにもしない */ }
+        sendOn(conn, { t: 'start', r: room.round, seed: room.seed, players: room.players, opts: room.opts });
         if (room.onJoin) room.onJoin(id, nm);
       } else if (room.onLobby) room.onLobby();
     }
@@ -132,7 +148,7 @@
     }, HEARTBEAT);
 
     room.watch = watch;
-    room.sendTo = (id, msg) => { const c = conns.get(id); if (c && c.conn.open) { try { c.conn.send(Object.assign({}, msg, { from: peer.id })); } catch (e) { /* なにもしない */ } } };
+    room.sendTo = (id, msg) => { const c = conns.get(id); if (c && c.conn.open) sendOn(c.conn, Object.assign({}, msg, { from: peer.id })); };
     room.send = msg => { msg = Object.assign({}, msg, { from: peer.id }); rawSend(msg); };
     room.move = m => { room.send({ t: 'mv', r: room.round, n: room.seq++, m }); };
     room.next = () => new Promise(res => { waiter = res; pump(); });
