@@ -684,7 +684,7 @@ function renderOp(op) {
   gC.globalAlpha = op.er ? 1 : op.al; gC.drawImage(cvR, 0, 0); gC.globalAlpha = 1;
 }
 function coSend(op) {
-  op.id = CO.room.me + ':' + (++CO.cnt);
+  op.id = CO.room.peerId + ':' + (++CO.cnt);
   if (op.k !== 'u') { CO.mine.add(op.id); CO.my.push(op.id); }
   if (CO.room.isHost) coSeq(op); else CO.room.send({ t: 'op', op });
   renderTools();
@@ -737,9 +737,9 @@ function coStart(room) {
     if (!CO || CO.room !== room) return;
     if (msg.t === 'op' && room.isHost) coSeq(msg.op);
     else if (msg.t === 'seq' && !room.isHost) coRecv(msg);
-    else if (msg.t === 'base' && !room.isHost) {
+    else if ((msg.t === 'base' || msg.t === 'snap') && !room.isHost) {
       CO.parts[msg.i] = msg.s;
-      if (CO.parts.filter(x => x != null).length === msg.n) coBase(JSON.parse(CO.parts.join('')));
+      if (CO.parts.filter(x => x != null).length === msg.n) (msg.t === 'base' ? coBase : coSnap)(JSON.parse(CO.parts.join('')));
     }
   };
   if (room.isHost) {
@@ -763,6 +763,33 @@ async function coBase(b) { // 全員 おなじ 画像から はじめる（へ�
   keep.ready = true; coRecv({ n: -1 }); keep.buf.delete(-1);
   Kit.sfx('win'); Kit.toast(`${CO.room.players.length}人で かこう！`);
 }
+function sendChunks(t, obj, to) {
+  const s = JSON.stringify(obj), n = Math.ceil(s.length / CHUNK);
+  for (let i = 0; i < n; i++) { const m = { t, i, n, s: s.slice(i * CHUNK, (i + 1) * CHUNK) }; to ? CO.room.sendTo(to, m) : CO.room.send(m); }
+}
+/* とちゅうから 入った 人へ：いまの 絵（きろく つき）を おくる */
+function coJoin(id, name) {
+  if (!CO) return;
+  if (!CO.ready) return setTimeout(() => coJoin(id, name), 300);
+  const toUrl = d => { cvR.width = W; cvR.height = H; gR.putImageData(d, 0, 0); return cvR.toDataURL('image/png'); };
+  if (!CO.cps.size) coCheckpoint(0); // まだ だれも かいていない
+  const keys = [...CO.cps.keys()].sort((a, b) => a - b), off = keys[0];
+  sendChunks('snap', { w: W, h: H, line: cvL.toDataURL('image/png'), off, cps: keys.map(k => [k, toUrl(CO.cps.get(k))]), ops: CO.log.slice(off) }, id);
+  Kit.sfx('pop'); Kit.toast(`${name}さんが 入ったよ`);
+}
+async function coSnap(b) {
+  const load = u => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = u; });
+  const [li, ...cs] = await Promise.all([load(b.line), ...b.cps.map(c => load(c[1]))]);
+  if (!CO) return;
+  const keep = CO; startPaint(b.w, b.h, li, null); gM.clearRect(0, 0, W, H);
+  b.cps.forEach(([k], i) => { gC.drawImage(cs[i], 0, 0); keep.cps.set(k, gC.getImageData(0, 0, W, H)); });
+  keep.log = Array.from({ length: b.off }, () => ({ k: 'x', dead: true })).concat(b.ops);
+  const last = b.cps[b.cps.length - 1][0];
+  gC.putImageData(keep.cps.get(last), 0, 0);
+  for (let i = last; i < keep.log.length; i++) { const o = keep.log[i]; if (!o.dead && o.k !== 'u') renderOp(o); }
+  keep.ready = true; coRecv({ n: -1 }); keep.buf.delete(-1);
+  Kit.sfx('win'); Kit.toast(`${CO.room.players.length}人で かこう！`);
+}
 function coEnd(msg) {
   if (!CO) return;
   const r = CO.room; CO = null; r.close();
@@ -770,12 +797,24 @@ function coEnd(msg) {
 }
 function coOpen(joinCode) {
   commitPending();
-  Net.open({ game: 'nurie', min: 2, max: 4, joinCode, onStart: coStart, onLeave: () => coEnd('ひとりで 続けられるよ'), onCancel: () => {} });
+  Net.open({ game: 'nurie', min: 2, max: 4, joinCode, late: true, onStart: coStart, onJoin: coJoin,
+    onPart: name => { Kit.toast(`${name}さんが ぬけたよ`); }, onLeave: () => coEnd('ひとりで 続けられるよ'), onCancel: () => {} });
 }
 $('coBtn').onclick = () => {
   Kit.sfx('tap');
-  if (CO) Kit.ask('みんなで かくのを おわりにする？', 'おわる', 'つづける').then(y => y && coEnd('ひとりに もどったよ'));
-  else coOpen();
+  if (!CO) return coOpen();
+  const r = CO.room, ppl = r.players.map(p => `<span>${Kit.esc(p.name)}</span>`).join('');
+  const share = () => {
+    const url = location.origin + location.pathname + '#join=' + r.code, text = `いっしょに かこう！ へやばんごう ${r.code}`;
+    if (navigator.share) navigator.share({ title: document.title, text, url }).catch(() => {});
+    else if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => Kit.toast('リンクを コピーしたよ'), () => {});
+  };
+  Kit.modal({
+    title: '👥 みんなで かく',
+    body: `<span class="k-label" style="text-align:center;display:block">へやばんごう</span><div class="n-code">${r.code}</div><div class="n-ppl">${ppl}</div>
+      <p class="n-hint">${r.isHost ? `とちゅうからでも このばんごうで 入れるよ（4人まで）` : 'へやを つくった 人が いる間は 続けられるよ'}</p>`,
+    actions: [{ label: 'おわる', onClick: () => coEnd('ひとりに もどったよ') }, ...(r.isHost ? [{ label: '🔗 さそう', onClick: share }] : []), { label: 'とじる', primary: true }],
+  });
 };
 $('goCo').onclick = () => { Kit.sfx('tap'); coOpen(); };
 
@@ -828,7 +867,7 @@ Kit.bar({ id: 'nurie', title: '🖌️ おえかき・ぬりえ', help: `
   <p><b>🖼️ ぬりえを つくる</b>：写真や 絵を えらぶと、線だけの ぬりえに します。「こまかさ」で 線の 多さ、「線の太さ」で 太さを かえられます。白黒の 線画は そのまま 使えます。</p>
   <p><b>🪣 バケツ</b>：さわった ところを 線まで ぬりつぶします。<b>🖍️ かく</b>は ペン・筆・えんぴつ・スプレーから えらべます（筆は ゆっくり かくと 太く なります）。<b>🔷 図形</b>は 丸・三角・四角・線・星・ハートを ドラッグで かけます。<b>🧽 けしゴム</b>も 太さを えらべます。</p>
   <p>2本の ゆびで 広げると 大きく なります（ずらすことも できます）。🔍で もとに もどります。📤で LINEなどに 共有したり、写真に ほぞんしたり できます。画像は はりつけ（📋・Ctrl+V）や ドラッグでも 入れられます。とちゅうの 絵は じどうで のこるので「つづきから」で 続けられます。</p>
-  <p><b>👥 みんなで かく</b>：へやを つくった 人の 絵に、ほかの スマホ・タブレット（4台まで）が へやばんごうで 入って、いっしょに かけます。線は かき終わると みんなの 画面に 出ます。↩で もどせるのは 自分が かいた ものだけです。インターネットに つながっている ときに 使えます。</p>` });
+  <p><b>👥 みんなで かく</b>：へやを つくった 人の 絵に、ほかの スマホ・タブレット（4台まで）が へやばんごうで 入って、いっしょに かけます。とちゅうからでも 入れます（👥を おすと ばんごうが 見られます）。線は かき終わると みんなの 画面に 出ます。↩で もどせるのは 自分が かいた ものだけです。インターネットに つながっている ときに 使えます。</p>` });
 checkCont();
 { const jc = Net.joinCode(); if (jc) coOpen(jc); }
 if (location.hash === '#debug') window.__nurie = { lineArt, toData, looksLineArt, fillAt, get W() { return W; }, get CO() { return CO; }, gC };

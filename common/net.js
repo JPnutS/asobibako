@@ -106,7 +106,8 @@
         if (!room.isHost) return lost(room.players[0] ? room.players[0].name : '');
         const p = room.players.find(x => x.id === id);
         if (!p) return;
-        if (room.started) { rawSend({ t: 'left', name: p.name }); lost(p.name); }
+        if (room.started && room.lateJoin) { room.players = room.players.filter(x => x !== p); rawSend({ t: 'lobby', players: room.players }); if (room.onPart) room.onPart(p.name); }
+        else if (room.started) { rawSend({ t: 'left', name: p.name }); lost(p.name); }
         else { room.players = room.players.filter(x => x !== p); rawSend({ t: 'lobby', players: room.players }); if (room.onLobby) room.onLobby(); }
       };
       conn.on('close', gone); conn.on('error', gone);
@@ -114,11 +115,15 @@
     }
     function hello(id, conn, msg) {
       const deny = why => { try { conn.send({ t: 'deny', why }); } catch (e) { /* なにもしない */ } setTimeout(() => conn.close(), 400); conns.delete(id); };
-      if (room.started) return deny('started');
+      if (room.started && !room.lateJoin) return deny('started');
       if (room.players.length >= room.max) return deny('full');
-      room.players.push({ id, name: String(msg.name || '').slice(0, 10) || T('ともだち', 'ゲスト') });
+      const nm = String(msg.name || '').slice(0, 10) || T('ともだち', 'ゲスト');
+      room.players.push({ id, name: nm });
       rawSend({ t: 'lobby', players: room.players });
-      if (room.onLobby) room.onLobby();
+      if (room.started) { // とちゅうから 入った 人：その人だけに スタートを おくる
+        try { conn.send({ t: 'start', r: room.round, seed: room.seed, players: room.players, opts: room.opts }); } catch (e) { /* なにもしない */ }
+        if (room.onJoin) room.onJoin(id, nm);
+      } else if (room.onLobby) room.onLobby();
     }
     const beat = setInterval(() => {
       const now = Date.now();
@@ -126,6 +131,7 @@
     }, HEARTBEAT);
 
     room.watch = watch;
+    room.sendTo = (id, msg) => { const c = conns.get(id); if (c && c.conn.open) { try { c.conn.send(Object.assign({}, msg, { from: peer.id })); } catch (e) { /* なにもしない */ } } };
     room.send = msg => { msg = Object.assign({}, msg, { from: peer.id }); rawSend(msg); };
     room.move = m => { room.send({ t: 'mv', r: room.round, n: room.seq++, m }); };
     room.next = () => new Promise(res => { waiter = res; pump(); });
@@ -287,6 +293,7 @@
         createRoom(game, name, max).then(r => {
           if (!alive) { r.close(); return; }
           room = r; Net.room = r;
+          r.lateJoin = !!cfg.late; r.onJoin = cfg.onJoin || null; r.onPart = cfg.onPart || null;
           r.onLobby = () => { Kit.sfx('pop'); render(); };
           view = 'host'; render();
         }, fail);
