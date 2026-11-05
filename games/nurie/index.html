@@ -67,7 +67,7 @@
 <section id="home" class="scr"><main class="k-wrap k-stack">
   <div class="big-choice">
     <button class="k-btn is-sun" id="goDraw">🖍️ おえかき<small>まっしろな 紙に かく</small></button>
-    <button class="k-btn is-sky" id="goImp">🖼️ ぬりえを つくる<small>写真や 絵から 線だけの ぬりえに</small></button>
+    <button class="k-btn is-sky" id="goImp">🖼️ 画像を 読みこむ<small>写真から ぬりえ／作った 作品の 続きを かく</small></button>
     <button class="k-btn is-grass" id="goSample">🏠 おためし ぬりえ<small>用意してある ぬりえで あそぶ</small></button>
     <a class="k-btn is-grape" href="../manga/index.html">✏️ おけいこ<small>マンガイラスト練習</small></a>
     <button class="k-btn is-orange" id="goCo">👥 みんなで かく<small>ほかの スマホ・タブレットと 同じ 絵に</small></button>
@@ -93,6 +93,7 @@
     <button class="k-btn" id="impBack">もどる</button>
     <button class="k-btn is-orange is-big" id="impOk" disabled>🖌️ これで ぬる</button>
   </div>
+  <button class="k-btn" id="asIs" hidden>🖍️ ぬりえに しないで、この絵に そのまま かく</button>
 </main></section>
 
 <!-- ぬる -->
@@ -281,12 +282,46 @@ function maskToCanvas({ w, h, m }) {
 const IO = Object.assign({ det: 3, thk: 2 }, Kit.store.get('nurie:imp', {}));
 let SRC = null, KIND = 'color', ART = null, artTimer = 0;
 function setBusy(msg) { const p = $('prev'); p.querySelector('.busy')?.remove(); if (msg) p.appendChild(Kit.el(`<div class="busy">${msg}</div>`)); }
+/* 作品の PNG に「色」と「線」を べつべつに しまっておく（nuRe チャンク）→ 読みこむと 続きから かける */
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+async function embedWork(png, color, line) {
+  const [p, c, l] = await Promise.all([png, color, line].map(b => b.arrayBuffer().then(x => new Uint8Array(x))));
+  const data = new Uint8Array(8 + c.length + l.length), dv = new DataView(data.buffer);
+  dv.setUint32(0, c.length); data.set(c, 4); dv.setUint32(4 + c.length, l.length); data.set(l, 8 + c.length);
+  const chunk = new Uint8Array(12 + data.length), cv = new DataView(chunk.buffer);
+  cv.setUint32(0, data.length); chunk.set([110, 117, 82, 101], 4); chunk.set(data, 8); // "nuRe"
+  cv.setUint32(8 + data.length, crc32(chunk.subarray(4, 8 + data.length)));
+  const end = p.length - 12; // IEND の 前に 入れる
+  return new Blob([p.subarray(0, end), chunk, p.subarray(end)], { type: 'image/png' });
+}
+async function extractWork(blob) {
+  if (blob.type && blob.type !== 'image/png') return null;
+  const u = new Uint8Array(await blob.arrayBuffer()), dv = new DataView(u.buffer);
+  if (u.length < 8 || u[1] !== 80 || u[2] !== 78 || u[3] !== 71) return null;
+  for (let o = 8; o + 12 <= u.length;) {
+    const len = dv.getUint32(o), type = String.fromCharCode(...u.subarray(o + 4, o + 8));
+    if (type === 'nuRe') {
+      const d = u.subarray(o + 8, o + 8 + len), dd = new DataView(d.buffer, d.byteOffset), cl = dd.getUint32(0);
+      const color = new Blob([d.subarray(4, 4 + cl)], { type: 'image/png' }), ll = dd.getUint32(4 + cl);
+      return { color, line: new Blob([d.subarray(8 + cl, 8 + cl + ll)], { type: 'image/png' }) };
+    }
+    if (type === 'IEND') break;
+    o += 12 + len;
+  }
+  return null;
+}
 async function loadImage(blob) {
   setBusy('よみこみ中…');
   try {
+    const work = await extractWork(blob).catch(() => null);
+    if (work) { // このアプリで 作った 作品：色と 線を わけた まま 続きから
+      const [cb, lb] = await Promise.all([createImageBitmap(work.color), createImageBitmap(work.line)]);
+      setBusy(''); startPaint(cb.width, cb.height, lb, cb); Kit.sfx('win'); Kit.toast('続きから かけるよ'); return;
+    }
     const bmp = await createImageBitmap(blob);
     SRC = toData(bmp); KIND = looksLineArt(SRC) ? 'line' : 'color';
-    $('adj').hidden = false; renderAdj(); remake();
+    $('adj').hidden = false; $('asIs').hidden = false; renderAdj(); remake();
   } catch (e) { setBusy(''); Kit.toast('画像を 読みこめませんでした'); }
 }
 function renderAdj() {
@@ -358,6 +393,7 @@ addEventListener('drop', e => {
   if (f) { e.preventDefault(); takeImage(f); }
 });
 $('impOk').onclick = () => { if (ART) startPaint(ART.w, ART.h, maskToCanvas(ART)); };
+$('asIs').onclick = () => { if (SRC) { Kit.sfx('tap'); startPaint(SRC.w, SRC.h, null, SRC.canvas); } };
 
 /* ---------- おためし ぬりえ（コードで かく） ---------- */
 function sampleLine() {
@@ -828,7 +864,9 @@ $('saveImg').onclick = () => {
   commitPending();
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d'); g.drawImage(cvC, 0, 0); g.drawImage(cvL, 0, 0);
-  c.toBlob(async b => {
+  const blob = cv => new Promise(r => cv.toBlob(r, 'image/png'));
+  c.toBlob(async b0 => {
+    const b = await embedWork(b0, await blob(cvC), await blob(cvL)).catch(() => b0);
     const f = new File([b], `nurie-${Date.now()}.png`, { type: 'image/png' });
     if (navigator.canShare && navigator.canShare({ files: [f] })) {
       try { await navigator.share({ files: [f], title: 'ぬりえ' }); return; }
@@ -864,7 +902,7 @@ $('goImp').onclick = () => { Kit.sfx('tap'); show('imp'); };
 
 Kit.bar({ id: 'nurie', title: '🖌️ おえかき・ぬりえ', help: `
   <p><b>🖍️ おえかき</b>：まっしろな 紙に ペンで かこう。</p>
-  <p><b>🖼️ ぬりえを つくる</b>：写真や 絵を えらぶと、線だけの ぬりえに します。「こまかさ」で 線の 多さ、「線の太さ」で 太さを かえられます。白黒の 線画は そのまま 使えます。</p>
+  <p><b>🖼️ 画像を 読みこむ</b>：📤で ほぞん・共有した 作品を 入れると、色と 線が わかれた まま 続きから かけます（LINEなどで 送ると 画像が 作りかえられて、ふつうの 絵として 入ります。そのときは「この絵に そのまま かく」で 上から かけます）。写真や 絵を えらぶと、線だけの ぬりえに します。「こまかさ」で 線の 多さ、「線の太さ」で 太さを かえられます。白黒の 線画は そのまま 使えます。</p>
   <p><b>🪣 バケツ</b>：さわった ところを 線まで ぬりつぶします。<b>🖍️ かく</b>は ペン・筆・えんぴつ・スプレーから えらべます（筆は ゆっくり かくと 太く なります）。<b>🔷 図形</b>は 丸・三角・四角・線・星・ハートを ドラッグで かけます。<b>🧽 けしゴム</b>も 太さを えらべます。</p>
   <p>2本の ゆびで 広げると 大きく なります（ずらすことも できます）。🔍で もとに もどります。📤で LINEなどに 共有したり、写真に ほぞんしたり できます。画像は はりつけ（📋・Ctrl+V）や ドラッグでも 入れられます。とちゅうの 絵は じどうで のこるので「つづきから」で 続けられます。</p>
   <p><b>👥 みんなで かく</b>：へやを つくった 人の 絵に、ほかの スマホ・タブレット（4台まで）が へやばんごうで 入って、いっしょに かけます。とちゅうからでも 入れます（👥を おすと ばんごうが 見られます）。線は かき終わると みんなの 画面に 出ます。↩で もどせるのは 自分が かいた ものだけです。インターネットに つながっている ときに 使えます。</p>` });
