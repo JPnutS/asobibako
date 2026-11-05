@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>コーヒーの味わい記録</title>
+<meta name="theme-color" content="#1f2328">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="icon" href="../../icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="../../../common/kit.css">
+<link rel="stylesheet" href="../../style.css">
+<style>
+  .k-wrap { max-width: 680px; }
+  :root { --hot: #b0544b; --cool: #3f6f95; }
+  .note { font-size: .85rem; color: var(--muted); margin: 0; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  .seg .k-chip { min-height: 38px; padding: 4px 12px; font-size: .9rem; }
+  .f { display: grid; gap: 6px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .head-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+
+  /* 一覧 */
+  .rec { display: grid; grid-template-columns: 64px 1fr auto; gap: 12px; align-items: center; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); cursor: pointer; text-align: left; width: 100%; color: inherit; font: inherit; }
+  .rec .nm { font-weight: 700; }
+  .rec .sub { font-size: .8rem; color: var(--muted); }
+  .rec .st { color: var(--sun); letter-spacing: 1px; white-space: nowrap; }
+  .rec.sel { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+  .pending { border: 1px dashed var(--sun); border-radius: 12px; padding: 12px 14px; display: grid; gap: 8px; }
+
+  /* 案内 */
+  .stepbar { display: flex; gap: 4px; }
+  .stepbar i { flex: 1; height: 4px; border-radius: 2px; background: var(--soft); }
+  .stepbar i.on { background: var(--ink); }
+  .q { font-family: var(--display); font-size: 1.6rem; margin: 0; }
+  .hint { background: var(--soft); border-radius: 12px; padding: 12px 14px; display: grid; gap: 6px; font-size: .95rem; }
+  .hint b { font-size: .8rem; color: var(--muted); font-weight: 500; letter-spacing: .08em; }
+  .scale { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .scale button { min-height: 56px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); font: inherit; font-size: 1.2rem; font-weight: 700; cursor: pointer; color: inherit; touch-action: manipulation; }
+  .scale button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .ends { display: flex; justify-content: space-between; font-size: .8rem; color: var(--muted); }
+  .words { display: grid; gap: 10px; }
+  .words .grp { display: grid; gap: 4px; }
+  .words .grp span { font-size: .78rem; color: var(--muted); }
+  .stars { display: flex; gap: 4px; }
+  .stars button { font-size: 2rem; background: none; border: 0; cursor: pointer; color: var(--line); padding: 0 2px; line-height: 1; }
+  .stars button.on { color: var(--sun); }
+  .nav { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
+
+  /* 詳細 */
+  .radar { width: 100%; max-width: 340px; margin: 0 auto; display: block; }
+  .radar text { font-size: 9px; fill: var(--muted); }
+  .legend { display: flex; justify-content: center; gap: 14px; font-size: .82rem; color: var(--muted); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tags span { border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-size: .85rem; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: .92rem; margin: 0; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; }
+  .tbl { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  .tbl th, .tbl td { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align: center; }
+  .tbl th:first-child, .tbl td:first-child { text-align: left; color: var(--muted); font-weight: 500; }
+  details.how summary { cursor: pointer; color: var(--muted); font-size: .92rem; padding: 4px 0; list-style: none; }
+  details.how summary::before { content: "＋ "; }
+  details.how[open] summary::before { content: "－ "; }
+  details.how p { margin: 6px 0; font-size: .92rem; }
+</style>
+</head>
+<body>
+<main class="k-wrap" id="app"></main>
+
+<script src="../../../common/kit.js" data-ns="asobibako-otona:" data-home="../../index.html" data-tone="adult"></script>
+<script>
+'use strict';
+Kit.bar({ id: 'tasting', title: 'コーヒーの味わい記録', help: `
+  <p>コーヒーを飲みながら、ひとつずつ質問に答えていくと、味の記録が残ります。</p>
+  <p><b>味わい方のコツ</b></p>
+  <p>・まず香りをかいでから、少しだけ口に含みます。ズズッと空気といっしょにすすると、香りと味が広がって分かりやすくなります。</p>
+  <p>・甘さは舌の先、酸味は舌の両わき、苦味は舌の奥で感じやすいと言われます。</p>
+  <p>・熱いうちと、少し冷めてから（60℃くらい、10分ほど）では味が変わります。冷めると甘さと酸味が分かりやすくなります。</p>
+  <p>・2種類を並べて飲み比べると、違いがぐっと分かりやすくなります。記録は「比べる」で並べて見られます。</p>
+  <p>記録はこの端末の中だけに保存されます。</p>` });
+
+const $ = id => document.getElementById(id);
+const app = $('app');
+const esc = Kit.esc;
+let list = Kit.store.get('tasting:list', []);
+const saveList = () => Kit.store.set('tasting:list', list);
+
+const AXES = [
+  { k: 'aroma', l: '香り', q: '香りはどれくらい？', lo: 'ひかえめ', hi: 'しっかり',
+    hint: ['カップに鼻を近づけて、2〜3回かぎます。', '「甘い」「果物っぽい」「香ばしい」など、なんとなくの印象で大丈夫です。'], words: true },
+  { k: 'sweet', l: '甘さ', q: '甘さは感じる？', lo: '感じない', hi: 'よく感じる',
+    hint: ['少しだけ口に含み、ズズッと空気といっしょにすすります。', '砂糖の甘さではなく、黒糖や熟した果物のような、まろやかさを探します。舌の先で感じやすいです。'] },
+  { k: 'acid', l: '酸味', q: '酸味はどれくらい？', lo: 'おだやか', hi: 'はっきり',
+    hint: ['舌の両わきが、きゅっとする感じが酸味です。', 'すっぱいだけでなく、レモンのように明るい・りんごのようにやさしい、など「どんな酸味か」も気にしてみてください。'] },
+  { k: 'bitter', l: '苦味', q: '苦味はどれくらい？', lo: 'ほとんどない', hi: 'しっかり',
+    hint: ['飲みこむ時に、舌の奥で感じやすいです。', '心地よい香ばしさなのか、焦げたような苦さなのかにも注目します。'] },
+  { k: 'body', l: '口あたり', q: '口あたりは軽い？重い？', lo: '軽い・さらっと', hi: '重い・とろっと',
+    hint: ['口の中で少し転がして、舌の上の重さを感じます。', '水と牛乳のあいだで、どのくらいの重さかをイメージすると分かりやすいです。'] },
+  { k: 'after', l: '後味', q: '後味はどれくらい残る？', lo: 'すっと消える', hi: '長く残る',
+    hint: ['飲みこんでから、ゆっくり5つ数えます。', '何が残るか（甘さ・苦味・香り）と、それが心地よいかにも注目します。'] },
+];
+const COOL_AXES = ['sweet', 'acid', 'bitter'];
+const WORDS = [
+  ['果物', ['ベリー', '柑橘', 'りんご', 'ぶどう', '桃・あんず', 'トロピカル']],
+  ['花・お茶', ['花', '紅茶', 'ハーブ']],
+  ['甘い', ['はちみつ', 'キャラメル', '黒糖', 'チョコ', 'バニラ']],
+  ['香ばしい', ['ナッツ', 'トースト', 'スパイス', 'スモーキー', '土・木']],
+];
+const ROAST = { light: '浅煎り', mid: '中煎り', dark: '深煎り' };
+const fmtDate = ts => { const d = new Date(ts); return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`; };
+const starStr = n => '★'.repeat(n || 0) + '☆'.repeat(5 - (n || 0));
+
+/* ---------- レーダー図 ---------- */
+function radar(sets, small) {
+  const n = AXES.length, cx = 100, cy = small ? 100 : 104, R = small ? 86 : 70;
+  const pt = (i, v) => { const a = -Math.PI / 2 + i * 2 * Math.PI / n; return [cx + Math.cos(a) * R * v / 5, cy + Math.sin(a) * R * v / 5]; };
+  let g = '';
+  for (let lv = 1; lv <= 5; lv++) g += `<polygon points="${AXES.map((_, i) => pt(i, lv).join(',')).join(' ')}" fill="none" stroke="var(--line)" stroke-width="${lv === 5 ? 1 : .6}"/>`;
+  AXES.forEach((_, i) => { const [x, y] = pt(i, 5); g += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="var(--line)" stroke-width=".6"/>`; });
+  sets.forEach(s => {
+    const vals = AXES.map(a => s.v[a.k] || 0);
+    if (!vals.some(Boolean)) return;
+    g += `<polygon points="${vals.map((v, i) => pt(i, v).join(',')).join(' ')}" fill="${s.c}" fill-opacity=".18" stroke="${s.c}" stroke-width="${small ? 3 : 2}" stroke-linejoin="round"${s.dash ? ' stroke-dasharray="4 3"' : ''}/>`;
+  });
+  if (!small) AXES.forEach((a, i) => { const [x, y] = pt(i, 6.1); g += `<text x="${x}" y="${y + 3}" text-anchor="middle">${a.l}</text>`; });
+  return `<svg class="radar" viewBox="0 0 200 ${small ? 200 : 205}" ${small ? 'style="width:64px"' : ''}>${g}</svg>`;
+}
+
+/* ---------- 一覧 ---------- */
+let picking = null;   // 比べる相手を選んでいる時の、元の記録
+function home() {
+  app.innerHTML = '';
+  window.scrollTo(0, 0);
+  const top = Kit.el(`<div class="k-card k-stack">
+    <p style="margin:0">飲みながら6つの質問に答えると、味の記録が残ります。熱いうちと、少し冷めてからの2回味わうと、違いが分かりやすくなります。</p>
+    <button class="k-btn is-sun is-big" id="new">味わいを記録する</button>
+    <details class="how"><summary>味わい方のコツ</summary>
+      <p>ズズッと空気といっしょにすすると、香りと味が広がります。甘さは舌の先、酸味は舌の両わき、苦味は舌の奥で感じやすいと言われます。</p>
+      <p>2種類を並べて飲み比べると、違いがぐっと分かりやすくなります。</p>
+    </details></div>`);
+  top.querySelector('#new').onclick = () => startNew();
+  app.appendChild(top);
+
+  // 冷めてからの味わいがまだのもの（2時間以内）
+  const pend = list.filter(r => !r.cool && Date.now() - r.at < 2 * 3600e3);
+  pend.slice(0, 1).forEach(r => {
+    const mins = Math.floor((Date.now() - r.at) / 60000);
+    const box = Kit.el(`<div class="pending"><b>${esc(r.bean.name || 'コーヒー')}：冷めてからの味わい</b>
+      <p class="note">${mins < 8 ? `記録してから${mins}分です。もう少し（10分くらい）待つと、甘さと酸味が分かりやすくなります。` : '少し冷めた今、もう一度ひと口飲んでみてください。'}</p>
+      <div class="k-row"><button class="k-btn is-small is-sun">冷めてからを記録</button><button class="k-btn is-small">今回はなし</button></div></div>`);
+    const [go, skip] = box.querySelectorAll('button');
+    go.onclick = () => coolFlow(r);
+    skip.onclick = () => { r.cool = { skipped: true }; saveList(); home(); };
+    app.appendChild(box);
+  });
+
+  const sec = Kit.el(`<div class="k-stack"><div class="head-row"><h2 style="margin:0;font-size:1.1rem">${picking ? '比べる記録を選ぶ' : 'これまでの記録'}</h2>${picking ? '<button class="k-btn is-small" id="cancelPick">やめる</button>' : ''}</div></div>`);
+  if (picking) sec.querySelector('#cancelPick').onclick = () => { const r = picking; picking = null; detail(r); };
+  if (!list.length) sec.appendChild(Kit.el('<p class="note">まだ記録はありません。</p>'));
+  list.filter(r => !picking || r.id !== picking.id).forEach(r => {
+    const b = Kit.el(`<button class="rec">${radar([{ v: r.hot, c: 'var(--hot)' }], true)}
+      <span><span class="nm">${esc(r.bean.name || 'コーヒー')}</span><br><span class="sub">${fmtDate(r.at)}${r.bean.roast ? ' ・ ' + ROAST[r.bean.roast] : ''}${r.bean.origin ? ' ・ ' + esc(r.bean.origin) : ''}</span></span>
+      <span class="st">${starStr(r.star)}</span></button>`);
+    b.onclick = () => { if (picking) { const a = picking; picking = null; compare(a, r); } else detail(r); };
+    sec.appendChild(b);
+  });
+  app.appendChild(sec);
+}
+
+/* ---------- 新しく記録（案内） ---------- */
+function startNew() {
+  const p = new URLSearchParams(location.search);
+  const last = list[0];
+  const draft = {
+    id: Date.now().toString(36), at: Date.now(),
+    bean: { name: '', shop: '', origin: '', roast: last ? last.bean.roast : 'mid' },
+    brew: p.get('brew') || '',
+    hot: {}, words: [], star: 0, memo: '',
+  };
+  history.replaceState(null, '', location.pathname);
+  beanStep(draft);
+}
+function datalist(id, vals) { return `<datalist id="${id}">${[...new Set(vals.filter(Boolean))].slice(0, 20).map(v => `<option value="${esc(v)}">`).join('')}</datalist>`; }
+function beanStep(d) {
+  app.innerHTML = '';
+  window.scrollTo(0, 0);
+  const c = Kit.el(`<div class="k-card k-stack">
+    <p class="q">どの豆ですか？</p>
+    <p class="note">分かるところだけで大丈夫です。前に入れた名前は候補に出ます。</p>
+    <label class="f"><span class="k-label">豆の名前</span><input class="k-input" id="bn" list="dlName" placeholder="例：エチオピア イルガチェフェ" value="${esc(d.bean.name)}"></label>
+    <div class="two">
+      <label class="f"><span class="k-label">お店</span><input class="k-input" id="bs" list="dlShop" value="${esc(d.bean.shop)}"></label>
+      <label class="f"><span class="k-label">産地</span><input class="k-input" id="bo" list="dlOrigin" placeholder="例：エチオピア" value="${esc(d.bean.origin)}"></label>
+    </div>
+    <div class="f"><span class="k-label">焙煎</span><div class="seg" id="roast"></div></div>
+    ${d.brew ? `<p class="note">淹れ方：${esc(d.brew)}</p>` : ''}
+    ${datalist('dlName', list.map(r => r.bean.name))}${datalist('dlShop', list.map(r => r.bean.shop))}${datalist('dlOrigin', list.map(r => r.bean.origin))}
+    <div class="nav"><button class="k-btn" id="back">やめる</button><button class="k-btn is-sun" id="next">味わいへ</button></div></div>`);
+  app.appendChild(c);
+  const paintRoast = () => { const s = $('roast'); s.innerHTML = ''; Object.entries(ROAST).forEach(([k, l]) => { const b = Kit.el(`<button class="k-chip" aria-pressed="${d.bean.roast === k}">${l}</button>`); b.onclick = () => { d.bean.roast = k; paintRoast(); }; s.appendChild(b); }); };
+  paintRoast();
+  // 名前を選んだら、前の記録のお店・産地・焙煎を引き継ぐ
+  $('bn').addEventListener('change', () => { const prev = list.find(r => r.bean.name === $('bn').value.trim()); if (prev) { if (!$('bs').value) $('bs').value = prev.bean.shop || ''; if (!$('bo').value) $('bo').value = prev.bean.origin || ''; d.bean.roast = prev.bean.roast || d.bean.roast; paintRoast(); } });
+  const read = () => { d.bean.name = $('bn').value.trim(); d.bean.shop = $('bs').value.trim(); d.bean.origin = $('bo').value.trim(); };
+  $('back').onclick = () => home();
+  $('next').onclick = () => { read(); axisStep(d, 0); };
+}
+function scale(cur, on) {
+  const s = Kit.el('<div class="scale"></div>');
+  for (let v = 1; v <= 5; v++) { const b = Kit.el(`<button aria-pressed="${cur === v}">${v}</button>`); b.onclick = () => on(v); s.appendChild(b); }
+  return s;
+}
+function stepbar(i, n) { return `<div class="stepbar">${Array.from({ length: n }, (_, k) => `<i class="${k <= i ? 'on' : ''}"></i>`).join('')}</div>`; }
+function axisStep(d, i) {
+  const a = AXES[i], total = AXES.length + 1;
+  app.innerHTML = '';
+  window.scrollTo(0, 0);
+  const c = Kit.el(`<div class="k-card k-stack">${stepbar(i, total)}
+    <span class="k-label">${i + 1} / ${total}　${a.l}</span>
+    <p class="q">${a.q}</p>
+    <div class="hint"><b>味わい方</b>${a.hint.map(h => `<span>${h}</span>`).join('')}</div>
+    <div class="f" id="sc"></div>
+    <div class="ends"><span>1 ${a.lo}</span><span>${a.hi} 5</span></div>
+    ${a.words ? '<div class="f"><span class="k-label">近い香り・味（いくつでも）</span><div class="words" id="words"></div></div>' : ''}
+    ${i === 0 ? '' : '<p class="note">迷ったら3で大丈夫です。比べていくうちに、だんだん分かってきます。</p>'}
+    <div class="nav"><button class="k-btn" id="back">戻る</button><button class="k-btn is-sun" id="next">${i === AXES.length - 1 ? 'まとめへ' : '次へ'}</button></div></div>`);
+  app.appendChild(c);
+  const paint = () => { $('sc').innerHTML = ''; $('sc').appendChild(scale(d.hot[a.k], v => { d.hot[a.k] = v; Kit.sfx('tap'); paint(); })); };
+  paint();
+  if (a.words) {
+    WORDS.forEach(([g, ws]) => {
+      const grp = Kit.el(`<div class="grp"><span>${g}</span><div class="seg"></div></div>`);
+      ws.forEach(w => { const b = Kit.el(`<button class="k-chip" aria-pressed="${d.words.includes(w)}">${w}</button>`); b.onclick = () => { d.words = d.words.includes(w) ? d.words.filter(x => x !== w) : [...d.words, w]; b.setAttribute('aria-pressed', d.words.includes(w)); }; grp.lastElementChild.appendChild(b); });
+      $('words').appendChild(grp);
+    });
+  }
+  $('back').onclick = () => i === 0 ? beanStep(d) : axisStep(d, i - 1);
+  $('next').onclick = () => i === AXES.length - 1 ? sumStep(d) : axisStep(d, i + 1);
+}
+function stars(cur, on) {
+  const s = Kit.el('<div class="stars"></div>');
+  for (let v = 1; v <= 5; v++) { const b = Kit.el(`<button class="${v <= cur ? 'on' : ''}" aria-label="${v}">★</button>`); b.onclick = () => on(v); s.appendChild(b); }
+  return s;
+}
+function sumStep(d) {
+  const total = AXES.length + 1;
+  app.innerHTML = '';
+  window.scrollTo(0, 0);
+  const c = Kit.el(`<div class="k-card k-stack">${stepbar(total - 1, total)}
+    <span class="k-label">${total} / ${total}　まとめ</span>
+    <p class="q">好みでしたか？</p>
+    <div id="st"></div>
+    <label class="f"><span class="k-label">ひとことメモ</span><textarea class="k-input" id="memo" rows="3" placeholder="例：冷めても甘い。ミルクに合いそう">${esc(d.memo)}</textarea></label>
+    ${radar([{ v: d.hot, c: 'var(--hot)' }])}
+    <div class="nav"><button class="k-btn" id="back">戻る</button><button class="k-btn is-sun" id="save">記録する</button></div></div>`);
+  app.appendChild(c);
+  const paint = () => { $('st').innerHTML = ''; $('st').appendChild(stars(d.star, v => { d.star = v; paint(); })); };
+  paint();
+  $('back').onclick = () => { d.memo = $('memo').value; axisStep(d, AXES.length - 1); };
+  $('save').onclick = () => {
+    d.memo = $('memo').value.trim(); d.at = Date.now();
+    list.unshift(d); saveList(); Kit.sfx('good');
+    Kit.toast('記録しました。10分ほどして冷めたら、もう一度味わってみてください', 3500);
+    home();
+  };
+}
+function coolFlow(r) {
+  const cool = Object.assign({}, r.cool && !r.cool.skipped ? r.cool : {});
+  app.innerHTML = '';
+  window.scrollTo(0, 0);
+  const c = Kit.el(`<div class="k-card k-stack">
+    <span class="k-label">冷めてから　${esc(r.bean.name || 'コーヒー')}</span>
+    <p class="q">冷めると、どう変わった？</p>
+    <div class="hint"><b>味わい方</b><span>熱い時より、甘さと酸味がはっきりしやすくなります。熱い時の自分の答えと比べながら付けてみてください。</span></div>
+    <div id="rows" class="k-stack"></div>
+    <label class="f"><span class="k-label">変わったこと（メモ）</span><textarea class="k-input" id="cm" rows="2" placeholder="例：酸味が出てきて、りんごっぽくなった">${esc(cool.memo || '')}</textarea></label>
+    <div class="nav"><button class="k-btn" id="back">戻る</button><button class="k-btn is-sun" id="save">記録する</button></div></div>`);
+  app.appendChild(c);
+  const paint = () => {
+    $('rows').innerHTML = '';
+    COOL_AXES.forEach(k => {
+      const a = AXES.find(x => x.k === k);
+      const f = Kit.el(`<div class="f"><span class="k-label">${a.l}（熱い時は ${r.hot[k] || '−'}）</span></div>`);
+      f.appendChild(scale(cool[k], v => { cool[k] = v; Kit.sfx('tap'); paint(); }));
+      $('rows').appendChild(f);
+    });
+  };
+  paint();
+  $('back').onclick = () => home();
+  $('save').onclick = () => { cool.memo = $('cm').value.trim(); r.cool = cool; saveList(); Kit.sfx('good'); detail(r); };
+}
+
+/* ---------- 詳細・比べる ---------- */
+function rowsTable(cols) {
+  return `<table class="tbl"><tr><th></th>${cols.map(c => `<th style="color:${c.c}">${c.l}</th>`).join('')}</tr>
+    ${AXES.map(a => `<tr><td>${a.l}</td>${cols.map(c => `<td>${c.v[a.k] || '−'}</td>`).join('')}</tr>`).join('')}</table>`;
+}
+function detail(r) {
+  app.innerHTML = '';
+  window.scrollTo(0, 0);
+  const coolV = r.cool && !r.cool.skipped ? Object.assign({}, r.hot, r.cool) : null;
+  const sets = [{ v: r.hot, c: 'var(--hot)' }];
+  if (coolV) sets.push({ v: coolV, c: 'var(--cool)', dash: true });
+  const c = Kit.el(`<div class="k-card k-stack">
+    <div class="head-row"><h2 style="margin:0;font-size:1.25rem">${esc(r.bean.name || 'コーヒー')}</h2><span class="st" style="color:var(--sun)">${starStr(r.star)}</span></div>
+    <dl class="kv"><dt>日時</dt><dd>${fmtDate(r.at)}</dd>
+      ${r.bean.shop ? `<dt>お店</dt><dd>${esc(r.bean.shop)}</dd>` : ''}${r.bean.origin ? `<dt>産地</dt><dd>${esc(r.bean.origin)}</dd>` : ''}
+      ${r.bean.roast ? `<dt>焙煎</dt><dd>${ROAST[r.bean.roast]}</dd>` : ''}${r.brew ? `<dt>淹れ方</dt><dd>${esc(r.brew)}</dd>` : ''}</dl>
+    ${radar(sets)}
+    ${coolV ? '<div class="legend"><span><i style="background:var(--hot)"></i>熱い時</span><span><i style="background:var(--cool)"></i>冷めてから</span></div>' : ''}
+    ${r.words.length ? `<div class="tags">${r.words.map(w => `<span>${esc(w)}</span>`).join('')}</div>` : ''}
+    ${r.memo ? `<p style="margin:0">${esc(r.memo)}</p>` : ''}
+    ${coolV && r.cool.memo ? `<p style="margin:0"><span class="note">冷めてから：</span>${esc(r.cool.memo)}</p>` : ''}
+    <div class="k-row">${!r.cool || r.cool.skipped ? '<button class="k-btn is-small" id="cool">冷めてからを記録</button>' : ''}<button class="k-btn is-small is-sun" id="cmp">ほかの記録と比べる</button></div>
+    <div class="k-row"><button class="k-btn is-small" id="back">一覧へ</button><button class="k-btn is-small" id="del">削除</button></div></div>`);
+  app.appendChild(c);
+  if ($('cool')) $('cool').onclick = () => coolFlow(r);
+  $('cmp').onclick = () => { if (list.length < 2) { Kit.toast('比べるには、記録が2つ以上必要です'); return; } picking = r; home(); };
+  $('back').onclick = () => home();
+  $('del').onclick = async () => { if (!(await Kit.ask('この記録を削除しますか？', '削除', 'やめる'))) return; list = list.filter(x => x !== r); saveList(); home(); };
+}
+function compare(a, b) {
+  app.innerHTML = '';
+  window.scrollTo(0, 0);
+  const A = { l: a.bean.name || 'コーヒー', v: a.hot, c: 'var(--hot)' }, B = { l: b.bean.name || 'コーヒー', v: b.hot, c: 'var(--cool)' };
+  const diffs = AXES.map(x => ({ a: x, d: (a.hot[x.k] || 0) - (b.hot[x.k] || 0) })).filter(x => x.d && a.hot[x.a.k] && b.hot[x.a.k]).sort((p, q) => Math.abs(q.d) - Math.abs(p.d));
+  const say = diffs.slice(0, 2).map(x => `「${esc(x.d > 0 ? A.l : B.l)}」のほうが${x.a.l}が${x.a.k === 'body' ? '重い' : x.a.k === 'after' ? '長い' : '強い'}`).join('、');
+  const c = Kit.el(`<div class="k-card k-stack">
+    <h2 style="margin:0;font-size:1.15rem">比べる</h2>
+    ${radar([A, B])}
+    <div class="legend"><span><i style="background:var(--hot)"></i>${esc(A.l)}（${fmtDate(a.at)}）</span><span><i style="background:var(--cool)"></i>${esc(B.l)}（${fmtDate(b.at)}）</span></div>
+    ${rowsTable([{ ...A, l: esc(A.l) }, { ...B, l: esc(B.l) }])}
+    <p style="margin:0">${say ? say + '、と感じたようです。' : '大きな違いはなかったようです。'}</p>
+    <div class="k-row"><button class="k-btn is-small" id="ba">${esc(A.l)}を見る</button><button class="k-btn is-small" id="bb">${esc(B.l)}を見る</button><button class="k-btn is-small" id="back">一覧へ</button></div></div>`);
+  app.appendChild(c);
+  $('ba').onclick = () => detail(a); $('bb').onclick = () => detail(b); $('back').onclick = () => home();
+}
+
+if (new URLSearchParams(location.search).has('brew')) startNew(); else home();
+</script>
+</body>
+</html>

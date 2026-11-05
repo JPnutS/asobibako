@@ -277,7 +277,9 @@ function run(P) {
       $('lbl').textContent = 'できあがり'; $('big').innerHTML = mmss(P.endT); $('sub').textContent = 'ドリッパーを外してください';
       $('arc').style.strokeDashoffset = 0; $('next').textContent = 'おつかれさまでした';
       mark(last + 2);
-      $('start').textContent = 'もう一度'; $('start').classList.add('is-sun'); $('start').onclick = () => run(P);
+      $('start').textContent = '味を記録する'; $('start').classList.add('is-sun');
+      $('start').onclick = () => { location.href = '../tasting/index.html?brew=' + encodeURIComponent(`4:6 ・ 豆${S.beans}g ・ 1:${S.ratio} ・ ${TASTE_L[S.taste]} ・ ${STRENGTH_L[S.strength]}`); };
+      const again = Kit.el('<button class="k-btn">もう一度</button>'); again.onclick = () => run(P); $('start').after(again);
       chime();
       return;
     }

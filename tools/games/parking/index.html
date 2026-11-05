@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>駐車時間</title>
+<meta name="theme-color" content="#1f2328">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="icon" href="../../icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="../../../common/kit.css">
+<link rel="stylesheet" href="../../style.css">
+<style>
+  .k-wrap { max-width: 560px; }
+  .note { font-size: .85rem; color: var(--muted); margin: 0; }
+  .f { display: grid; gap: 6px; }
+  .rule { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 1rem; }
+  .rule input { width: 5.2em; text-align: right; font-variant-numeric: tabular-nums; }
+  .rule select { font: inherit; width: auto; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  .seg .k-chip { min-height: 36px; padding: 4px 12px; font-size: .88rem; }
+  .big { display: grid; justify-items: center; gap: 2px; text-align: center; }
+  .big .lbl { font-size: .9rem; color: var(--muted); }
+  .big .yen { font-family: var(--display); font-size: clamp(3rem, 16vw, 4.4rem); line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .big .yen small { font-size: .4em; margin-left: 2px; }
+  .stat { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat div { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: grid; gap: 2px; }
+  .stat span { font-size: .78rem; color: var(--muted); }
+  .stat b { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+  .nextup { border-radius: 12px; padding: 12px 14px; background: var(--soft); display: grid; gap: 2px; }
+  .nextup b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+  .nextup.warn { background: color-mix(in srgb, var(--berry) 18%, var(--card)); }
+  .tl { display: grid; gap: 0; }
+  .tl div { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; padding: 7px 2px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; font-size: .95rem; }
+  .tl div span:nth-child(2) { color: var(--muted); font-size: .85rem; }
+  .tl div b { min-width: 5em; text-align: right; }
+  .budget { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .budget input { width: 6em; text-align: right; }
+  .photo { width: 100%; max-height: 260px; object-fit: contain; border-radius: 12px; background: var(--soft); }
+  .upd { font-size: .78rem; color: var(--muted); text-align: center; }
+</style>
+</head>
+<body>
+<main class="k-wrap" id="app"></main>
+
+<script src="../../../common/kit.js" data-ns="asobibako-otona:" data-home="../../index.html" data-tone="adult"></script>
+<script>
+'use strict';
+Kit.bar({ id: 'parking', title: '駐車時間', help: `
+  <p>駐車場の料金を入れて「停めた」を押しておくと、あとで開いた時に、停めてからの時間と、今出るといくらか、次に料金が上がる時刻が分かります。</p>
+  <p>画面を消したり、ほかのアプリを使ったりしていても大丈夫です。停めた時刻を覚えておき、開いた時にその時点の料金を計算します（音やお知らせは出ません）。</p>
+  <p><b>無料時間</b>は「入庫から◯分以内なら無料、過ぎたら最初から料金がかかる」として計算します。<b>最大料金</b>は「入庫から◯時間ごと」として計算します。夜間料金など、ほかの決まりがある駐車場では目安として使ってください。</p>
+  <p>停めた場所のメモと写真も残せます。記録はこの端末の中だけに保存されます。</p>` });
+
+const $ = id => document.getElementById(id);
+const app = $('app');
+const DEF = { unit: 30, price: 200, free: 0, max: 0, maxH: 24 };
+let rule = Object.assign({}, DEF, Kit.store.get('parking:rule', {}));
+let cur = Kit.store.get('parking:cur', null);
+const saveCur = () => Kit.store.set('parking:cur', cur);
+const yen = n => n.toLocaleString('ja-JP');
+const hm = d => `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+function clock(ts) {
+  const d = new Date(ts), today = new Date();
+  const days = Math.round((new Date(d).setHours(0, 0, 0, 0) - new Date(today).setHours(0, 0, 0, 0)) / 864e5);
+  return (days === 0 ? '' : days === 1 ? '明日 ' : days === -1 ? '昨日 ' : `${d.getMonth() + 1}/${d.getDate()} `) + hm(d);
+}
+const dur = min => { min = Math.max(0, Math.floor(min)); return min < 60 ? `${min}分` : `${Math.floor(min / 60)}時間${min % 60 ? (min % 60) + '分' : ''}`; };
+
+/* 料金：入庫からの分数 → 円 */
+function fee(r, m) {
+  if (m <= 0) return 0;
+  if (r.free && m <= r.free) return 0;
+  const steps = mm => Math.ceil(mm / r.unit - 1e-9) * r.price;
+  if (!r.max) return steps(m);
+  const P = r.maxH * 60, n = Math.floor(m / P), rest = m - n * P;
+  return n * r.max + (rest > 0 ? Math.min(r.max, steps(rest)) : 0);
+}
+/* 分数 m のあと、料金が上がる時（分）を順に */
+function nextUps(r, m, count) {
+  const out = []; let f = fee(r, m), t = Math.floor(m) - 1;
+  for (let i = 0; i < 60 * 72 && out.length < count; i++) {
+    t += 1;
+    const nf = fee(r, t + 0.01);   // t分を過ぎた直後
+    if (nf > f) { out.push({ m: t, fee: nf }); f = nf; }
+  }
+  return out;
+}
+
+/* ---------- 停める前 ---------- */
+function setup() {
+  app.innerHTML = '';
+  const c = Kit.el(`<div class="k-card k-stack">
+    <div class="f"><span class="k-label">料金</span>
+      <div class="rule"><input class="k-input" id="unit" inputmode="numeric" value="${rule.unit}">分ごとに<input class="k-input" id="price" inputmode="numeric" value="${rule.price}">円</div>
+      <div class="seg" id="presets"></div></div>
+    <div class="f"><span class="k-label">無料時間（なければ0）</span>
+      <div class="rule">入庫から<input class="k-input" id="free" inputmode="numeric" value="${rule.free}">分以内は無料</div></div>
+    <div class="f"><span class="k-label">最大料金（なければ0）</span>
+      <div class="rule">入庫から<select class="k-input" id="maxH"><option value="24">24時間</option><option value="12">12時間</option><option value="6">6時間</option><option value="1">1時間</option></select>ごとに最大<input class="k-input" id="max" inputmode="numeric" value="${rule.max}">円</div></div>
+    <div class="f"><span class="k-label">停めた時刻</span>
+      <div class="rule"><input class="k-input" type="time" id="at" style="width:auto"><button class="k-btn is-small" id="nowBtn">今</button></div></div>
+    <p class="note" id="preview"></p>
+    <button class="k-btn is-sun is-big" id="park">停めた</button></div>`);
+  app.appendChild(c);
+  $('maxH').value = String(rule.maxH);
+  const setNow = () => { $('at').value = hm(new Date()).padStart(5, '0'); };
+  setNow();
+  $('nowBtn').onclick = setNow;
+  [['30分200円', 30, 200], ['20分100円', 20, 100], ['60分300円', 60, 300], ['15分100円', 15, 100]].forEach(([l, u, p]) => {
+    const b = Kit.el(`<button class="k-chip">${l}</button>`); b.onclick = () => { $('unit').value = u; $('price').value = p; read(); }; $('presets').appendChild(b);
+  });
+  const num = id => Math.max(0, parseInt(String($(id).value).replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0)).replace(/[^\d]/g, ''), 10) || 0);
+  function read() {
+    rule = { unit: Math.max(1, num('unit')), price: num('price'), free: num('free'), max: num('max'), maxH: +$('maxH').value };
+    const ex = [60, 120, 180, 300].map(m => `${dur(m)} ${yen(fee(rule, m))}円`).join(' ・ ');
+    $('preview').textContent = 'めやす：' + ex;
+  }
+  c.addEventListener('input', read); c.addEventListener('change', read);
+  read();
+  $('park').onclick = () => {
+    read(); Kit.store.set('parking:rule', rule);
+    const [h, mi] = ($('at').value || hm(new Date())).split(':').map(Number);
+    const d = new Date(); d.setHours(h, mi, 0, 0);
+    if (d.getTime() > Date.now() + 60e3) d.setDate(d.getDate() - 1);   // 未来の時刻なら前の日
+    cur = { start: d.getTime(), rule, memo: '', photo: '' };
+    saveCur(); Kit.sfx('good'); view();
+  };
+}
+
+/* ---------- 停めている間 ---------- */
+let timer = null;
+function view() {
+  clearInterval(timer);
+  app.innerHTML = '';
+  const c = Kit.el(`<div class="k-card k-stack">
+    <div class="big"><span class="lbl">いま出ると</span><span class="yen" id="yen"></span></div>
+    <div class="stat"><div><span>停めてから</span><b id="el"></b></div><div><span>停めた時刻</span><b id="st"></b></div></div>
+    <div class="nextup" id="nx"></div>
+    <div class="f"><span class="k-label">このあとの料金</span><div class="tl" id="tl"></div></div>
+    <div class="f"><span class="k-label">予算から逆算</span>
+      <div class="budget"><input class="k-input" id="bud" inputmode="numeric" placeholder="1000">円以内で出られるのは<b id="budOut">−</b></div></div>
+    <p class="upd" id="upd"></p></div>`);
+  app.appendChild(c);
+  const memo = Kit.el(`<div class="k-card k-stack">
+    <span class="k-label">停めた場所</span>
+    <input class="k-input" id="memo" placeholder="例：B2・青のC-15" value="${Kit.esc(cur.memo || '')}">
+    ${cur.photo ? `<img class="photo" src="${cur.photo}" alt="停めた場所の写真">` : ''}
+    <div class="k-row"><label class="k-btn is-small">${cur.photo ? '写真を撮り直す' : '写真を残す'}<input type="file" id="ph" accept="image/*" capture="environment" hidden></label>${cur.photo ? '<button class="k-btn is-small" id="phDel">写真を消す</button>' : ''}</div>
+    <p class="note">料金：${cur.rule.unit}分ごとに${yen(cur.rule.price)}円${cur.rule.free ? ` ・ ${cur.rule.free}分以内無料` : ''}${cur.rule.max ? ` ・ ${cur.rule.maxH}時間ごとに最大${yen(cur.rule.max)}円` : ''}</p>
+    <button class="k-btn" id="done">出庫した（終わる）</button></div>`);
+  app.appendChild(memo);
+  $('memo').addEventListener('input', () => { cur.memo = $('memo').value; saveCur(); });
+  $('ph').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { cur.photo = await shrink(f); saveCur(); view(); } catch (err) { Kit.toast('写真を読み込めませんでした'); } };
+  if ($('phDel')) $('phDel').onclick = () => { cur.photo = ''; saveCur(); view(); };
+  $('done').onclick = async () => {
+    const m = (Date.now() - cur.start) / 60000;
+    if (!(await Kit.ask(`${dur(m)} ・ ${yen(fee(cur.rule, m))}円で終わりますか？`, '終わる', '続ける'))) return;
+    cur = null; Kit.store.set('parking:cur', null); clearInterval(timer); setup();
+  };
+  $('bud').value = Kit.store.get('parking:budget', '') || '';
+  $('bud').addEventListener('input', () => { Kit.store.set('parking:budget', $('bud').value); tick(); });
+  tick();
+  timer = setInterval(tick, 15000);
+}
+function tick() {
+  if (!cur) return;
+  const r = cur.rule, now = Date.now(), m = (now - cur.start) / 60000, f = fee(r, m);
+  $('yen').innerHTML = `${yen(f)}<small>円</small>`;
+  $('el').textContent = dur(m);
+  $('st').textContent = clock(cur.start);
+  const ups = nextUps(r, m, 6);
+  const nx = $('nx');
+  if (ups.length) {
+    const u = ups[0], at = cur.start + u.m * 60000, left = Math.max(0, Math.ceil((at - now) / 60000));
+    const P = r.maxH * 60, capped = r.max && f - Math.floor(m / P) * r.max === r.max;
+    nx.className = 'nextup' + (left <= 5 ? ' warn' : '');
+    nx.innerHTML = capped
+      ? `<span class="note">最大料金になっています。次に上がるのは</span><b>${clock(at)}（あと${dur(left)}）</b><span class="note">${yen(u.fee)}円になります</span>`
+      : `<span class="note">次に料金が上がるのは</span><b>${clock(at)}（あと${dur(left)}）</b><span class="note">${yen(f)}円 → ${yen(u.fee)}円${left <= 5 ? '　もうすぐです' : ''}</span>`;
+    $('tl').innerHTML = ups.map(x => `<div><span>${clock(cur.start + x.m * 60000)} から</span><span>${dur(x.m)}</span><b>${yen(x.fee)}円</b></div>`).join('');
+  } else { nx.innerHTML = '<span class="note">しばらく料金は上がりません</span>'; $('tl').innerHTML = ''; }
+  const b = parseInt(String($('bud').value).replace(/[^\d]/g, ''), 10);
+  if (b >= 0 && $('bud').value !== '') {
+    if (f > b) $('budOut').textContent = 'もう過ぎています';
+    else { const over = nextUps(r, 0, 400).find(x => x.fee > b); $('budOut').textContent = over ? `${clock(cur.start + over.m * 60000)}まで` : 'ずっと'; }
+  } else $('budOut').textContent = '−';
+  $('upd').textContent = `${hm(new Date())} 時点`;
+}
+/* 写真は小さくして保存 */
+function shrink(file) {
+  return new Promise((res, rej) => {
+    const img = new Image(), u = URL.createObjectURL(file);
+    img.onload = () => {
+      const s = Math.min(1, 900 / Math.max(img.width, img.height));
+      const cv = document.createElement('canvas'); cv.width = Math.round(img.width * s); cv.height = Math.round(img.height * s);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); URL.revokeObjectURL(u);
+      res(cv.toDataURL('image/jpeg', .72));
+    };
+    img.onerror = () => { URL.revokeObjectURL(u); rej(); };
+    img.src = u;
+  });
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden && cur) tick(); });
+addEventListener('pageshow', () => { if (cur) tick(); });
+cur ? view() : setup();
+</script>
+</body>
+</html>
