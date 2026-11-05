@@ -252,7 +252,7 @@
         h = `<span class="k-label" style="text-align:center">${T('へやばんごう', 'ルーム番号')}</span>
           <div class="n-code">${room.code}</div>
           ${people()}
-          <p class="n-hint">${n < min ? T('ほかの人は このばんごうで はいってね', '相手はこの番号で入室') : `${n}${T('人', '人')} ✓`}</p>
+          <p class="n-hint">${n < min ? T('ほかの人は このばんごうで はいってね', '相手はこの番号で入室') : `${n}${T('人', '人')} ✓`}${max > 2 ? T(`（${max}人まで はいれるよ）`, `（${max}人まで）`) : ''}</p>
           ${errHtml}
           <div class="k-actions">
             <button class="k-btn" id="nX">${T('やめる', 'やめる')}</button>
