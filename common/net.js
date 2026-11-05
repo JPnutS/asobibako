@@ -44,6 +44,7 @@
       case 'full': return T('へやが いっぱいだよ', 'ルームが満員です');
       case 'started': return T('もう ゲームが はじまっているよ', 'すでにゲームが始まっています');
       case 'host-left': return T('へやが なくなったよ', 'ルームが閉じられました');
+      case 'taken': return T('そのばんごうは いま ほかのへやで つかわれているよ。ちがうばんごうにしてね', 'その番号は使用中です。別の番号にしてください');
       case 'lib': case 'network': case 'server-error': case 'socket-error': case 'socket-closed': case 'unavailable-id':
         return T('サーバーに つながらないよ。インターネットに つながっているか たしかめてね', 'サーバーに接続できません。インターネット接続を確認してください');
       default: return T('うまく つながらなかったよ。もういちど ためしてね', '接続に失敗しました。もう一度試してください');
@@ -153,11 +154,11 @@
     return room;
   }
 
-  function createRoom(game, name, max) {
+  function createRoom(game, name, max, fixed) {
     return loadLib().then(() => new Promise((res, rej) => {
       let tries = 0;
       const attempt = () => {
-        const code = String(Math.floor(1000 + Math.random() * 9000));
+        const code = fixed || String(Math.floor(1000 + Math.random() * 9000));
         const peer = new window.Peer(PREFIX + game + '-' + code, peerOpts());
         let ok = false;
         peer.on('open', () => {
@@ -171,6 +172,7 @@
         peer.on('error', e => {
           if (ok) return;
           try { peer.destroy(); } catch (x) { /* なにもしない */ }
+          if (e.type === 'unavailable-id' && fixed) return rej({ type: 'taken' });
           if (e.type === 'unavailable-id' && ++tries < 4) return attempt();
           rej(e);
         });
@@ -229,7 +231,7 @@
     let name = Kit.store.get('net:name', '') || '';
     const close = () => { alive = false; back.remove(); };
     const cancel = () => { if (room) room.close(); room = null; Net.room = null; close(); if (cfg.onCancel) cfg.onCancel(); };
-    const fail = e => { if (!alive) return; room = null; err = errText(e && e.type); view = view === 'joining' ? 'join' : 'home'; Kit.sfx('bad'); render(); };
+    const fail = e => { if (!alive) return; room = null; err = errText(e && e.type); view = view === 'joining' ? 'join' : view === 'creatingPick' ? 'pick' : 'home'; Kit.sfx('bad'); render(); };
 
     function people() {
       const ppl = (room ? room.players : []).map(p => `<span class="${p.id === (room && room.peerId) ? 'me' : ''}">${Kit.esc(p.name)}</span>`);
@@ -247,10 +249,20 @@
             <input class="k-input" id="nName" maxlength="10" value="${Kit.esc(name)}" placeholder="${T('なまえ', '名前')}">
             <button class="k-btn is-sun is-big" id="nHost">🏠 ${T('へやを つくる', 'ルームを作る')}</button>
             <button class="k-btn is-sky is-big" id="nJoin">🚪 ${T('へやに はいる', 'ルームに入る')}</button>
+            <button class="k-btn is-small" id="nPick">🔢 ${T('ばんごうを きめて つくる', '番号を決めて作る')}</button>
             ${errHtml}
           </div>
           <div class="k-actions"><button class="k-btn" id="nX">${T('やめる', 'やめる')}</button></div>`;
-      } else if (view === 'creating' || view === 'joining') {
+      } else if (view === 'pick') {
+        h = `<h2>🔢 ${T('へやばんごうを きめる', 'ルーム番号を決める')}</h2>
+          <input class="k-input n-code-in" id="nMine" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="0000" value="${Kit.esc(Kit.store.get('net:myCode', ''))}">
+          <p class="n-hint">${T('1234 や たんじょうびは ほかの人と かぶりやすいよ', '1234や誕生日は他の人と重なりやすいです')}</p>
+          ${errHtml}
+          <div class="k-actions">
+            <button class="k-btn" id="nBack">${T('もどる', '戻る')}</button>
+            <button class="k-btn is-sun" id="nMake">${T('つくる', '作る')}</button>
+          </div>`;
+      } else if (view === 'creating' || view === 'creatingPick' || view === 'joining') {
         h = `<h2 class="n-dots">${T('つないでいます', '接続しています')}</h2>
           <div class="k-actions"><button class="k-btn" id="nX">${T('やめる', 'やめる')}</button></div>`;
       } else if (view === 'host') {
@@ -288,16 +300,30 @@
       if (nm) nm.oninput = () => { name = nm.value; };
       const takeName = () => { name = (name || '').trim() || T('なまえなし', 'ゲスト'); Kit.store.set('net:name', name); };
       on('nX', cancel);
-      on('nHost', () => {
-        takeName(); err = ''; view = 'creating'; render();
-        createRoom(game, name, max).then(r => {
+      const host = fixed => {
+        takeName(); err = ''; view = fixed ? 'creatingPick' : 'creating'; render();
+        createRoom(game, name, max, fixed).then(r => {
           if (!alive) { r.close(); return; }
           room = r; Net.room = r;
           r.lateJoin = !!cfg.late; r.onJoin = cfg.onJoin || null; r.onPart = cfg.onPart || null;
           r.onLobby = () => { Kit.sfx('pop'); render(); };
           view = 'host'; render();
         }, fail);
-      });
+      };
+      on('nHost', () => host(null));
+      on('nPick', () => { takeName(); err = ''; view = 'pick'; render(); });
+      const mineIn = box.querySelector('#nMine');
+      if (mineIn) {
+        const make = () => {
+          const c = mineIn.value.replace(/\D/g, '');
+          if (c.length !== 4) { err = T('4けたの ばんごうを 入れてね', '4桁の番号を入力してください'); render(); return; }
+          Kit.store.set('net:myCode', c); host(c);
+        };
+        mineIn.oninput = () => { mineIn.value = mineIn.value.replace(/\D/g, '').slice(0, 4); };
+        mineIn.onkeydown = e => { if (e.key === 'Enter') make(); };
+        on('nMake', make);
+        setTimeout(() => mineIn.focus(), 50);
+      }
       on('nJoin', () => { takeName(); err = ''; view = 'join'; render(); });
       on('nBack', () => { err = ''; view = 'home'; render(); });
       on('nShare', () => {
