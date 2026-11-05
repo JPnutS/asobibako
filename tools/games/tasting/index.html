@@ -109,7 +109,12 @@ const WORDS = [
   ['甘い', ['はちみつ', 'キャラメル', '黒糖', 'チョコ', 'バニラ']],
   ['香ばしい', ['ナッツ', 'トースト', 'スパイス', 'スモーキー', '土・木']],
 ];
-const ROAST = { light: '浅煎り', mid: '中煎り', dark: '深煎り' };
+const ROAST = { light: '浅煎り', midlight: '中浅煎り', mid: '中煎り', middark: '中深煎り', dark: '深煎り' };
+const METHOD = { drip: 'ハンドドリップ', espresso: 'エスプレッソ', instant: 'インスタント', other: 'その他' };
+const ORIGINS = [['アフリカ', ['エチオピア', 'ケニア', 'タンザニア', 'ルワンダ', 'ブルンジ']],
+  ['中南米', ['ブラジル', 'コロンビア', 'グアテマラ', 'コスタリカ', 'ホンジュラス', 'エルサルバドル', 'ニカラグア', 'パナマ', 'ペルー', 'メキシコ', 'ジャマイカ']],
+  ['アジア・ほか', ['インドネシア', 'ベトナム', 'インド', 'イエメン', 'ハワイ', 'パプアニューギニア']],
+  ['', ['ブレンド', 'その他']]];
 const fmtDate = ts => { const d = new Date(ts); return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`; };
 const starStr = n => '★'.repeat(n || 0) + '☆'.repeat(5 - (n || 0));
 
@@ -162,7 +167,7 @@ function home() {
   if (!list.length) sec.appendChild(Kit.el('<p class="note">まだ記録はありません。</p>'));
   list.filter(r => !picking || r.id !== picking.id).forEach(r => {
     const b = Kit.el(`<button class="rec">${radar([{ v: r.hot, c: 'var(--hot)' }], true)}
-      <span><span class="nm">${esc(r.bean.name || 'コーヒー')}</span><br><span class="sub">${fmtDate(r.at)}${r.bean.roast ? ' ・ ' + ROAST[r.bean.roast] : ''}${r.bean.origin ? ' ・ ' + esc(r.bean.origin) : ''}</span></span>
+      <span><span class="nm">${esc(r.bean.name || 'コーヒー')}</span><br><span class="sub">${fmtDate(r.at)}${r.method ? ' ・ ' + METHOD[r.method] : ''}${r.bean.roast ? ' ・ ' + ROAST[r.bean.roast] : ''}${r.bean.origin ? ' ・ ' + esc(r.bean.origin) : ''}</span></span>
       <span class="st">${starStr(r.star)}</span></button>`);
     b.onclick = () => { if (picking) { const a = picking; picking = null; compare(a, r); } else detail(r); };
     sec.appendChild(b);
@@ -176,35 +181,54 @@ function startNew() {
   const last = list[0];
   const draft = {
     id: Date.now().toString(36), at: Date.now(),
-    bean: { name: '', shop: '', origin: '', roast: last ? last.bean.roast : 'mid' },
-    brew: p.get('brew') || '',
+    bean: { name: '', shop: '', origin: '', roast: '' },
+    brew: p.get('brew') || '', method: p.get('brew') ? 'drip' : (last && last.method) || 'drip',
     hot: {}, words: [], star: 0, memo: '',
   };
   history.replaceState(null, '', location.pathname);
   beanStep(draft);
 }
 function datalist(id, vals) { return `<datalist id="${id}">${[...new Set(vals.filter(Boolean))].slice(0, 20).map(v => `<option value="${esc(v)}">`).join('')}</datalist>`; }
+function opts(map, cur, blank) { return (blank ? `<option value="">${blank}</option>` : '') + Object.entries(map).map(([k, l]) => `<option value="${k}"${cur === k ? ' selected' : ''}>${l}</option>`).join(''); }
+function originOpts(cur) {
+  const known = ORIGINS.flatMap(g => g[1]);
+  let h = '<option value="">選ばない</option>';
+  ORIGINS.forEach(([g, os]) => { const o = os.map(x => `<option${cur === x || (x === 'その他' && cur && !known.includes(cur)) ? ' selected' : ''}>${x}</option>`).join(''); h += g ? `<optgroup label="${g}">${o}</optgroup>` : o; });
+  return h;
+}
 function beanStep(d) {
   app.innerHTML = '';
   window.scrollTo(0, 0);
+  const known = ORIGINS.flatMap(g => g[1]);
+  const otherOrigin = d.bean.origin && !known.includes(d.bean.origin) ? d.bean.origin : '';
   const c = Kit.el(`<div class="k-card k-stack">
-    <p class="q">どの豆ですか？</p>
+    <p class="q">どのコーヒーですか？</p>
     <p class="note">分かるところだけで大丈夫です。前に入れた名前は候補に出ます。</p>
-    <label class="f"><span class="k-label">豆の名前</span><input class="k-input" id="bn" list="dlName" placeholder="例：エチオピア イルガチェフェ" value="${esc(d.bean.name)}"></label>
+    <label class="f"><span class="k-label">淹れ方</span><select class="k-input" id="bm">${opts(METHOD, d.method)}</select></label>
+    <label class="f"><span class="k-label">豆・商品の名前</span><input class="k-input" id="bn" list="dlName" placeholder="例：エチオピア イルガチェフェ" value="${esc(d.bean.name)}"></label>
     <div class="two">
-      <label class="f"><span class="k-label">お店</span><input class="k-input" id="bs" list="dlShop" value="${esc(d.bean.shop)}"></label>
-      <label class="f"><span class="k-label">産地</span><input class="k-input" id="bo" list="dlOrigin" placeholder="例：エチオピア" value="${esc(d.bean.origin)}"></label>
+      <label class="f"><span class="k-label">産地</span><select class="k-input" id="bo">${originOpts(d.bean.origin)}</select></label>
+      <label class="f"><span class="k-label">焙煎</span><select class="k-input" id="br">${opts(ROAST, d.bean.roast, '選ばない')}</select></label>
     </div>
-    <div class="f"><span class="k-label">焙煎</span><div class="seg" id="roast"></div></div>
+    <label class="f" id="boOtherRow"><span class="k-label">産地（その他）</span><input class="k-input" id="boOther" value="${esc(otherOrigin)}"></label>
+    <label class="f"><span class="k-label">お店</span><input class="k-input" id="bs" list="dlShop" value="${esc(d.bean.shop)}"></label>
     ${d.brew ? `<p class="note">淹れ方：${esc(d.brew)}</p>` : ''}
-    ${datalist('dlName', list.map(r => r.bean.name))}${datalist('dlShop', list.map(r => r.bean.shop))}${datalist('dlOrigin', list.map(r => r.bean.origin))}
+    ${datalist('dlName', list.map(r => r.bean.name))}${datalist('dlShop', list.map(r => r.bean.shop))}
     <div class="nav"><button class="k-btn" id="back">やめる</button><button class="k-btn is-sun" id="next">味わいへ</button></div></div>`);
   app.appendChild(c);
-  const paintRoast = () => { const s = $('roast'); s.innerHTML = ''; Object.entries(ROAST).forEach(([k, l]) => { const b = Kit.el(`<button class="k-chip" aria-pressed="${d.bean.roast === k}">${l}</button>`); b.onclick = () => { d.bean.roast = k; paintRoast(); }; s.appendChild(b); }); };
-  paintRoast();
+  const showOther = () => { $('boOtherRow').hidden = $('bo').value !== 'その他'; };
+  $('bo').onchange = showOther; showOther();
   // 名前を選んだら、前の記録のお店・産地・焙煎を引き継ぐ
-  $('bn').addEventListener('change', () => { const prev = list.find(r => r.bean.name === $('bn').value.trim()); if (prev) { if (!$('bs').value) $('bs').value = prev.bean.shop || ''; if (!$('bo').value) $('bo').value = prev.bean.origin || ''; d.bean.roast = prev.bean.roast || d.bean.roast; paintRoast(); } });
-  const read = () => { d.bean.name = $('bn').value.trim(); d.bean.shop = $('bs').value.trim(); d.bean.origin = $('bo').value.trim(); };
+  $('bn').addEventListener('change', () => {
+    const prev = list.find(r => r.bean.name === $('bn').value.trim()); if (!prev) return;
+    if (!$('bs').value) $('bs').value = prev.bean.shop || '';
+    if (!$('bo').value && prev.bean.origin) { $('bo').value = known.includes(prev.bean.origin) ? prev.bean.origin : 'その他'; if (!known.includes(prev.bean.origin)) $('boOther').value = prev.bean.origin; showOther(); }
+    if (!$('br').value && prev.bean.roast) $('br').value = prev.bean.roast;
+  });
+  const read = () => {
+    d.method = $('bm').value; d.bean.name = $('bn').value.trim(); d.bean.shop = $('bs').value.trim(); d.bean.roast = $('br').value;
+    d.bean.origin = $('bo').value === 'その他' ? ($('boOther').value.trim() || 'その他') : $('bo').value;
+  };
   $('back').onclick = () => home();
   $('next').onclick = () => { read(); axisStep(d, 0); };
 }
@@ -308,7 +332,7 @@ function detail(r) {
     <div class="head-row"><h2 style="margin:0;font-size:1.25rem">${esc(r.bean.name || 'コーヒー')}</h2><span class="st" style="color:var(--sun)">${starStr(r.star)}</span></div>
     <dl class="kv"><dt>日時</dt><dd>${fmtDate(r.at)}</dd>
       ${r.bean.shop ? `<dt>お店</dt><dd>${esc(r.bean.shop)}</dd>` : ''}${r.bean.origin ? `<dt>産地</dt><dd>${esc(r.bean.origin)}</dd>` : ''}
-      ${r.bean.roast ? `<dt>焙煎</dt><dd>${ROAST[r.bean.roast]}</dd>` : ''}${r.brew ? `<dt>淹れ方</dt><dd>${esc(r.brew)}</dd>` : ''}</dl>
+      ${r.bean.roast ? `<dt>焙煎</dt><dd>${ROAST[r.bean.roast]}</dd>` : ''}${r.method || r.brew ? `<dt>淹れ方</dt><dd>${[r.method ? METHOD[r.method] : '', r.brew ? esc(r.brew) : ''].filter(Boolean).join('：')}</dd>` : ''}</dl>
     ${radar(sets)}
     ${coolV ? '<div class="legend"><span><i style="background:var(--hot)"></i>熱い時</span><span><i style="background:var(--cool)"></i>冷めてから</span></div>' : ''}
     ${r.words.length ? `<div class="tags">${r.words.map(w => `<span>${esc(w)}</span>`).join('')}</div>` : ''}

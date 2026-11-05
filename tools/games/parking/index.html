@@ -16,8 +16,8 @@
   .note { font-size: .85rem; color: var(--muted); margin: 0; }
   .f { display: grid; gap: 6px; }
   .rule { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 1rem; }
-  .rule input { width: 5.2em; text-align: right; font-variant-numeric: tabular-nums; }
-  .rule select { font: inherit; width: auto; }
+  .rule input { width: 4.2em; text-align: right; font-variant-numeric: tabular-nums; }
+  .rule select { font: inherit; width: auto; padding-left: 8px; padding-right: 4px; }
   .seg { display: flex; flex-wrap: wrap; gap: 6px; }
   .seg .k-chip { min-height: 36px; padding: 4px 12px; font-size: .88rem; }
   .big { display: grid; justify-items: center; gap: 2px; text-align: center; }
@@ -38,6 +38,11 @@
   .budget { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   .budget input { width: 6em; text-align: right; }
   .photo { width: 100%; max-height: 260px; object-fit: contain; border-radius: 12px; background: var(--soft); }
+  .head-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  details.more summary { cursor: pointer; color: var(--muted); font-size: .92rem; padding: 4px 0; list-style: none; }
+  details.more summary::before { content: "＋ "; }
+  details.more[open] summary::before { content: "－ "; }
+  .k-modal .rule input { width: 4.6em; }
   .upd { font-size: .78rem; color: var(--muted); text-align: center; }
 </style>
 </head>
@@ -51,6 +56,8 @@ Kit.bar({ id: 'parking', title: '駐車時間', help: `
   <p>駐車場の料金を入れて「停めた」を押しておくと、あとで開いた時に、停めてからの時間と、今出るといくらか、次に料金が上がる時刻が分かります。</p>
   <p>画面を消したり、ほかのアプリを使ったりしていても大丈夫です。停めた時刻を覚えておき、開いた時にその時点の料金を計算します（音やお知らせは出ません）。</p>
   <p><b>無料時間</b>は「入庫から◯分以内なら無料、過ぎたら最初から料金がかかる」として計算します。<b>最大料金</b>は「入庫から◯時間ごと」として計算します。夜間料金など、ほかの決まりがある駐車場では目安として使ってください。</p>
+  <p><b>看板の文字から入力</b>：スマホのカメラの文字認識（iPhone のカメラの文字マークや Google レンズ）で看板の料金部分をコピーして貼り付けると、数字を読み取って入れます。入った内容は必ず確認してください。</p>
+  <p>料金を入れずに「停めた」を押すと、停めてからの時間だけをはかります。料金は停めたあとでも「変える」から直せます。</p>
   <p>停めた場所のメモと写真も残せます。記録はこの端末の中だけに保存されます。</p>` });
 
 const $ = id => document.getElementById(id);
@@ -70,7 +77,7 @@ const dur = min => { min = Math.max(0, Math.floor(min)); return min < 60 ? `${mi
 
 /* 料金：入庫からの分数 → 円 */
 function fee(r, m) {
-  if (m <= 0) return 0;
+  if (m <= 0 || !r.price) return 0;
   if (r.free && m <= r.free) return 0;
   const steps = mm => Math.ceil(mm / r.unit - 1e-9) * r.price;
   if (!r.max) return steps(m);
@@ -88,45 +95,113 @@ function nextUps(r, m, count) {
   return out;
 }
 
+/* ---------- 料金の入力（停める前と、停めたあとの変更で共通） ---------- */
+const z2h = s => String(s).replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
+const toNum = s => Math.max(0, parseInt(z2h(s).replace(/[^\d]/g, ''), 10) || 0);
+function ruleText(r) {
+  if (!r.price) return '料金なし（時間だけはかる）';
+  const u = r.unit % 60 === 0 ? `${r.unit / 60}時間` : `${r.unit}分`;
+  return `${u}ごとに${yen(r.price)}円${r.free ? ` ・ ${r.free}分以内無料` : ''}${r.max ? ` ・ ${r.maxH}時間ごとに最大${yen(r.max)}円` : ''}`;
+}
+function ruleForm(r) {
+  const hourly = r.unit % 60 === 0;
+  const f = Kit.el(`<div class="k-stack">
+    <div class="f"><span class="k-label">料金</span>
+      <div class="rule"><input class="k-input" data-k="unitN" inputmode="numeric" value="${hourly ? r.unit / 60 : r.unit}"><select class="k-input" data-k="unitK"><option value="m">分</option><option value="h">時間</option></select>ごとに<input class="k-input" data-k="price" inputmode="numeric" placeholder="0" value="${r.price || ''}">円</div>
+      <div class="seg" data-k="presets"></div>
+      <button type="button" class="k-btn is-small" data-k="read" style="justify-self:start">看板の文字から入力</button></div>
+    <details class="more"${r.free || r.max ? ' open' : ''}><summary>くわしい設定（なくても大丈夫）</summary>
+      <div class="k-stack" style="margin-top:8px">
+        <div class="f"><span class="k-label">無料時間</span>
+          <div class="rule">入庫から<input class="k-input" data-k="free" inputmode="numeric" placeholder="0" value="${r.free || ''}">分以内は無料</div></div>
+        <div class="f"><span class="k-label">最大料金</span>
+          <div class="rule">入庫から<select class="k-input" data-k="maxH"><option value="24">24時間</option><option value="12">12時間</option><option value="6">6時間</option><option value="1">1時間</option></select>ごとに最大<input class="k-input" data-k="max" inputmode="numeric" placeholder="0" value="${r.max || ''}">円</div></div>
+      </div></details>
+    <p class="note" data-k="preview"></p></div>`);
+  const q = k => f.querySelector(`[data-k="${k}"]`);
+  q('unitK').value = hourly ? 'h' : 'm'; q('maxH').value = String(r.maxH || 24);
+  const fill = x => {
+    if (x.unit) { const h = x.unit % 60 === 0; q('unitN').value = h ? x.unit / 60 : x.unit; q('unitK').value = h ? 'h' : 'm'; }
+    if (x.price != null) q('price').value = x.price || '';
+    if (x.free != null) q('free').value = x.free || '';
+    if (x.max != null) q('max').value = x.max || '';
+    if (x.maxH) q('maxH').value = String(x.maxH);
+    if (x.free || x.max) f.querySelector('details').open = true;
+    upd();
+  };
+  [['30分200円', 30, 200], ['20分100円', 20, 100], ['1時間300円', 60, 300], ['15分100円', 15, 100]].forEach(([l, u, p]) => {
+    const b = Kit.el(`<button type="button" class="k-chip">${l}</button>`); b.onclick = () => fill({ unit: u, price: p }); q('presets').appendChild(b);
+  });
+  const get = () => {
+    const n = Math.max(1, toNum(q('unitN').value) || 1);
+    return { unit: q('unitK').value === 'h' ? n * 60 : n, price: toNum(q('price').value), free: toNum(q('free').value), max: toNum(q('max').value), maxH: +q('maxH').value };
+  };
+  function upd() { const x = get(); q('preview').textContent = x.price ? 'めやす：' + [60, 120, 180, 300].map(m => `${dur(m)} ${yen(fee(x, m))}円`).join(' ・ ') : '料金を入れなくても、停めた時間だけはかれます。'; }
+  f.addEventListener('input', upd); f.addEventListener('change', upd);
+  q('read').onclick = () => readSign(fill);
+  upd();
+  return { el: f, get };
+}
+/* 看板の文字（スマホの文字認識でコピーしたもの）から料金を読む */
+function parseSign(text) {
+  const t = z2h(text).replace(/[，,]/g, '').replace(/\s+/g, ' ').replace(/¥\s*(\d+)/g, '$1円');
+  const out = {};
+  const free = t.match(/(\d+)\s*分(?:間)?\s*(?:まで|以内)?\s*無料/) || t.match(/無料\s*(?:時間)?\s*(\d+)\s*分/);
+  if (free) out.free = +free[1];
+  const maxM = t.match(/(?:(\d+)\s*時間)?\s*(?:以内)?\s*(?:最大|上限)\s*(?:料金)?\s*(\d+)\s*円/);
+  if (maxM) { out.max = +maxM[2]; if (maxM[1]) out.maxH = [24, 12, 6, 1].includes(+maxM[1]) ? +maxM[1] : 24; }
+  const re = /(\d+)\s*(分|時間)\s*(?:毎|ごと|につき|当り|当たり|あたり)?\s*[\/／:：]?\s*(\d+)\s*円/g;
+  let m;
+  while ((m = re.exec(t))) {
+    const before = t.slice(Math.max(0, m.index - 6), m.index);
+    if (/最大|上限/.test(before) || (maxM && m.index >= maxM.index && m.index < maxM.index + maxM[0].length)) continue;
+    out.unit = m[2] === '時間' ? +m[1] * 60 : +m[1]; out.price = +m[3]; break;
+  }
+  return out;
+}
+function readSign(fill) {
+  const ta = Kit.el(`<div class="k-stack"><p class="note">スマホのカメラの文字認識で、看板の料金の部分をコピーして貼り付けてください。<br>iPhone：カメラを看板に向けて右下の文字マーク → コピー<br>Android：Google レンズの「テキスト」→ コピー</p>
+    <textarea class="k-input" rows="5" placeholder="例：30分 200円　24時間最大 1,200円"></textarea><p class="note" data-k="res"></p></div>`);
+  const area = ta.querySelector('textarea'), res = ta.querySelector('[data-k="res"]');
+  const show = () => { const x = parseSign(area.value); res.textContent = area.value.trim() ? (x.price ? '読み取り：' + ruleText(Object.assign({ unit: 30, price: 0, free: 0, max: 0, maxH: 24 }, x)) : '料金が見つかりませんでした。数字と「分」「円」が入っているか確認してください') : ''; };
+  area.addEventListener('input', show);
+  Kit.modal({ title: '看板の文字から入力', body: ta, actions: [{ label: 'やめる' }, { label: '入れる', primary: true, onClick: () => { const x = parseSign(area.value); if (!x.price && !x.max && !x.free) { Kit.toast('料金を読み取れませんでした'); return false; } fill(x); } }] });
+  setTimeout(() => area.focus(), 50);
+}
+
 /* ---------- 停める前 ---------- */
 function setup() {
   app.innerHTML = '';
   const c = Kit.el(`<div class="k-card k-stack">
-    <div class="f"><span class="k-label">料金</span>
-      <div class="rule"><input class="k-input" id="unit" inputmode="numeric" value="${rule.unit}">分ごとに<input class="k-input" id="price" inputmode="numeric" value="${rule.price}">円</div>
-      <div class="seg" id="presets"></div></div>
-    <div class="f"><span class="k-label">無料時間（なければ0）</span>
-      <div class="rule">入庫から<input class="k-input" id="free" inputmode="numeric" value="${rule.free}">分以内は無料</div></div>
-    <div class="f"><span class="k-label">最大料金（なければ0）</span>
-      <div class="rule">入庫から<select class="k-input" id="maxH"><option value="24">24時間</option><option value="12">12時間</option><option value="6">6時間</option><option value="1">1時間</option></select>ごとに最大<input class="k-input" id="max" inputmode="numeric" value="${rule.max}">円</div></div>
     <div class="f"><span class="k-label">停めた時刻</span>
       <div class="rule"><input class="k-input" type="time" id="at" style="width:auto"><button class="k-btn is-small" id="nowBtn">今</button></div></div>
-    <p class="note" id="preview"></p>
+    <div id="form"></div>
     <button class="k-btn is-sun is-big" id="park">停めた</button></div>`);
   app.appendChild(c);
-  $('maxH').value = String(rule.maxH);
+  const form = ruleForm(rule);
+  $('form').appendChild(form.el);
   const setNow = () => { $('at').value = hm(new Date()).padStart(5, '0'); };
   setNow();
   $('nowBtn').onclick = setNow;
-  [['30分200円', 30, 200], ['20分100円', 20, 100], ['60分300円', 60, 300], ['15分100円', 15, 100]].forEach(([l, u, p]) => {
-    const b = Kit.el(`<button class="k-chip">${l}</button>`); b.onclick = () => { $('unit').value = u; $('price').value = p; read(); }; $('presets').appendChild(b);
-  });
-  const num = id => Math.max(0, parseInt(String($(id).value).replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0)).replace(/[^\d]/g, ''), 10) || 0);
-  function read() {
-    rule = { unit: Math.max(1, num('unit')), price: num('price'), free: num('free'), max: num('max'), maxH: +$('maxH').value };
-    const ex = [60, 120, 180, 300].map(m => `${dur(m)} ${yen(fee(rule, m))}円`).join(' ・ ');
-    $('preview').textContent = 'めやす：' + ex;
-  }
-  c.addEventListener('input', read); c.addEventListener('change', read);
-  read();
   $('park').onclick = () => {
-    read(); Kit.store.set('parking:rule', rule);
+    rule = form.get(); Kit.store.set('parking:rule', rule);
     const [h, mi] = ($('at').value || hm(new Date())).split(':').map(Number);
     const d = new Date(); d.setHours(h, mi, 0, 0);
     if (d.getTime() > Date.now() + 60e3) d.setDate(d.getDate() - 1);   // 未来の時刻なら前の日
     cur = { start: d.getTime(), rule, memo: '', photo: '' };
     saveCur(); Kit.sfx('good'); view();
   };
+}
+function editRule() {
+  const form = ruleForm(cur.rule);
+  const at = Kit.el(`<div class="f" style="margin-bottom:12px"><span class="k-label">停めた時刻</span><div class="rule"><input class="k-input" type="time" style="width:auto" value="${hm(new Date(cur.start)).padStart(5, '0')}"></div></div>`);
+  const body = document.createElement('div'); body.append(at, form.el);
+  Kit.modal({ title: '料金・時刻を変える', body, actions: [{ label: 'やめる' }, { label: '変える', primary: true, onClick: () => {
+    cur.rule = rule = form.get(); Kit.store.set('parking:rule', rule);
+    const [h, mi] = at.querySelector('input').value.split(':').map(Number);
+    if (!isNaN(h)) { const d = new Date(cur.start); d.setHours(h, mi, 0, 0); if (d.getTime() > Date.now() + 60e3) d.setDate(d.getDate() - 1); cur.start = d.getTime(); }
+    saveCur(); view();
+  } }] });
 }
 
 /* ---------- 停めている間 ---------- */
@@ -148,9 +223,10 @@ function view() {
     <input class="k-input" id="memo" placeholder="例：B2・青のC-15" value="${Kit.esc(cur.memo || '')}">
     ${cur.photo ? `<img class="photo" src="${cur.photo}" alt="停めた場所の写真">` : ''}
     <div class="k-row"><label class="k-btn is-small">${cur.photo ? '写真を撮り直す' : '写真を残す'}<input type="file" id="ph" accept="image/*" capture="environment" hidden></label>${cur.photo ? '<button class="k-btn is-small" id="phDel">写真を消す</button>' : ''}</div>
-    <p class="note">料金：${cur.rule.unit}分ごとに${yen(cur.rule.price)}円${cur.rule.free ? ` ・ ${cur.rule.free}分以内無料` : ''}${cur.rule.max ? ` ・ ${cur.rule.maxH}時間ごとに最大${yen(cur.rule.max)}円` : ''}</p>
+    <div class="head-row"><p class="note">${cur.rule.price ? '料金：' : ''}${ruleText(cur.rule)}</p><button class="k-btn is-small" id="editRule">変える</button></div>
     <button class="k-btn" id="done">出庫した（終わる）</button></div>`);
   app.appendChild(memo);
+  $('editRule').onclick = editRule;
   $('memo').addEventListener('input', () => { cur.memo = $('memo').value; saveCur(); });
   $('ph').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { cur.photo = await shrink(f); saveCur(); view(); } catch (err) { Kit.toast('写真を読み込めませんでした'); } };
   if ($('phDel')) $('phDel').onclick = () => { cur.photo = ''; saveCur(); view(); };
@@ -167,7 +243,10 @@ function view() {
 function tick() {
   if (!cur) return;
   const r = cur.rule, now = Date.now(), m = (now - cur.start) / 60000, f = fee(r, m);
-  $('yen').innerHTML = `${yen(f)}<small>円</small>`;
+  const paid = !!r.price;
+  ['nx', 'tl', 'bud'].forEach(id => $(id).closest('.f, .nextup').hidden = !paid);
+  $('yen').innerHTML = paid ? `${yen(f)}<small>円</small>` : dur(m);
+  $('yen').previousElementSibling.textContent = paid ? 'いま出ると' : '停めてから';
   $('el').textContent = dur(m);
   $('st').textContent = clock(cur.start);
   const ups = nextUps(r, m, 6);
