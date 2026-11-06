@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>紙ずもう</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; }
+  .scr { flex: 1; min-height: 0; }
+  .scr[hidden] { display: none !important; }
+  #menu .k-wrap { max-width: 560px; }
+  .pcard { border: 3px solid var(--line); border-radius: 16px; padding: 12px; background: var(--card); display: grid; gap: 8px; }
+  .pcard h3 { font-size: 1.05rem; display: flex; align-items: center; gap: 8px; }
+  .pcard .dot { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid var(--line); }
+  .types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .types button { border: 2.5px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); padding: 6px 2px; font: 900 .85rem var(--font); cursor: pointer; display: grid; gap: 2px; justify-items: center; }
+  .types button small { font-size: .66rem; font-weight: 700; opacity: .75; }
+  .types button[aria-pressed="true"] { background: var(--sun); color: #2a2238; }
+  .cols { display: flex; gap: 8px; align-items: center; }
+  .cols button { width: 32px; height: 32px; border-radius: 50%; border: 2.5px solid var(--line); cursor: pointer; }
+  .cols button[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--card), 0 0 0 6px var(--line); transform: scale(.9); }
+  .rank { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+  .rank span { border: 2px solid var(--line); border-radius: 10px; padding: 4px 0; text-align: center; font: 900 .72rem var(--font); background: var(--card); opacity: .5; }
+  .rank span.ok { background: var(--grass); color: #2a2238; opacity: 1; }
+  .rank span.now { background: var(--sun); color: #2a2238; opacity: 1; outline: 3px solid var(--berry); }
+  .next { text-align: center; font-weight: 900; }
+
+  #bout { display: flex; flex-direction: column; background: #f7ecd6; }
+  #wrap { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+  #cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .pads { display: flex; gap: 8px; padding: 8px max(8px, env(safe-area-inset-left)) max(10px, env(safe-area-inset-bottom)); background: #e7d4ad; border-top: 3px solid var(--line); }
+  .pad { flex: 1; height: min(26vh, 170px); border: 4px solid var(--line); border-radius: 22px; font: 400 clamp(1.4rem, 7vw, 2.2rem) var(--display); color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,.25); cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; box-shadow: 0 6px 0 var(--line); display: grid; place-items: center; line-height: 1.1; }
+  .pad small { display: block; font: 900 .8rem var(--font); text-shadow: none; opacity: .9; }
+  .pad.p0 { background: #3d8bff; } .pad.p1 { background: #ff5d6c; }
+  .pad.hit { transform: translateY(4px); box-shadow: 0 2px 0 var(--line); }
+  .pad[hidden] { display: none; }
+  .quit { position: absolute; right: 8px; top: 8px; }
+</style>
+</head>
+<body>
+<section id="menu" class="scr"><main class="k-wrap k-stack">
+  <div class="k-chips" id="mode"></div>
+  <div id="cards" class="k-stack"></div>
+  <div id="rankBox" class="k-stack"></div>
+  <button class="k-btn is-berry is-big" id="go">はっけよい！</button>
+</main></section>
+
+<section id="bout" class="scr" hidden>
+  <div id="wrap"><canvas id="cv"></canvas><button class="k-btn is-small quit" id="quit">やめる</button></div>
+  <div class="pads"><button class="pad p0" id="pad0">トントン<small id="pn0"></small></button><button class="pad p1" id="pad1">トントン<small id="pn1"></small></button></div>
+</section>
+
+<script src="../../common/kit.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const show = id => ['menu', 'bout'].forEach(s => $(s).hidden = s !== id);
+
+/* ---------- 力士の タイプ ---------- */
+const TYPES = {
+  big:  { label: '🍙 どっしり', sub: 'おもくて 強い',   m: 1.2, h: 104, w: 72, lean: .10, hop: .9 },
+  tall: { label: '🎋 のっぽ',   sub: 'せが高く 前に出る', m: 1.0,  h: 136, w: 56, lean: .15, hop: 1.0 },
+  quick:{ label: '🐇 すばしこい', sub: 'かるくて よく はねる', m: .88, h: 98, w: 56, lean: .12, hop: 1.15 },
+};
+const COLORS = ['#3d8bff', '#ff5d6c', '#7a4bd8', '#1f9e6a', '#ff9a1f', '#2a2238'];
+const RANKS = ['序ノ口', '序二段', '三段目', '幕下', '十両', '前頭', '小結', '関脇', '大関', '横綱'];
+const CPU_NAMES = ['画用紙山', 'のり富士', 'ハサミ錦', 'セロハン海', '折り紙丸', '千代紙', 'ホチキス龍', '段ボール関', '厚紙ノ花', '紙ふぶき'];
+const MY_NAMES = ['トントン山', 'ぺらぺら丸', 'ふんばり海', 'どすこい錦'];
+const KEY = 'kamizumo:cfg';
+const C = Object.assign({ mode: 1, p: [{ name: Kit.pick(MY_NAMES.slice(0, 2)), type: 'big', color: COLORS[0] }, { name: Kit.pick(MY_NAMES.slice(2)), type: 'tall', color: COLORS[1] }] }, Kit.store.get(KEY, {}));
+let rank = Kit.store.get('kamizumo:rank', 0); // 勝った 番付の 数（10で 横綱 クリア）
+
+/* ---------- メニュー ---------- */
+function renderMenu() {
+  const md = $('mode'); md.innerHTML = '';
+  [[1, '🧍 ひとりで'], [2, '👫 ふたりで（1台で）']].forEach(([v, l]) => {
+    const b = Kit.el(`<button class="k-chip" aria-pressed="${C.mode === v}">${l}</button>`);
+    b.onclick = () => { C.mode = v; Kit.sfx('select'); save(); renderMenu(); }; md.appendChild(b);
+  });
+  const cards = $('cards'); cards.innerHTML = '';
+  for (let i = 0; i < C.mode; i++) cards.appendChild(card(i));
+  const rb = $('rankBox'); rb.innerHTML = ''; rb.hidden = C.mode !== 1;
+  if (C.mode === 1) {
+    const done = rank >= RANKS.length;
+    rb.appendChild(Kit.el(`<span class="k-label">番付（勝つと 上がる）</span>`));
+    rb.appendChild(Kit.el(`<div class="rank">${RANKS.map((r, i) => `<span class="${i < rank ? 'ok' : i === rank ? 'now' : ''}">${r}</span>`).join('')}</div>`));
+    rb.appendChild(Kit.el(`<p class="next">${done ? '🏆 横綱に 勝った！ もう一度 序ノ口から ちょうせん できるよ' : `つぎの あいて：<b>${RANKS[rank]}「${CPU_NAMES[rank]}」</b>`}</p>`));
+  }
+  $('go').textContent = C.mode === 1 && rank >= RANKS.length ? 'もう一度 序ノ口から' : 'はっけよい！';
+}
+function card(i) {
+  const p = C.p[i];
+  const el = Kit.el(`<div class="pcard"><h3><span class="dot" style="background:${i ? '#ff5d6c' : '#3d8bff'}"></span>${C.mode === 1 ? 'あなたの 力士' : i ? 'みぎの 力士' : 'ひだりの 力士'}</h3>
+    <input class="k-input" maxlength="8" value="${Kit.esc(p.name)}" placeholder="しこ名">
+    <div class="types"></div><div class="cols"><span class="k-label" style="margin-right:4px">まわし</span></div></div>`);
+  el.querySelector('input').oninput = e => { p.name = e.target.value.trim() || 'ななし山'; save(); };
+  const ty = el.querySelector('.types');
+  Object.entries(TYPES).forEach(([k, t]) => {
+    const b = Kit.el(`<button aria-pressed="${p.type === k}">${t.label}<small>${t.sub}</small></button>`);
+    b.onclick = () => { p.type = k; Kit.sfx('select'); save(); renderMenu(); }; ty.appendChild(b);
+  });
+  const co = el.querySelector('.cols');
+  COLORS.forEach(c => {
+    const b = Kit.el(`<button style="background:${c}" aria-pressed="${p.color === c}" aria-label="${c}"></button>`);
+    b.onclick = () => { p.color = c; Kit.sfx('tap'); save(); renderMenu(); }; co.appendChild(b);
+  });
+  return el;
+}
+function save() { Kit.store.set(KEY, C); }
+$('go').onclick = () => {
+  Kit.sfx('tap');
+  if (C.mode === 1 && rank >= RANKS.length) { rank = 0; Kit.store.set('kamizumo:rank', 0); }
+  startBout();
+};
+
+/* ---------- 物理（横から 見た 土俵） ---------- */
+const P = { wob: 1.2, miss: 2.2, push: 1900, torq: .03, fric: 4, fwd: 100, lean: 200, tip: .55, fall: 1.2, win: .16, bonus: 1.35, tire: 10, att: .25, airLoss: .6 };
+const WW = 600, WH = 400, GY = 292, RING = [92, 508], G = 1500;
+let R = null; // いまの 一番
+function rikishi(spec, side, extra = {}) {
+  const t = TYPES[spec.type] || TYPES.big;
+  return Object.assign({ ...t, name: spec.name, color: spec.color, d: side ? -1 : 1, x: side ? 362 : 238, y: 0, vx: 0, vy: 0, th: t.lean, w0: 0, air: false, land: -9, hit: 0, str: 1 }, extra);
+}
+function startBout() {
+  const a = rikishi(C.p[0], 0);
+  let b, cpu = null;
+  if (C.mode === 1) {
+    const lv = rank, type = ['quick', 'big', 'tall'][lv % 3];
+    b = rikishi({ name: CPU_NAMES[lv], type, color: ['#8a5a2b', '#555b66', '#7a4bd8', '#1f9e6a', '#d6305f'][lv % 5] }, 1, { str: 1 + lv * .025 });
+    cpu = { lv, t: .8, rate: .46 - lv * .03, acc: .25 + lv * .075 };
+  } else b = rikishi(C.p[1], 1);
+  R = { w: [a, b], cpu, phase: 'ready', t: 0, msg: '', sub: '', shake: 0, contact: 0, winner: -1, kimarite: '', fx: [], score: R && R.score && R.mode === C.mode ? R.score : [0, 0], mode: C.mode };
+  $('pad1').hidden = C.mode === 1;
+  $('pn0').textContent = a.name; $('pn1').textContent = b.name;
+  show('bout'); resize(); Kit.keepAwake && Kit.keepAwake(true);
+}
+
+/* トントン：自分の 力士が 地面に いる ときだけ ぴょんと はねる */
+function tap(i) {
+  if (!R || R.phase !== 'go') { if (R && R.phase === 'ready') R.early = (R.early || 0) + 1; return; }
+  const me = R.w[i], op = R.w[1 - i];
+  R.shake = .09; Kit.sfx('drop');
+  kick(me, 1); kick(op, .22);
+}
+function kick(r, power) {
+  const tire = 1 + Math.max(0, R.t - P.tire) * .12; // 長びくと ぐらぐら してくる
+  if (r.air) { r.w0 += (Math.random() - .5) * (power < 1 ? .3 : P.miss) * tire; if (power >= 1) r.vx *= P.airLoss; return; } // 空中で たたくと ぐらついて、いきおいも にげる
+  const s = Math.sqrt(r.m), good = power >= 1 && R.t - r.land < P.win;
+  r.vy = (200 + Math.random() * 80) * r.hop / s * (power < 1 ? .35 : 1);
+  if (power >= 1) r.vx += r.d * Math.max(30, P.fwd + P.lean * Math.sin(r.th)) * r.hop * r.str * (good ? P.bonus : 1) * (.8 + Math.random() * .4) / s;
+  r.w0 += (Math.random() - .5) * P.wob * power * (good ? .4 : 1) * tire;
+  r.air = true;
+  if (good) { r.good = (r.good || 0) + 1; R.fx.push({ x: r.x, y: GY - r.h - 20, t: 0, txt: 'いいね！' }); }
+}
+function step(dt) {
+  const [a, b] = R.w;
+  for (const r of R.w) {
+    if (r.air) {
+      r.vy -= G * dt; r.y += r.vy * dt; r.x += r.vx * dt;
+      r.w0 += -(r.th - r.lean) * 6 * dt; r.th += r.w0 * dt; r.w0 *= Math.exp(-.8 * dt);
+      if (r.y <= 0) { r.y = 0; r.vy = 0; r.air = false; r.land = R.t; r.vx *= .45; r.w0 += (Math.random() - .5) * .7; }
+    } else {
+      // 地面：まえかがみに もどろうと する。かたむきすぎると たおれる 方へ
+      const off = r.th - r.lean, tip = Math.abs(r.th) > P.tip ? Math.sign(r.th) * (Math.abs(r.th) - P.tip) * 70 * (r.h / 110) : 0;
+      r.w0 += (-off * 34 + tip) * dt; r.w0 *= Math.exp(-5 * dt);
+      r.th += r.w0 * dt; r.x += r.vx * dt; r.vx *= Math.exp(-P.fric * dt);
+    }
+  }
+  // ぶつかり：むねの 前どうしが かさなったら おしあう
+  const fa = a.x + Math.sin(a.th) * a.h * .55 + a.w / 2, fb = b.x - Math.sin(b.th) * b.h * .55 - b.w / 2;
+  const ov = fa - fb;
+  if (ov > 0 && Math.abs(a.y - b.y) < Math.min(a.h, b.h) * .6) {
+    const f = Math.max(0, P.push * ov + 70 * (a.vx - b.vx));
+    a.vx -= f / a.m * dt; b.vx += f / b.m * dt;
+    const ka = a.vx > -b.vx ? P.att : 1, kb = a.vx > -b.vx ? 1 : P.att; // いきおいの ある 方は のけぞりにくい
+    a.w0 -= f * P.torq * ka / a.m * (110 / a.h) * dt; b.w0 -= f * P.torq * kb / b.m * (110 / b.h) * dt;
+    const M = a.m + b.m; a.x -= ov * b.m / M * .5; b.x += ov * a.m / M * .5;
+    R.contact = R.t;
+  }
+  // 勝ち負け
+  const recent = R.t - R.contact < .5, res = [];
+  R.w.forEach((r, i) => {
+    if (Math.abs(r.th) > P.fall) res.push([i, r.th < 0 ? (recent ? '押したおし' : 'こしくだけ') : (recent ? 'はたきこみ' : 'つきひざ')]);
+    else if (!r.air && (r.x - r.w * .35 < RING[0] || r.x + r.w * .35 > RING[1])) {
+      const fwd = Math.sign(r.vx) === r.d;
+      res.push([i, recent ? (fwd ? '寄り切り' : '押し出し') : (fwd ? '勇み足' : 'ふみ出し')]);
+    }
+  });
+  if (res.length === 2) return end(-1, 'とりなおし');
+  if (res.length === 1) end(1 - res[0][0], res[0][1]);
+}
+function cpuThink(dt) {
+  const c = R.cpu; if (!c) return;
+  const me = R.w[1];
+  c.t -= dt; if (c.t > 0) return;
+  // うまい 力士ほど 着地に あわせて たたき、たおれそうな ときは 待つ
+  if (me.air && Math.random() < c.acc) { c.t = .03; return; }
+  if (me.th > .75 && Math.random() < c.acc) { c.t = .12; return; }
+  tap(1); c.t = c.rate * (.7 + Math.random() * .6);
+}
+function end(win, kim) {
+  R.phase = 'end'; R.winner = win; R.kimarite = kim; R.t = 0;
+  if (win < 0) { R.msg = 'とりなおし！'; Kit.sfx('whoosh'); setTimeout(() => R && R.phase === 'end' && startBout(), 1500); return; }
+  R.score[win]++;
+  R.msg = kim; R.sub = `${R.w[win].name} の 勝ち！`;
+  const good = C.mode === 2 || win === 0;
+  Kit.sfx(good ? 'win' : 'bad'); if (good) Kit.confetti(1600);
+  setTimeout(result, 1700);
+}
+function result() {
+  if (!R || R.phase !== 'end') return;
+  const win = R.winner;
+  if (C.mode === 1) {
+    if (win === 0) {
+      rank = Math.min(RANKS.length, rank + 1); Kit.store.set('kamizumo:rank', rank);
+      const top = rank >= RANKS.length;
+      Kit.modal({ title: top ? '🏆 横綱に 勝った！' : `🎉 ${RANKS[rank - 1]} に 勝った！`, body: `<p>決まり手：<b>${R.kimarite}</b></p>${top ? '<p>おめでとう！ 紙ずもうの チャンピオンだ！</p>' : `<p>つぎは <b>${RANKS[rank]}「${CPU_NAMES[rank]}」</b></p>`}`, dismissable: false,
+        actions: [{ label: 'メニュー', onClick: toMenu }, ...(top ? [] : [{ label: 'つぎの 一番', primary: true, onClick: startBout }])] });
+    } else {
+      Kit.modal({ title: '😣 まけちゃった', body: `<p>決まり手：<b>${R.kimarite}</b></p><p>コツ：着地した しゅんかんに トントン。たおれそうな ときは がまん！</p>`, dismissable: false,
+        actions: [{ label: 'メニュー', onClick: toMenu }, { label: 'もう一回', primary: true, onClick: startBout }] });
+    }
+  } else {
+    Kit.modal({ title: `🎉 ${R.w[win].name} の 勝ち！`, body: `<p>決まり手：<b>${R.kimarite}</b></p><p style="font-size:1.4rem;font-weight:900;text-align:center">${Kit.esc(R.w[0].name)} ${R.score[0]} − ${R.score[1]} ${Kit.esc(R.w[1].name)}</p>`, dismissable: false,
+      actions: [{ label: 'メニュー', onClick: toMenu }, { label: 'もう一番', primary: true, onClick: startBout }] });
+  }
+}
+function toMenu() { R = null; Kit.keepAwake && Kit.keepAwake(false); show('menu'); renderMenu(); }
+$('quit').onclick = () => { Kit.sfx('tap'); toMenu(); };
+
+/* ---------- 入力 ---------- */
+[0, 1].forEach(i => {
+  const p = $('pad' + i);
+  p.addEventListener('pointerdown', e => { e.preventDefault(); p.classList.add('hit'); setTimeout(() => p.classList.remove('hit'), 90); tap(C.mode === 1 ? 0 : i); });
+});
+addEventListener('keydown', e => {
+  if (!R || e.repeat) return;
+  if (C.mode === 1 && (e.code === 'Space' || e.code === 'Enter')) { e.preventDefault(); tap(0); }
+  if (C.mode === 2) { if (e.code === 'KeyA') tap(0); if (e.code === 'KeyL') tap(1); }
+});
+
+/* ---------- かく ---------- */
+const cv = $('cv'), g = cv.getContext('2d');
+let S = 1, OX = 0, OY = 0;
+function resize() {
+  const r = $('wrap').getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
+  cv.width = r.width * dpr; cv.height = r.height * dpr;
+  // たてむきの 画面では 土俵の まわりを すこし きりとって 大きく
+  S = Math.min(r.width / 470, r.height / WH) * dpr; OX = (cv.width - WW * S) / 2; OY = (cv.height - WH * S) / 2;
+}
+addEventListener('resize', () => { if (R) resize(); });
+function scene() {
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.fillStyle = '#f7ecd6'; g.fillRect(0, 0, cv.width, cv.height);
+  const sh = R.shake > 0 ? (Math.random() - .5) * 6 : 0;
+  g.setTransform(S, 0, 0, S, OX + sh * S, OY + Math.abs(sh) * .5 * S);
+  // つり屋根の ふさ（かざり）
+  g.fillStyle = '#c23a3a'; g.fillRect(40, 0, 520, 14); g.fillStyle = '#7a1f1f'; g.fillRect(40, 14, 520, 4);
+  [[70, '#2f6fde'], [510, '#d6305f']].forEach(([x, c]) => { g.fillStyle = c; g.fillRect(x, 18, 20, 46); g.beginPath(); g.moveTo(x - 4, 64); g.lineTo(x + 24, 64); g.lineTo(x + 10, 84); g.fill(); });
+  // 箱（段ボール）
+  g.fillStyle = '#c9965a'; g.strokeStyle = '#5a3d20'; g.lineWidth = 3;
+  g.beginPath(); g.moveTo(40, GY); g.lineTo(560, GY); g.lineTo(560, 390); g.lineTo(40, 390); g.closePath(); g.fill(); g.stroke();
+  g.fillStyle = '#b5824a'; g.fillRect(43, 330, 514, 6);
+  // 土俵の 上（だえん）
+  g.fillStyle = '#ead6a6'; g.beginPath(); g.ellipse(300, GY, 260, 52, 0, 0, 7); g.fill(); g.stroke();
+  g.strokeStyle = '#a8823f'; g.lineWidth = 7; g.beginPath(); g.ellipse(300, GY, 216, 40, 0, 0, 7); g.stroke();
+  g.strokeStyle = '#fff'; g.lineWidth = 3; [[268, 278], [322, 332]].forEach(([x0, x1]) => { g.beginPath(); g.moveTo(x0, GY - 8); g.lineTo(x1, GY - 8); g.stroke(); });
+  // 力士
+  R.w.forEach(r => { g.fillStyle = 'rgba(60,40,10,.22)'; g.beginPath(); g.ellipse(r.x, GY + 2, r.w * .55 * Math.max(.4, 1 - r.y / 200), 7, 0, 0, 7); g.fill(); });
+  R.w.forEach(drawRikishi);
+  // もじ
+  g.textAlign = 'center'; g.lineJoin = 'round';
+  const big = (t, y, size, col = '#2a2238') => { g.font = `${size}px "Dela Gothic One", sans-serif`; g.lineWidth = size / 5; g.strokeStyle = '#fff'; g.strokeText(t, 300, y); g.fillStyle = col; g.fillText(t, 300, y); };
+  g.font = '900 18px "Zen Maru Gothic", sans-serif'; g.lineWidth = 4;
+  R.fx.forEach(f => { g.globalAlpha = Math.max(0, 1 - f.t / .7); g.strokeStyle = '#fff'; g.strokeText(f.txt, f.x, f.y - f.t * 40); g.fillStyle = '#ff8a3d'; g.fillText(f.txt, f.x, f.y - f.t * 40); });
+  g.globalAlpha = 1;
+  if (R.msg) big(R.msg, 150, R.phase === 'end' ? 54 : 46, R.phase === 'end' ? '#d6305f' : '#2a2238');
+  if (R.sub) big(R.sub, 196, 24);
+  g.font = '900 17px "Zen Maru Gothic", sans-serif'; g.lineWidth = 4; g.strokeStyle = '#fff';
+  R.w.forEach((r, i) => {
+    const x = i ? 520 : 80, t = (R.cpu && i ? `${RANKS[R.cpu.lv]} ` : '') + r.name;
+    const nx = i ? 528 : 72; g.textAlign = i ? 'right' : 'left'; g.strokeText(t, nx, 112); g.fillStyle = i ? '#d6305f' : '#2f6fde'; g.fillText(t, nx, 112);
+    if (C.mode === 2) { g.font = '28px "Dela Gothic One", sans-serif'; g.strokeText(R.score[i], nx, 146); g.fillText(R.score[i], nx, 146); g.font = '900 17px "Zen Maru Gothic", sans-serif'; }
+    void x;
+  });
+}
+function drawRikishi(r) {
+  const { h, w } = r, paper = '#fffaf0', ink = '#3a2e24';
+  g.save(); g.translate(r.x, GY - r.y); g.rotate(r.th * r.d); g.scale(r.d, 1);
+  g.lineWidth = 2.5; g.strokeStyle = ink; g.lineJoin = 'round';
+  // おりかえしの 足もと
+  g.fillStyle = '#e9dcc0'; g.beginPath(); g.moveTo(-w * .45, 0); g.lineTo(w * .45, 0); g.lineTo(w * .36, -6); g.lineTo(-w * .36, -6); g.closePath(); g.fill(); g.stroke();
+  // あし
+  g.fillStyle = paper;
+  [[-w * .3, -w * .05], [w * .05, w * .3]].forEach(([x0, x1]) => { g.beginPath(); g.moveTo(x0, -6); g.lineTo(x1, -6); g.lineTo(x1 + 2, -h * .3); g.lineTo(x0 - 2, -h * .3); g.closePath(); g.fill(); g.stroke(); });
+  // からだ（おなか）
+  g.beginPath(); g.ellipse(0, -h * .47, w * .5, h * .25, 0, 0, 7); g.fill(); g.stroke();
+  // まわし
+  g.fillStyle = r.color; g.beginPath(); g.rect(-w * .47, -h * .34, w * .94, h * .1); g.fill(); g.stroke();
+  g.beginPath(); g.moveTo(w * .1, -h * .24); g.lineTo(w * .3, -h * .24); g.lineTo(w * .26, -h * .13); g.lineTo(w * .14, -h * .13); g.closePath(); g.fill(); g.stroke();
+  // うで（前に つっぱり）
+  g.fillStyle = paper; g.beginPath(); g.moveTo(w * .1, -h * .62); g.quadraticCurveTo(w * .55, -h * .62, w * .7, -h * .56); g.lineTo(w * .68, -h * .48); g.quadraticCurveTo(w * .45, -h * .52, w * .1, -h * .5); g.closePath(); g.fill(); g.stroke();
+  g.beginPath(); g.arc(w * .72, -h * .52, h * .05, 0, 7); g.fill(); g.stroke();
+  // あたま・まげ
+  const hy = -h * .8, hr = h * .14;
+  g.beginPath(); g.ellipse(-hr * .55, hy - hr * .95, hr * .45, hr * .3, -.3, 0, 7); g.fillStyle = '#2a2238'; g.fill();
+  g.fillStyle = paper; g.beginPath(); g.arc(0, hy, hr, 0, 7); g.fill(); g.stroke();
+  g.fillStyle = '#2a2238'; g.beginPath(); g.arc(0, hy, hr, Math.PI * 1.05, Math.PI * 1.75); g.lineTo(0, hy); g.fill();
+  // かお
+  g.beginPath(); g.arc(hr * .45, hy - hr * .05, 2.4, 0, 7); g.fill();
+  g.lineWidth = 2; g.beginPath(); g.moveTo(hr * .22, hy - hr * .32); g.lineTo(hr * .62, hy - hr * .26); g.stroke();
+  g.beginPath(); g.moveTo(hr * .38, hy + hr * .42); g.lineTo(hr * .7, hy + hr * .38); g.stroke();
+  g.fillStyle = 'rgba(255,120,120,.45)'; g.beginPath(); g.arc(hr * .2, hy + hr * .25, hr * .18, 0, 7); g.fill();
+  g.restore();
+}
+
+/* ---------- ループ ---------- */
+let last = 0;
+function loop(now) {
+  requestAnimationFrame(loop);
+  const dt = Math.min(.05, (now - last) / 1000 || 0); last = now;
+  if (!R || $('bout').hidden) return;
+  R.t += dt; R.shake -= dt; R.fx.forEach(f => f.t += dt); R.fx = R.fx.filter(f => f.t < .7);
+  if (R.phase === 'ready') {
+    R.msg = R.t < 1.1 ? '見合って…' : 'はっけよい！'; R.sub = '';
+    if (R.t > 1.9) { R.phase = 'go'; R.t = 0; R.msg = 'のこった！'; Kit.sfx('whoosh'); }
+  } else if (R.phase === 'go') {
+    if (R.t > 1.2) R.msg = '';
+    const n = 4; for (let i = 0; i < n && R.phase === 'go'; i++) { step(dt / n); cpuThink(dt / n); }
+  }
+  scene();
+}
+requestAnimationFrame(loop);
+
+/* テスト用：はやおくりで たいせん */
+function simulate(lvA, lvB, tA, tB, maxT = 60) {
+  C.mode = 1; const keep = rank; rank = lvB; startBout(); rank = keep;
+  if (tA) Object.assign(R.w[0], TYPES[tA], { th: TYPES[tA].lean }); if (tB) Object.assign(R.w[1], TYPES[tB], { th: TYPES[tB].lean });
+  R.phase = 'go'; const ca = typeof lvA === 'object' ? { t: .8, ...lvA } : { lv: lvA, t: .8, rate: .46 - lvA * .03, acc: .25 + lvA * .075 };
+  let t = 0;
+  while (R.phase === 'go' && t < maxT) {
+    const dt = 1 / 240; step(dt); cpuThink(dt);
+    ca.t -= dt; const me = R.w[0];
+    if (ca.t <= 0) { if (me.air && Math.random() < ca.acc) ca.t = .03; else if (me.th > .75 && Math.random() < ca.acc) ca.t = .12; else { tap(0); ca.t = ca.rate * (.7 + Math.random() * .6); } }
+    t += dt; R.t += dt;
+  }
+  return { win: R.winner, kim: R.kimarite, t: +t.toFixed(1) };
+}
+if (location.hash === '#debug') window.__ks = { P, simulate, get R() { return R; }, tap };
+
+Kit.bar({ id: 'kamizumo', title: '🤼 紙ずもう', help: `
+  <p>紙の 力士を、土俵（箱）を トントン たたいて たたかわせる ゲームです。</p>
+  <p><b>トントン</b>を おすと、自分の 力士が ぴょんと はねて 前に すすみます。<b>着地した しゅんかんに たたく</b>と よく 進みます。あいての 力士も 少し ゆれます。</p>
+  <p>あいてを <b>土俵の 外に 出す</b>か、<b>たおす</b>と 勝ち。前に かたむきすぎると 自分が たおれるので、がまんも 大事！</p>
+  <p>🍙どっしり は おもくて おされにくい、🎋のっぽ は 前に 出やすいけど たおれやすい、🐇すばしこい は よく はねます。</p>
+  <p>ひとりで：勝つと 番付が 上がります。横綱を めざそう！ ふたりで：1台を 左右で 分けて あそびます（パソコンは A キーと L キー）。</p>` });
+renderMenu();
+</script>
+</body>
+</html>
