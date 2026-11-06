@@ -247,7 +247,7 @@
     let name = Kit.store.get('net:name', '') || '';
     const close = () => { alive = false; back.remove(); };
     const cancel = () => { if (room) room.close(); room = null; Net.room = null; close(); if (cfg.onCancel) cfg.onCancel(); };
-    const fail = e => { if (!alive) return; room = null; err = errText(e && e.type); view = view === 'joining' ? 'join' : view === 'creatingPick' ? 'pick' : 'home'; Kit.sfx('bad'); render(); };
+    const fail = e => { if (!alive) return; room = null; err = errText(e && e.type); view = view === 'joining' ? 'join' : view === 'creatingPick' ? 'pick' : view === 'creating' ? 'how' : 'home'; Kit.sfx('bad'); render(); };
 
     function people() {
       const ppl = (room ? room.players : []).map(p => `<span class="${p.id === (room && room.peerId) ? 'me' : ''}">${Kit.esc(p.name)}</span>`);
@@ -265,10 +265,17 @@
             <input class="k-input" id="nName" maxlength="10" value="${Kit.esc(name)}" placeholder="${T('なまえ', '名前')}">
             <button class="k-btn is-sun is-big" id="nHost">🏠 ${T('へやを つくる', 'ルームを作る')}</button>
             <button class="k-btn is-sky is-big" id="nJoin">🚪 ${T('へやに はいる', 'ルームに入る')}</button>
-            <button class="k-btn is-small" id="nPick">🔢 ${T('ばんごうを きめて つくる', '番号を決めて作る')}</button>
             ${errHtml}
           </div>
           <div class="k-actions"><button class="k-btn" id="nX">${T('やめる', 'やめる')}</button></div>`;
+      } else if (view === 'how') {
+        h = `<h2>🏠 ${T('へやばんごうは？', 'ルーム番号は？')}</h2>
+          <div class="n-big">
+            <button class="k-btn is-sun is-big" id="nRand">🎲 ${T('おまかせ', 'おまかせ')}</button>
+            <button class="k-btn is-sky is-big" id="nPick">🔢 ${T('じぶんで きめる', '自分で決める')}</button>
+            ${errHtml}
+          </div>
+          <div class="k-actions"><button class="k-btn" id="nBack">${T('もどる', '戻る')}</button></div>`;
       } else if (view === 'pick') {
         h = `<h2>🔢 ${T('へやばんごうを きめる', 'ルーム番号を決める')}</h2>
           <input class="k-input n-code-in" id="nMine" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="0000" value="${Kit.esc(Kit.store.get('net:myCode', ''))}">
@@ -326,7 +333,8 @@
           view = 'host'; render();
         }, fail);
       };
-      on('nHost', () => host(null));
+      on('nHost', () => { takeName(); err = ''; view = 'how'; render(); });
+      on('nRand', () => host(null));
       on('nPick', () => { takeName(); err = ''; view = 'pick'; render(); });
       const mineIn = box.querySelector('#nMine');
       if (mineIn) {
@@ -341,7 +349,7 @@
         setTimeout(() => mineIn.focus(), 50);
       }
       on('nJoin', () => { takeName(); err = ''; view = 'join'; render(); });
-      on('nBack', () => { err = ''; view = 'home'; render(); });
+      on('nBack', () => { err = ''; view = view === 'pick' ? 'how' : 'home'; render(); });
       on('nShare', () => {
         const url = location.origin + location.pathname + '#join=' + room.code;
         const text = T(`あそびばこで いっしょに あそぼう！ へやばんごう ${room.code}`, `ルーム番号 ${room.code}`);
