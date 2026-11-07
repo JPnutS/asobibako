@@ -387,19 +387,32 @@ function pressed(i) { const p = $('pad' + i); p.classList.add('hit'); setTimeout
 
 /* ---------- かく ---------- */
 const cv = $('cv'), g = cv.getContext('2d');
-let S = 1, OX = 0, OY = 0;
+let S = 1, OX = 0, OY = 0, TWO = false;
+const YC = 262; // ふたりで：土俵を たてに する ときの まん中
 function resize() {
   const r = $('wrap').getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
   cv.width = r.width * dpr; cv.height = r.height * dpr;
-  // たてむきの 画面では 土俵の まわりを すこし きりとって 大きく
-  S = Math.min(r.width / 470, r.height / WH) * dpr; OX = (cv.width - WW * S) / 2; OY = (cv.height - WH * S) / 2;
+  TWO = C.mode === 2;
+  // ひとりで：横から 見た 土俵（まわりを すこし きりとって 大きく）
+  // ふたりで：土俵を 90度 まわして、下の 人の 力士が 下、上の 人の 力士が 上
+  if (TWO) S = Math.min(r.height / 470, r.width / 380) * dpr;
+  else { S = Math.min(r.width / 470, r.height / WH) * dpr; OX = (cv.width - WW * S) / 2; OY = (cv.height - WH * S) / 2; }
+}
+/* 土俵の 中の 点 → 画面の 点 */
+const W2S = (x, y) => TWO ? [cv.width / 2 + (y - YC) * S, cv.height / 2 - (x - 300) * S] : [OX + x * S, OY + y * S];
+/* 画面に まっすぐ 字を 書く（flip：上の 人むけに さかさま） */
+function stext(t, sx, sy, px, col, { font = 'Dela Gothic One', w = 400, flip = false, align = 'center', alpha = 1 } = {}) {
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = alpha; g.translate(sx, sy); if (flip) g.rotate(Math.PI);
+  const size = px * S; g.font = `${w} ${size}px "${font}", sans-serif`; g.textAlign = align; g.textBaseline = 'middle'; g.lineJoin = 'round';
+  g.lineWidth = Math.max(3, size / 5); g.strokeStyle = '#fff'; g.strokeText(t, 0, 0); g.fillStyle = col; g.fillText(t, 0, 0); g.restore();
 }
 addEventListener('resize', () => { if (R) resize(); });
 function scene() {
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.fillStyle = '#f7ecd6'; g.fillRect(0, 0, cv.width, cv.height);
   const sh = R.shake > 0 ? (Math.random() - .5) * 6 : 0;
-  g.setTransform(S, 0, 0, S, OX + sh * S, OY + Math.abs(sh) * .5 * S);
+  if (TWO) g.setTransform(0, -S, S, 0, cv.width / 2 - YC * S + Math.abs(sh) * .5 * S, cv.height / 2 + 300 * S + sh * S);
+  else g.setTransform(S, 0, 0, S, OX + sh * S, OY + Math.abs(sh) * .5 * S);
   const tiltAng = R.tiltT > 0 ? Math.sign(R.tiltA) * .07 * Math.min(1, R.tiltT * 3, (ABIL_T.tilt - R.tiltT) * 6) : 0;
   // つり屋根の ふさ（かざり）
   g.fillStyle = '#c23a3a'; g.fillRect(40, 0, 520, 14); g.fillStyle = '#7a1f1f'; g.fillRect(40, 14, 520, 4);
@@ -418,10 +431,12 @@ function scene() {
   R.w.forEach(drawRikishi);
   R.w.forEach(r => { // わざの しるし
     const lab = r.fx.seal > 0 ? '🚫' : r.fx.rock > 0 ? '🪨' : '';
-    if (lab) { g.font = '26px sans-serif'; g.textAlign = 'center'; g.fillText(lab, r.x, GY - r.y - r.h - 14); }
+    if (lab && !TWO) { g.font = '26px sans-serif'; g.textAlign = 'center'; g.fillText(lab, r.x, GY - r.y - r.h - 14); }
+    if (lab && TWO) { const [sx, sy] = W2S(r.x, GY - r.y - r.h - 14); stext(lab, sx, sy, 24, '#000', { font: 'sans-serif', flip: sy < cv.height / 2 }); }
   });
   g.restore();
   // もじ
+  if (TWO) return twoTexts();
   g.textAlign = 'center'; g.lineJoin = 'round';
   const big = (t, y, size, col = '#2a2238') => { g.font = `${size}px "Dela Gothic One", sans-serif`; g.lineWidth = size / 5; g.strokeStyle = '#fff'; g.strokeText(t, 300, y); g.fillStyle = col; g.fillText(t, 300, y); };
   g.font = '900 18px "Zen Maru Gothic", sans-serif'; g.lineWidth = 4;
@@ -435,6 +450,20 @@ function scene() {
     const t = (R.cpu && i ? `${RANKS[R.cpu.lv]} ` : '') + r.name, side = r.x > R.w[1 - i].x ? 1 : 0; // いれかわったら 名前も うごく
     const nx = side ? 528 : 72; g.textAlign = side ? 'right' : 'left'; g.strokeText(t, nx, 112); g.fillStyle = i ? '#d6305f' : '#2f6fde'; g.fillText(t, nx, 112);
     if (C.mode === 2) { g.font = '28px "Dela Gothic One", sans-serif'; g.strokeText(R.score[i], nx, 146); g.fillText(R.score[i], nx, 146); g.font = '900 17px "Zen Maru Gothic", sans-serif'; }
+  });
+}
+/* ふたりで：字は それぞれの 人に 読める 向きで 2つずつ */
+function twoTexts() {
+  const W = cv.width, H = cv.height, both = (t, px, col, dy, o = {}) => {
+    stext(t, W / 2, H / 2 + dy * S, px, col, o); stext(t, W / 2, H / 2 - dy * S, px, col, { ...o, flip: true });
+  };
+  R.fx.forEach(f => { const [sx, sy] = W2S(f.x, f.y - f.t * 40); stext(f.txt, sx, sy, 18, f.c || '#ff8a3d', { font: 'Zen Maru Gothic', w: 900, flip: sy < H / 2, alpha: Math.max(0, 1 - f.t / .7) }); });
+  if (R.flash) { const f = R.flash, top = f.c === '#d6305f'; stext(f.txt, W / 2, top ? H / 2 - 150 * S : H / 2 + 150 * S, 28 + f.t * 6, f.c, { flip: top, alpha: Math.max(0, 1 - f.t / 1.1) }); }
+  if (R.msg) both(R.msg, R.phase === 'end' ? 40 : 34, R.phase === 'end' ? '#d6305f' : '#2a2238', 150);
+  if (R.sub) both(R.sub, 18, '#2a2238', 188);
+  R.w.forEach((r, i) => {
+    const t = r.name + '　' + R.score[i], bottom = r.x < R.w[1 - i].x; // 下に いる 力士の 名前は 下に
+    stext(t, W / 2, bottom ? H - 16 * S : 16 * S, 16, i ? '#d6305f' : '#2f6fde', { font: 'Zen Maru Gothic', w: 900, flip: !bottom });
   });
 }
 function drawRikishi(r) {
