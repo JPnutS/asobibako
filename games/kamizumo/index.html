@@ -195,7 +195,9 @@ function startBout() {
   $('col1').hidden = C.mode === 1;
   if (C.mode === 1) { /* 相手の わざは 画面に 名前だけ */ }
   renderWaza();
-  $('pn0').textContent = a.name; $('pn1').textContent = b.name;
+  const kb = matchMedia('(hover: hover) and (pointer: fine)').matches; // パソコン：キーも 書いて おく
+  $('pn0').textContent = a.name + (kb ? (C.mode === 1 ? '（スペース／わざ Q）' : '（A／わざ Q）') : '');
+  $('pn1').textContent = b.name + (kb ? '（L／わざ P）' : '');
   show('bout'); resize(); Kit.keepAwake && Kit.keepAwake(true);
 }
 
@@ -215,7 +217,7 @@ function kick(r, power) {
   if (power >= 1) r.vx += r.d * Math.max(30, P.fwd + P.lean * Math.sin(r.th)) * r.fwdMul * r.str * (good ? P.bonus : 1) * (.8 + Math.random() * .4) / s;
   r.w0 += (Math.random() - .5) * P.wob * power * (good ? .4 : 1) * tire * r.wobMul * (r.fx.rock > 0 ? .2 : 1);
   r.air = true;
-  if (good) { r.gauge = Math.min(1, r.gauge + .3); R.fx.push({ x: r.x, y: GY - r.h - 20, t: 0, txt: 'いいね！' }); }
+  if (good) { if (!(r.fx.cool > 0)) r.gauge = Math.min(1, r.gauge + .3); R.fx.push({ x: r.x, y: GY - r.h - 20, t: 0, txt: 'いいね！' }); }
 }
 const mass = r => r.m * (r.fx.rock > 0 ? 1.5 : 1);
 function step(dt) {
@@ -224,7 +226,7 @@ function step(dt) {
   const tiltAcc = R.tiltT > 0 ? R.tiltA : 0;
   for (const r of R.w) {
     for (const k in r.fx) r.fx[k] -= dt;
-    r.gauge = Math.min(1, r.gauge + .07 * dt);
+    if (!(r.fx.cool > 0)) r.gauge = Math.min(1, r.gauge + .07 * dt);
     r.vx += tiltAcc * dt * (r.air ? .3 : 1);
     if (r.air) {
       r.vy -= G * dt; r.y += r.vy * dt; r.x += r.vx * dt;
@@ -267,14 +269,15 @@ function useAbility(i) {
   if (!R || R.phase !== 'go') return;
   const me = R.w[i], op = R.w[1 - i];
   if (me.gauge < 1) return;
-  me.gauge = 0; Kit.sfx('coin'); Kit.vibrate && Kit.vibrate(30);
+  if (me.ab === 'seal' && op.fx.sealImm > 0) { R.fx.push({ x: op.x, y: GY - op.h - 20, t: 0, txt: 'まだ きかない', c: '#555' }); return; }
+  me.gauge = 0; me.fx.cool = 4; // 使ったあと しばらくは ゲージが たまらない Kit.sfx('coin'); Kit.vibrate && Kit.vibrate(30);
   const k = me.ab, A = ABIL[k];
   R.flash = { txt: A.label, t: 0, c: i ? '#d6305f' : '#2f6fde' };
   if (k === 'swap') {
     [me.x, op.x] = [op.x, me.x]; me.d *= -1; op.d *= -1; me.vx = op.vx = 0; me.w0 = op.w0 = 0;
     R.shake = .25; Kit.sfx('whoosh');
   } else if (k === 'tilt') { R.tiltT = ABIL_T.tilt; R.tiltA = -op.d * 260; } // 相手の せなか がわへ さがる
-  else if (k === 'seal') op.fx.seal = ABIL_T.seal;
+  else if (k === 'seal') { op.fx.seal = ABIL_T.seal; op.fx.sealImm = ABIL_T.seal + 6; } // ふうじが とけたら 6秒は きかない
   else if (k === 'rock') { me.fx.rock = ABIL_T.rock; me.th = me.lean; me.w0 = 0; }
   else if (k === 'dash') { me.vx += me.d * 260 / Math.sqrt(me.m); me.vy = 160; me.air = true; me.th = me.lean + .1; }
   else if (k === 'quake') { op.w0 += (Math.random() < .5 ? -1 : 1) * 4.5 * op.wobMul / Math.sqrt(op.m); op.vx -= op.d * 120; if (!op.air) { op.vy = 230; op.air = true; } R.shake = .4; Kit.sfx('drop'); }
@@ -286,6 +289,7 @@ function cpuAbility(i) {
   const back = me.d > 0 ? me.x - RING[0] : RING[1] - me.x;
   if (me.ab === 'swap' && back > 120) return;
   if (me.ab === 'rock' && R.t - R.contact > .3) return;
+  if (me.ab === 'seal' && R.w[1 - i].fx.sealImm > 0) return;
   useAbility(i);
 }
 function cpuThink(dt) {
@@ -343,12 +347,22 @@ $('quit').onclick = () => { Kit.sfx('tap'); toMenu(); };
   const p = $('pad' + i);
   p.addEventListener('pointerdown', e => { e.preventDefault(); p.classList.add('hit'); setTimeout(() => p.classList.remove('hit'), 90); tap(C.mode === 1 ? 0 : i); });
 });
+/* キーボード：ひとりで＝スペース・A・L など どれでも トントン、Q・W・P で わざ。ふたりで＝左 A（わざ Q）、右 L（わざ P） */
+const KEYS1 = { tap: ['Space', 'Enter', 'KeyA', 'KeyL', 'KeyF', 'KeyJ', 'ArrowUp', 'ArrowDown'], waza: ['KeyQ', 'KeyW', 'KeyP', 'ShiftLeft', 'ShiftRight'] };
 addEventListener('keydown', e => {
-  if (!R || e.repeat) return;
-  if (C.mode === 1 && (e.code === 'Space' || e.code === 'Enter')) { e.preventDefault(); tap(0); }
-  if (C.mode === 1 && e.code === 'KeyW') useAbility(0);
-  if (C.mode === 2) { if (e.code === 'KeyA') tap(0); if (e.code === 'KeyL') tap(1); if (e.code === 'KeyQ') useAbility(0); if (e.code === 'KeyP') useAbility(1); }
-});
+  if (!R || $('bout').hidden || e.repeat || document.querySelector('.k-modal-back')) return;
+  const c = e.code;
+  if (C.mode === 1) {
+    if (KEYS1.tap.includes(c)) { e.preventDefault(); tap(0); pressed(0); }
+    else if (KEYS1.waza.includes(c)) { e.preventDefault(); useAbility(0); }
+  } else {
+    if (c === 'KeyA' || c === 'KeyS') { e.preventDefault(); tap(0); pressed(0); }
+    if (c === 'KeyL' || c === 'KeyK') { e.preventDefault(); tap(1); pressed(1); }
+    if (c === 'KeyQ') useAbility(0);
+    if (c === 'KeyP') useAbility(1);
+  }
+}, true);
+function pressed(i) { const p = $('pad' + i); p.classList.add('hit'); setTimeout(() => p.classList.remove('hit'), 90); }
 
 /* ---------- かく ---------- */
 const cv = $('cv'), g = cv.getContext('2d');
@@ -475,7 +489,7 @@ Kit.bar({ id: 'kamizumo', title: '🤼 紙ずもう', help: `
   <p>あいてを <b>土俵の 外に 出す</b>か、<b>たおす</b>と 勝ち。前に かたむきすぎると 自分が たおれるので、がまんも 大事！</p>
   <p><b>能力</b>：ちから・おもさ・ジャンプ・ふんばり に、あわせて 12ポイントを わけます。どれかを 上げると どれかを 下げる ことに なるので、自分だけの 力士を 作ろう。体形（どっしり・のっぽ・すばしこい）を えらぶと おすすめの わけかたに なります。のっぽは せが 高くて 前に 出やすいけど、たおれやすいよ。</p>
   <p><b>特殊わざ</b>：ひとつ えらんで おきます。「いいね！」で ゲージが たまったら、トントンの 上の ボタンで 使えます。<br>🔄いれかわり：相手と 場所を 入れかえる（土俵ぎわで ぎゃくてん！）／📐かたむけ：土俵を 相手の うしろへ かたむける／🚫ふうじ：相手の トントンを しばらく 止める／🪨おもし：少しの あいだ 重く なって たおれない／💨ぶちかまし：いきおいよく とびこむ／🌀ゆさぶり：相手を 大きく ぐらつかせる</p>
-  <p>ひとりで：勝つと 番付が 上がります。横綱を めざそう！ ふたりで：1台を 左右で 分けて あそびます（パソコンは A・L キーで トントン、Q・P キーで わざ）。</p>` });
+  <p>ひとりで：勝つと 番付が 上がります。横綱を めざそう！ ふたりで：1台を 左右で 分けて あそびます。<br>パソコン：ひとりでは スペース（A・L でも OK）で トントン、Q で わざ。ふたりでは 左が A（わざ Q）、右が L（わざ P）。</p>` });
 renderMenu();
 </script>
 </body>
