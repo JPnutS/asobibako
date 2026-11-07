@@ -45,6 +45,7 @@
   #wrap { flex: 1; min-height: 0; position: relative; overflow: hidden; }
   #cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
   .pcol { flex: 1; display: grid; gap: 6px; } .pcol[hidden] { display: none; }
+  .waza[hidden] { display: none; }
   .waza { position: relative; height: 40px; border: 3px solid var(--line); border-radius: 12px; background: var(--card); overflow: hidden; font: 900 .9rem var(--font); color: var(--ink); cursor: pointer; touch-action: none; }
   .waza i { position: absolute; left: 0; top: 0; bottom: 0; background: #ffd23f; width: 0; }
   .waza span { position: relative; }
@@ -63,6 +64,7 @@
 <body>
 <section id="menu" class="scr"><main class="k-wrap k-stack">
   <div class="k-chips" id="mode"></div>
+  <div class="k-chips" id="rule"></div>
   <div id="cards" class="k-stack"></div>
   <div id="rankBox" class="k-stack"></div>
   <button class="k-btn is-berry is-big" id="go">はっけよい！</button>
@@ -109,6 +111,7 @@ const CPU_AB = ['dash', 'quake', 'rock', 'tilt', 'seal', 'swap', 'quake', 'tilt'
 const MY_NAMES = ['トントン山', 'ぺらぺら丸', 'ふんばり海', 'どすこい錦'];
 const KEY = 'kamizumo:cfg';
 const C = Object.assign({ mode: 1, p: [{ name: Kit.pick(MY_NAMES.slice(0, 2)), type: 'big', color: COLORS[0] }, { name: Kit.pick(MY_NAMES.slice(2)), type: 'tall', color: COLORS[1] }] }, Kit.store.get(KEY, {}));
+if (!C.rule) C.rule = 'waza';
 C.p.forEach((p, i) => { if (!p.st) p.st = { ...TYPES[p.type].st }; if (!ABIL[p.ab]) p.ab = i ? 'tilt' : 'swap'; });
 let rank = Kit.store.get('kamizumo:rank', 0); // 勝った 番付の 数（10で 横綱 クリア）
 
@@ -118,6 +121,11 @@ function renderMenu() {
   [[1, '🧍 ひとりで'], [2, '👫 ふたりで（1台で）']].forEach(([v, l]) => {
     const b = Kit.el(`<button class="k-chip" aria-pressed="${C.mode === v}">${l}</button>`);
     b.onclick = () => { C.mode = v; Kit.sfx('select'); save(); renderMenu(); }; md.appendChild(b);
+  });
+  const ru = $('rule'); ru.innerHTML = '';
+  [['simple', '🍃 シンプル', 'トントンだけ'], ['waza', '⚡ わざあり', '能力と 特殊わざ']].forEach(([v, l, sub]) => {
+    const b = Kit.el(`<button class="k-chip" aria-pressed="${C.rule === v}" title="${sub}">${l}</button>`);
+    b.onclick = () => { C.rule = v; Kit.sfx('select'); save(); renderMenu(); }; ru.appendChild(b);
   });
   const cards = $('cards'); cards.innerHTML = '';
   for (let i = 0; i < C.mode; i++) cards.appendChild(card(i));
@@ -135,8 +143,9 @@ function card(i) {
   const el = Kit.el(`<div class="pcard"><h3><span class="dot" style="background:${i ? '#ff5d6c' : '#3d8bff'}"></span>${C.mode === 1 ? 'あなたの 力士' : i ? 'みぎの 力士' : 'ひだりの 力士'}</h3>
     <input class="k-input" maxlength="8" value="${Kit.esc(p.name)}" placeholder="しこ名">
     <div class="types"></div><div class="cols"><span class="k-label" style="margin-right:4px">まわし</span></div>
-    <span class="k-label">能力（あわせて ${POINTS}）<span class="left"></span></span><div class="stats"></div>
-    <span class="k-label">特殊わざ（ひとつ えらぶ）</span><div class="abils"></div></div>`);
+    <div class="wz-only k-stack" style="gap:8px"><span class="k-label">能力（あわせて ${POINTS}）<span class="left"></span></span><div class="stats"></div>
+    <span class="k-label">特殊わざ（ひとつ えらぶ）</span><div class="abils"></div></div></div>`);
+  el.querySelector('.wz-only').hidden = C.rule !== 'waza';
   el.querySelector('input').oninput = e => { p.name = e.target.value.trim() || 'ななし山'; save(); };
   const ty = el.querySelector('.types');
   Object.entries(TYPES).forEach(([k, t]) => {
@@ -184,20 +193,22 @@ function rikishi(spec, side, extra = {}) {
   return r;
 }
 function startBout() {
-  const a = rikishi(C.p[0], 0);
+  const simple = C.rule !== 'waza'; // シンプル：体形だけ（能力は おすすめの まま、わざ なし）
+  const spec = p => simple ? { ...p, st: TYPES[p.type].st, ab: 'none' } : p;
+  const a = rikishi(spec(C.p[0]), 0);
   let b, cpu = null;
   if (C.mode === 1) {
     const lv = rank, type = ['quick', 'big', 'tall'][lv % 3];
-    b = rikishi({ name: CPU_NAMES[lv], type, color: ['#8a5a2b', '#555b66', '#7a4bd8', '#1f9e6a', '#d6305f'][lv % 5], ab: CPU_AB[lv] }, 1, { strMul: 1 + lv * .025 });
+    b = rikishi({ name: CPU_NAMES[lv], type, color: ['#8a5a2b', '#555b66', '#7a4bd8', '#1f9e6a', '#d6305f'][lv % 5], ab: simple ? 'none' : CPU_AB[lv] }, 1, { strMul: 1 + lv * .025 });
     cpu = { lv, t: .8, rate: .46 - lv * .03, acc: .25 + lv * .075 };
-  } else b = rikishi(C.p[1], 1);
+  } else b = rikishi(spec(C.p[1]), 1);
   R = { w: [a, b], cpu, phase: 'ready', t: 0, msg: '', sub: '', shake: 0, contact: 0, winner: -1, kimarite: '', fx: [], tilt: 0, tiltT: 0, tiltA: 0, score: R && R.score && R.mode === C.mode ? R.score : [0, 0], mode: C.mode };
   $('col1').hidden = C.mode === 1;
-  if (C.mode === 1) { /* 相手の わざは 画面に 名前だけ */ }
+  $('wz0').hidden = $('wz1').hidden = simple;
   renderWaza();
   const kb = matchMedia('(hover: hover) and (pointer: fine)').matches; // パソコン：キーも 書いて おく
-  $('pn0').textContent = a.name + (kb ? (C.mode === 1 ? '（スペース／わざ Q）' : '（A／わざ Q）') : '');
-  $('pn1').textContent = b.name + (kb ? '（L／わざ P）' : '');
+  $('pn0').textContent = a.name + (kb ? (C.mode === 1 ? `（スペース${simple ? '' : '／わざ Q'}）` : `（A${simple ? '' : '／わざ Q'}）`) : '');
+  $('pn1').textContent = b.name + (kb ? `（L${simple ? '' : '／わざ P'}）` : '');
   show('bout'); resize(); Kit.keepAwake && Kit.keepAwake(true);
 }
 
@@ -268,7 +279,7 @@ function step(dt) {
 function useAbility(i) {
   if (!R || R.phase !== 'go') return;
   const me = R.w[i], op = R.w[1 - i];
-  if (me.gauge < 1) return;
+  if (me.gauge < 1 || !ABIL[me.ab]) return;
   if (me.ab === 'seal' && op.fx.sealImm > 0) { R.fx.push({ x: op.x, y: GY - op.h - 20, t: 0, txt: 'まだ きかない', c: '#555' }); return; }
   me.gauge = 0; me.fx.cool = 4; // 使ったあと しばらくは ゲージが たまらない Kit.sfx('coin'); Kit.vibrate && Kit.vibrate(30);
   const k = me.ab, A = ABIL[k];
@@ -487,6 +498,7 @@ Kit.bar({ id: 'kamizumo', title: '🤼 紙ずもう', help: `
   <p>紙の 力士を、土俵（箱）を トントン たたいて たたかわせる ゲームです。</p>
   <p><b>トントン</b>を おすと、自分の 力士が ぴょんと はねて 前に すすみます。<b>着地した しゅんかんに たたく</b>と よく 進みます。あいての 力士も 少し ゆれます。</p>
   <p>あいてを <b>土俵の 外に 出す</b>か、<b>たおす</b>と 勝ち。前に かたむきすぎると 自分が たおれるので、がまんも 大事！</p>
+  <p><b>🍃 シンプル</b>：トントンだけで たたかう、さいしょの ルール。体形だけ えらびます。<b>⚡ わざあり</b>：下の 能力と 特殊わざを 使います。</p>
   <p><b>能力</b>：ちから・おもさ・ジャンプ・ふんばり に、あわせて 12ポイントを わけます。どれかを 上げると どれかを 下げる ことに なるので、自分だけの 力士を 作ろう。体形（どっしり・のっぽ・すばしこい）を えらぶと おすすめの わけかたに なります。のっぽは せが 高くて 前に 出やすいけど、たおれやすいよ。</p>
   <p><b>特殊わざ</b>：ひとつ えらんで おきます。「いいね！」で ゲージが たまったら、トントンの 上の ボタンで 使えます。<br>🔄いれかわり：相手と 場所を 入れかえる（土俵ぎわで ぎゃくてん！）／📐かたむけ：土俵を 相手の うしろへ かたむける／🚫ふうじ：相手の トントンを しばらく 止める／🪨おもし：少しの あいだ 重く なって たおれない／💨ぶちかまし：いきおいよく とびこむ／🌀ゆさぶり：相手を 大きく ぐらつかせる</p>
   <p>ひとりで：勝つと 番付が 上がります。横綱を めざそう！ ふたりで：1台を 左右で 分けて あそびます。<br>パソコン：ひとりでは スペース（A・L でも OK）で トントン、Q で わざ。ふたりでは 左が A（わざ Q）、右が L（わざ P）。</p>` });
