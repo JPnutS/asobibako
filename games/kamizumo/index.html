@@ -59,6 +59,11 @@
   .pad.hit { transform: translateY(4px); box-shadow: 0 2px 0 var(--line); }
   .pad[hidden] { display: none; }
   .quit { position: absolute; right: 8px; top: 8px; }
+  /* ふたりで：むかいあって もつ。上の 人の ボタンは さかさま */
+  .pads.top { transform: rotate(180deg); }
+  .pads.top[hidden] { display: none; }
+  body.two .pad { height: min(15vh, 112px); font-size: clamp(1.2rem, 6vw, 1.8rem); }
+  body.two .quit { top: auto; bottom: 8px; }
 </style>
 </head>
 <body>
@@ -71,8 +76,9 @@
 </main></section>
 
 <section id="bout" class="scr" hidden>
+  <div class="pads top" id="padsTop" hidden></div>
   <div id="wrap"><canvas id="cv"></canvas><button class="k-btn is-small quit" id="quit">やめる</button></div>
-  <div class="pads">
+  <div class="pads" id="padsBot">
     <div class="pcol" id="col0"><button class="waza" id="wz0"><i></i><span></span></button><button class="pad p0" id="pad0">トントン<small id="pn0"></small></button></div>
     <div class="pcol" id="col1"><button class="waza" id="wz1"><i></i><span></span></button><button class="pad p1" id="pad1">トントン<small id="pn1"></small></button></div>
   </div>
@@ -204,6 +210,10 @@ function startBout() {
   } else b = rikishi(spec(C.p[1]), 1);
   R = { w: [a, b], cpu, phase: 'ready', t: 0, msg: '', sub: '', shake: 0, contact: 0, winner: -1, kimarite: '', fx: [], tilt: 0, tiltT: 0, tiltA: 0, score: R && R.score && R.mode === C.mode ? R.score : [0, 0], mode: C.mode };
   $('col1').hidden = C.mode === 1;
+  const two = C.mode === 2;
+  document.body.classList.toggle('two', two);
+  $('padsTop').hidden = !two;
+  (two ? $('padsTop') : $('padsBot')).appendChild($('col1'));
   $('wz0').hidden = $('wz1').hidden = simple;
   renderWaza();
   const kb = matchMedia('(hover: hover) and (pointer: fine)').matches; // パソコン：キーも 書いて おく
@@ -350,7 +360,7 @@ function renderWaza() {
   });
 }
 function toMenu() { R = null; Kit.keepAwake && Kit.keepAwake(false); show('menu'); renderMenu(); }
-$('quit').onclick = () => { Kit.sfx('tap'); toMenu(); };
+$('quit').onclick = () => { Kit.sfx('tap'); if (R && R.phase === 'go') Kit.ask('この 一番を やめる？', 'やめる', 'つづける').then(y => y && toMenu()); else toMenu(); };
 
 /* ---------- 入力 ---------- */
 [0, 1].forEach(i => {
@@ -494,7 +504,7 @@ function simulate(lvA, lvB, tA, tB, maxT = 60) {
 }
 if (location.hash === '#debug') window.__ks = { P, simulate, get R() { return R; }, tap };
 
-Kit.bar({ id: 'kamizumo', title: '🤼 紙ずもう', help: `
+Kit.bar({ id: 'kamizumo', guard: { active: () => !!R && !$('bout').hidden }, title: '🤼 紙ずもう', help: `
   <p>紙の 力士を、土俵（箱）を トントン たたいて たたかわせる ゲームです。</p>
   <p><b>トントン</b>を おすと、自分の 力士が ぴょんと はねて 前に すすみます。<b>着地した しゅんかんに たたく</b>と よく 進みます。あいての 力士も 少し ゆれます。</p>
   <p>あいてを <b>土俵の 外に 出す</b>か、<b>たおす</b>と 勝ち。前に かたむきすぎると 自分が たおれるので、がまんも 大事！</p>

@@ -409,7 +409,7 @@ $('quit').onclick = () => { $('pauseOv').hidden = true; G.paused = false; finish
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
 $('startBtn').onclick = () => { Kit.sfx('tap'); Kit.audio(); start(); };
 
-Kit.bar({ id: 'puchic', title: '🫧 ぷちぷちチャレンジ', help: `
+Kit.bar({ id: 'puchic', guard: { active: () => G && G.running && !G.over, pause: () => pause() }, title: '🫧 ぷちぷちチャレンジ', help: `
   <p>じかん内に ぷちぷちを つぶして、とくてんを きそうゲームです。</p>
   <ul>
     <li>🫧 ふつう 10てん。<b>0.75びょう以内</b>に つぎを つぶすと コンボが つづき、8コンボごとに とくてんが ×1.5、×2…（さいだい×3）。</li>

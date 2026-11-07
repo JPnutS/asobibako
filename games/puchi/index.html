@@ -704,7 +704,7 @@ $('quit').onclick = () => { $('pauseOv').hidden = true; G.paused = false; finish
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
 $('startBtn').onclick = () => { Kit.sfx('tap'); Kit.audio(); start(); };
 
-Kit.bar({ id: 'puchi', title: '🦐 ぷちぷちエビ', help: `
+Kit.bar({ id: 'puchi', guard: { active: () => G && G.running && !G.over, pause: () => pause() }, title: '🦐 ぷちぷちエビ', help: `
   <p>ねこの ぷっちーを うごかして、ぷちぷちを しょうげきはで つぶし、エビに かえて たべよう。</p>
   <ul>
     <li>🕹 <b>いどう</b>：がめんの ひだりがわを なぞる（パソコンは WASD・やじるし）。みぎうえの レーダーの <b>あおい てん</b> が ぷちぷち、<b>オレンジ</b> が おちている エビ。</li>

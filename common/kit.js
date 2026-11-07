@@ -241,7 +241,8 @@
   }
 
   /* ---------- 上のバー ---------- */
-  function bar({ id, title, help, extra } = {}) {
+  /* guard：{ active() , pause(), resume() }。あそんでいる とちゅうに 🏠を おしたら たしかめる */
+  function bar({ id, title, help, extra, guard } = {}) {
     if (id) { const r = store.get('recent', []).filter(x => x !== id); r.unshift(id); store.set('recent', r.slice(0, 6)); }
     const h = el(`<header class="kbar">
       <a class="k-btn k-icon" href="${HOME}" aria-label="ホームへもどる" title="ホーム">${ADULT ? '←' : '🏠'}</a>
@@ -260,6 +261,13 @@
     };
     if (help) h.querySelector('[data-k="help"]').onclick = () => modal({ title: ADULT ? '使い方' : 'あそびかた', body: help, actions: [{ label: ADULT ? '閉じる' : 'とじる', primary: true }] });
     if (extra) h.querySelector('.kbar-extra').appendChild(extra);
+    if (guard) h.querySelector('a.k-icon').addEventListener('click', e => {
+      if (!guard.active || !guard.active()) return;
+      e.preventDefault(); const href = e.currentTarget.href;
+      if (guard.pause) guard.pause();
+      ask(ADULT ? '途中でやめてホームに戻りますか？' : 'とちゅうで やめて ホームに もどる？', ADULT ? '戻る' : 'もどる', ADULT ? '続ける' : 'つづける')
+        .then(y => { if (y) location.href = href; else if (guard.resume) guard.resume(); });
+    });
     document.body.prepend(h);
     return h;
   }
