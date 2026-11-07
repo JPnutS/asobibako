@@ -233,7 +233,14 @@
   }
 
   let wake = null;
+  let awakeOn = false, busyOn = false, lastAct = 0;
+  /* 画面を さわった 時こく（上のバーと まど は のぞく）：「さっきまで あそんでいた」の めやす */
+  const markAct = e => { const t = e.target; if (t && t.closest && t.closest('.kbar, .k-modal-back')) return; lastAct = Date.now(); };
+  addEventListener('pointerdown', markAct, true); addEventListener('keydown', markAct, true);
+  /* busy(true)：作業中・ゲーム中（🏠を おすと たしかめる） */
+  function busy(on = true) { busyOn = !!on; }
   async function keepAwake(on = true) {
+    awakeOn = !!on;
     try {
       if (on && 'wakeLock' in navigator && !wake) { wake = await navigator.wakeLock.request('screen'); wake.addEventListener('release', () => { wake = null; }); }
       if (!on && wake) { await wake.release(); wake = null; }
@@ -261,11 +268,14 @@
     };
     if (help) h.querySelector('[data-k="help"]').onclick = () => modal({ title: ADULT ? '使い方' : 'あそびかた', body: help, actions: [{ label: ADULT ? '閉じる' : 'とじる', primary: true }] });
     if (extra) h.querySelector('.kbar-extra').appendChild(extra);
-    if (guard) h.querySelector('a.k-icon').addEventListener('click', e => {
-      if (!guard.active || !guard.active()) return;
+    // 🏠：ゲーム中・作業中なら たしかめる。guard が あれば それで きめる。なければ「画面を つけっぱなし中」「busy」「30秒いないに さわった」
+    h.querySelector('a.k-icon').addEventListener('click', e => {
+      const active = guard && guard.active ? guard.active() : (awakeOn || busyOn || Date.now() - lastAct < 30000);
+      if (!active) return;
+      guard = guard || {};
       e.preventDefault(); const href = e.currentTarget.href;
       if (guard.pause) guard.pause();
-      ask(ADULT ? '途中でやめてホームに戻りますか？' : 'とちゅうで やめて ホームに もどる？', ADULT ? '戻る' : 'もどる', ADULT ? '続ける' : 'つづける')
+      ask(ADULT ? '作業を中断して一覧に戻りますか？' : 'とちゅうで やめて ホームに もどる？', ADULT ? '戻る' : 'もどる', ADULT ? '続ける' : 'つづける')
         .then(y => { if (y) location.href = href; else if (guard.resume) guard.resume(); });
     });
     document.body.prepend(h);
@@ -303,5 +313,5 @@
     return b;
   }
 
-  window.Kit = { ROOT, HOME, ADULT, micButton, store, settings, saveSettings, audio, tone, noise, sfx, music, vibrate, esc, shuffle, rand, randInt, pick, clamp, el, modal, ask, toast, confetti, best, getBest, addWin, loop, fitCanvas, keepAwake, bar };
+  window.Kit = { ROOT, HOME, ADULT, micButton, store, settings, saveSettings, audio, tone, noise, sfx, music, vibrate, esc, shuffle, rand, randInt, pick, clamp, el, modal, ask, toast, confetti, best, getBest, addWin, loop, fitCanvas, keepAwake, busy, bar };
 })();
