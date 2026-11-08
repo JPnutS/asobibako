@@ -51,7 +51,9 @@
         <li>⬆️ <b>上に スワイプ</b>で ジャンプ。📦はこ や 🤖ロボットを とびこえる</li>
         <li>⬇️ <b>下に スワイプ</b>で スライディング。👕せんたくものの 下を くぐる</li>
         <li>🚚 トラックは とびこせない。ちがう みちへ よけよう</li>
-        <li>🫧 シールド・🧲 じしゃく・⭐ むてき を とると いいこと あるよ</li>
+        <li>💕 ときどき <b>かわいい ねこ</b> が あらわれると、ぷっちーは むちゅうで よこに うごけない！ ジャンプと スライディングで のりきろう</li>
+        <li>🚀 <b>ジャンプだい</b>で 大ジャンプ。空中で ⬆️ すると アクロバットで もっと 長く とべる</li>
+        <li>🍛 カレーで ぷちぷちシールド、🍜 ラーメンで ハートが ふえる</li>
       </ul>
       <span class="k-label">はやさ</span>
       <div class="k-chips" id="optLv"></div>
@@ -81,7 +83,7 @@ const LV = {
 const O = Object.assign({ lv: 2 }, Kit.store.get('run:opt', {}));
 if (!LV[O.lv]) O.lv = 2;
 const LANE = 1.7, LANES = [-LANE, 0, LANE], FAR = -90, NEAR = 8;
-const GRAV = 30, JUMP = 10.5;
+const GRAV = 30, JUMP = 10.5, RAMPV = 10, RAMPG = 11, TRICKV = 6.5;
 
 function chips(root, items, cur, on) {
   root.innerHTML = '';
@@ -150,35 +152,59 @@ const deco = [];
 }
 
 /* ---------- ぷっちー（ぷちぷちエビの ねこ） ---------- */
-const fur = M('#ffc98a'), cream = M('#fff3dd'), dark = M('#2a2238'), pink = M('#ff9fb8'), stripe = M('#f0a35a'), mouthM = M('#c2405a');
+function makeCat(c) {
+  const fur = M(c.fur), cream = M(c.cream || '#fff3dd'), dark = M('#2a2238'), pink = M('#ff9fb8'), stripe = M(c.stripe), mouthM = M('#c2405a');
+  const cat = new THREE.Group(), body = new THREE.Group(); cat.add(body);
+  body.add(sph(.5, fur, 0, .58, -.05, 1.05, .9, 1.35));
+  body.add(sph(.36, cream, 0, .5, .2, 1, .85, 1.1));
+  [-.25, 0, .25].forEach(z => body.add(sph(.12, stripe, 0, 1.0, z - .1, 3.6, .35, .7)));
+  const head = new THREE.Group(); head.position.set(0, 1.12, .55); body.add(head);
+  head.add(sph(.5, fur, 0, 0, 0, 1.08, .95, 1));
+  const eye = c.cute ? 1.35 : 1;
+  [-1, 1].forEach(sx => {
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(.17, .34, 16), fur); ear.position.set(sx * .3, .44, -.05); ear.rotation.z = -sx * .35; head.add(ear);
+    const inner = new THREE.Mesh(new THREE.ConeGeometry(.1, .22, 12), pink); inner.position.set(sx * .3, .42, .03); inner.rotation.z = -sx * .35; head.add(inner);
+    head.add(sph(.075 * eye, dark, sx * .19, .08, .44, 1, 1.25, .6));
+    if (c.cute) { head.add(sph(.03, M('#ffffff'), sx * .19 - .03, .15, .5)); head.add(sph(.015, M('#ffffff'), sx * .19 + .03, .04, .5)); }
+    head.add(sph(.08, pink, sx * .3, -.1, .38, 1.3, .6, .5));
+    // うしろあたまの しまもよう（うしろから 見えるので）
+    head.add(sph(.1, stripe, sx * .16, .3, -.3, 1, .4, 1.4));
+  });
+  head.add(sph(.12, stripe, 0, .36, -.25, 1, .4, 1.5));
+  head.add(sph(.15, cream, 0, -.13, .42, 1.4, .9, .8));
+  head.add(sph(.045, pink, 0, -.05, .53, 1.3, .9, 1));
+  head.add(sph(.09, mouthM, 0, -.22, .48, 1.3, .1, .6));
+  if (c.ribbon) { // ピンクの リボン
+    const rb = M(c.ribbon), rib = new THREE.Group(); rib.position.set(.28, .42, .05); rib.rotation.z = -.4;
+    [-1, 1].forEach(s => { const w = new THREE.Mesh(new THREE.ConeGeometry(.16, .3, 12), rb); w.rotation.z = s * Math.PI / 2; w.position.x = s * .15; rib.add(w); });
+    rib.add(sph(.08, rb, 0, 0, 0)); head.add(rib);
+  }
+  const legs = [[-.27, .38], [.27, .38], [-.27, -.45], [.27, -.45]].map(([x, z]) => {
+    const p = new THREE.Group(); p.position.set(x, .42, z);
+    const l = new THREE.Mesh(new THREE.CylinderGeometry(.11, .12, .4, 12), fur); l.position.y = -.2; p.add(l);
+    p.add(sph(.13, cream, 0, -.4, .03, 1, .6, 1.2));
+    body.add(p); return p;
+  });
+  const tail = new THREE.Group(); tail.position.set(0, .7, -.68); body.add(tail);
+  for (let i = 0; i < 7; i++) tail.add(sph(.085 - i * .004, i % 2 ? stripe : fur, 0, i * .11, -i * .05 + i * i * .012));
+  return { cat, body, head, legs, tail, fur };
+}
 const player = new THREE.Group(); scene.add(player);
-const cat = new THREE.Group(); cat.rotation.y = Math.PI; cat.scale.setScalar(.95); player.add(cat);
-const body = new THREE.Group(); cat.add(body);
-body.add(sph(.5, fur, 0, .58, -.05, 1.05, .9, 1.35));
-body.add(sph(.36, cream, 0, .5, .2, 1, .85, 1.1));
-[-.25, 0, .25].forEach(z => body.add(sph(.12, stripe, 0, 1.0, z - .1, 3.6, .35, .7)));
-const head = new THREE.Group(); head.position.set(0, 1.12, .55); body.add(head);
-head.add(sph(.5, fur, 0, 0, 0, 1.08, .95, 1));
-[-1, 1].forEach(sx => {
-  const ear = new THREE.Mesh(new THREE.ConeGeometry(.17, .34, 16), fur); ear.position.set(sx * .3, .44, -.05); ear.rotation.z = -sx * .35; head.add(ear);
-  const inner = new THREE.Mesh(new THREE.ConeGeometry(.1, .22, 12), pink); inner.position.set(sx * .3, .42, .03); inner.rotation.z = -sx * .35; head.add(inner);
-  head.add(sph(.075, dark, sx * .19, .08, .44, 1, 1.25, .6));
-  head.add(sph(.08, pink, sx * .3, -.1, .38, 1.3, .6, .5));
-  // うしろあたまの しまもよう（うしろから 見えるので）
-  head.add(sph(.1, stripe, sx * .16, .3, -.3, 1, .4, 1.4));
-});
-head.add(sph(.12, stripe, 0, .36, -.25, 1, .4, 1.5));
-head.add(sph(.15, cream, 0, -.13, .42, 1.4, .9, .8));
-head.add(sph(.045, pink, 0, -.05, .53, 1.3, .9, 1));
-head.add(sph(.09, mouthM, 0, -.22, .48, 1.3, .1, .6));
-const legs = [[-.27, .38], [.27, .38], [-.27, -.45], [.27, -.45]].map(([x, z]) => {
-  const p = new THREE.Group(); p.position.set(x, .42, z);
-  const l = new THREE.Mesh(new THREE.CylinderGeometry(.11, .12, .4, 12), fur); l.position.y = -.2; p.add(l);
-  p.add(sph(.13, cream, 0, -.4, .03, 1, .6, 1.2));
-  body.add(p); return p;
-});
-const tail = new THREE.Group(); tail.position.set(0, .7, -.68); body.add(tail);
-for (let i = 0; i < 7; i++) tail.add(sph(.085 - i * .004, i % 2 ? stripe : fur, 0, i * .11, -i * .05 + i * i * .012));
+const flipG = new THREE.Group(); flipG.position.y = .8; player.add(flipG); // アクロバットの ちゅうしん
+const ME = makeCat({ fur: '#ffc98a', stripe: '#f0a35a' });
+const { cat, body, head, legs, tail, fur } = ME;
+cat.rotation.y = Math.PI; cat.scale.setScalar(.95); cat.position.y = -.8; flipG.add(cat);
+// かわいい ねこ（きまぐれタイムに あらわれる）
+const MIL = makeCat({ fur: '#fffaf6', stripe: '#ffe1ea', cream: '#ffffff', ribbon: '#ff6fa8', cute: true });
+MIL.cat.scale.setScalar(1.05); MIL.cat.visible = false; scene.add(MIL.cat);
+// ハートの つぶ
+const heartTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  g.fillStyle = '#ff5f9e'; g.strokeStyle = '#ffffff'; g.lineWidth = 5;
+  g.beginPath(); g.moveTo(32, 54); g.bezierCurveTo(4, 34, 8, 8, 32, 20); g.bezierCurveTo(56, 8, 60, 34, 32, 54); g.closePath(); g.stroke(); g.fill();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+})();
+const hPart = Array.from({ length: 10 }, () => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: heartTex, transparent: true, depthWrite: false })); sp.visible = false; sp.life = 0; scene.add(sp); return sp; });
 const shadowM = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .22, depthWrite: false });
 const pShadow = new THREE.Mesh(new THREE.CircleGeometry(.55, 20), shadowM); pShadow.rotation.x = -Math.PI / 2; pShadow.position.y = .02; scene.add(pShadow);
 // ぷちぷちシールド（あわの まく）
@@ -196,6 +222,9 @@ const MAT = {
   card: M('#d6a165'), tape: M('#b07a40'), steel: M('#9aa3b5'), white: M('#ffffff'), cloth1: M('#ff8fb1'), cloth2: M('#7fc8ff'), cloth3: M('#ffe066'),
   truck: M('#4f86e8'), truck2: M('#ffffff'), cab: M('#ff7a45'), tire: M('#2a2238'), glass: M('#bfe6ff'), robot: M('#e9edf5'), green: M('#4fe08a', { emissive: 0x1a6a3a }),
   ebi: M('#ff8a4c'), ebiS: M('#ffd0b0'), gold: M('#ffcf3c', { emissive: 0x6a4a00 }), red: M('#ff4a5a'), star: M('#ffd84a', { emissive: 0x7a5a00 }), heart: M('#ff6b8b', { emissive: 0x551122 }),
+  plate: M('#f4f5f8'), rice: M('#fffdf6'), roux: M('#a0581f'), katsu: M('#d99a4a'), pickle: M('#e0453f'),
+  bowl: M('#24202a'), bowlRim: M('#c43c3c'), soup: M('#e9b65e', { emissive: 0x3a2000 }), napa: M('#f3f6dc'), napa2: M('#cfe3a0'), pork: M('#c98a5a'), nira: M('#3f9e4a'),
+  ramp: M('#ffd84a'), rampSide: M('#ff6a4a'),
 };
 const SHAPES = {
   box: () => { const g = new THREE.Group(); g.add(box(1.25, 1, 1, MAT.card, 0, .5, 0)); g.add(box(1.27, .14, 1.02, MAT.tape, 0, .98, 0)); g.add(box(.14, 1.02, 1.02, MAT.tape, 0, .5, 0)); return g; },
@@ -228,10 +257,31 @@ const SHAPES = {
     g.add(sph(.035, MAT.tire, .18, -.12, .1, 1, 1, 1, 8));
     g.scale.setScalar(gold ? 1.25 : 1); return g;
   },
-  shield: () => {
-    const g = new THREE.Group();
-    g.add(sph(.42, new THREE.MeshLambertMaterial({ color: '#9fe3ff', transparent: true, opacity: .65 }), 0, 0, 0));
-    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; g.add(sph(.1, MAT.white, Math.cos(a) * .36, Math.sin(a) * .36, .15, 1, 1, .6, 8)); }
+  curry: () => { // カレー（だえんの おさらに ごはんと ルー）
+    const g = new THREE.Group(), p = new THREE.Group(); p.rotation.x = .85; g.add(p); g.scale.setScalar(1.45);
+    const plate = new THREE.Mesh(new THREE.CylinderGeometry(.55, .45, .08, 28), MAT.plate); plate.scale.set(1.3, 1, .9); p.add(plate);
+    p.add(sph(.32, MAT.rice, -.22, .04, 0, 1.1, .45, 1.1));
+    const roux = sph(.38, MAT.roux, .2, .03, 0, 1.15, .2, 1.05); p.add(roux);
+    [[.15, .1], [.32, -.12], [.05, -.15]].forEach(([x, z]) => p.add(sph(.07, MAT.katsu, x, .1, z, 1.2, .5, 1)));
+    p.add(sph(.06, MAT.pickle, -.45, .08, .18, 1.4, .5, 1));
+    return g;
+  },
+  ramen: () => { // ラーメン（くろい どんぶりに はくさい）
+    const g = new THREE.Group(), p = new THREE.Group(); p.rotation.x = .75; g.add(p); g.scale.setScalar(1.45);
+    p.add(new THREE.Mesh(new THREE.CylinderGeometry(.5, .28, .42, 28), MAT.bowl)); p.children[0].position.y = -.05;
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(.48, .035, 8, 28), MAT.bowlRim); rim.rotation.x = Math.PI / 2; rim.position.y = .16; p.add(rim);
+    const soup = new THREE.Mesh(new THREE.CylinderGeometry(.46, .46, .02, 28), MAT.soup); soup.position.y = .14; p.add(soup);
+    [[-.18, .05], [.05, -.2], [.2, .12], [-.05, .22]].forEach(([x, z], i) => p.add(sph(.13, i % 2 ? MAT.napa2 : MAT.napa, x, .17, z, 1.3, .3, .8, 10)));
+    const pork = new THREE.Mesh(new THREE.CylinderGeometry(.15, .15, .04, 18), MAT.pork); pork.position.set(.2, .2, -.12); pork.rotation.z = .2; p.add(pork);
+    [-.25, -.1].forEach(x => p.add(box(.04, .03, .3, MAT.nira, x, .19, -.1)));
+    return g;
+  },
+  ramp: () => { // ジャンプだい
+    const sh = new THREE.Shape(); sh.moveTo(-1.2, 0); sh.lineTo(1.2, 0); sh.lineTo(1.2, .75); sh.closePath();
+    const m = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 1.4, bevelEnabled: false }), [MAT.rampSide, MAT.ramp]);
+    m.rotation.y = Math.PI / 2; m.position.x = -.7;
+    const g = new THREE.Group(); g.add(m);
+    for (let k = 0; k < 3; k++) { const a = box(.5, .03, .18, MAT.rampSide, 0, 0, 0); const z = .7 - k * .7; a.position.set(0, (1.2 - z) / 2.4 * .75 + .02, z); a.rotation.x = Math.atan2(.75, 2.4); g.add(a); }
     return g;
   },
   magnet: () => {
@@ -245,14 +295,9 @@ const SHAPES = {
     const m = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: .16, bevelEnabled: true, bevelSize: .04, bevelThickness: .04, bevelSegments: 1 }), MAT.star); m.position.z = -.08;
     const g = new THREE.Group(); g.add(m); return g;
   },
-  heart: () => {
-    const s = new THREE.Shape(); s.moveTo(0, -.4); s.bezierCurveTo(.5, -.05, .45, .4, 0, .2); s.bezierCurveTo(-.45, .4, -.5, -.05, 0, -.4);
-    const m = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: .16, bevelEnabled: true, bevelSize: .04, bevelThickness: .04, bevelSegments: 1 }), MAT.heart); m.position.z = -.08;
-    const g = new THREE.Group(); g.add(m); return g;
-  },
 };
 // あたりはんてい：w=はば、d=おくゆき、h=たかさ（gate は y0 から上が じゃま）
-const OB = { box: { w: 1.25, d: 1, h: .95 }, gate: { w: 1.6, d: .3, y0: .95 }, truck: { w: 1.5, d: 4.4, h: 9 }, robot: { w: 1.1, d: 1.1, h: .4 } };
+const OB = { box: { w: 1.25, d: 1, h: .95 }, gate: { w: 1.6, d: .3, y0: .95 }, truck: { w: 1.5, d: 4.4, h: 2.4 }, robot: { w: 1.1, d: 1.1, h: .4 } };
 
 /* ---------- ゲーム ---------- */
 let G = null;
@@ -262,8 +307,9 @@ function add(kind, lane, z, extra = {}) {
   const gold = kind === 'gold';
   const m = SHAPES[gold ? 'ebi' : kind](gold);
   const o = Object.assign({ kind, lane, x: LANES[lane], y: 0, z, m, dead: false }, extra);
-  if (['ebi', 'gold', 'shield', 'magnet', 'star', 'heart'].includes(kind)) { o.item = true; if (!extra.y) o.y = .7; }
-  if (kind === 'robot') { o.dir = Math.random() < .5 ? -1 : 1; o.moving = G.t > 25; }
+  if (['ebi', 'gold', 'curry', 'magnet', 'star', 'ramen'].includes(kind)) { o.item = true; if (!extra.y) o.y = .7; }
+  if (kind === 'robot') { o.dir = Math.random() < .5 ? -1 : 1; o.moving = G.t > 25 && !G.km; }
+  if (kind === 'ramp') o.ramp = true;
   m.position.set(o.x, o.y, z); scene.add(m); objs.push(o); return o;
 }
 function ebiLine(lane, z0, n, arcOver) {
@@ -277,14 +323,16 @@ function spawnRow(z) {
   const hard = Math.min(1, t / 70);
   // パワーアップは ときどき
   let pow = null;
-  if (rows > 4 && Math.random() < .09) pow = Kit.pick(G.hearts < 3 ? ['shield', 'magnet', 'star', 'heart'] : ['shield', 'magnet', 'star', 'shield', 'magnet']);
+  if (rows > 4 && Math.random() < .09) pow = Kit.pick(G.hearts < 2 ? ['curry', 'ramen', 'ramen', 'magnet', 'star'] : G.hearts < 5 ? ['curry', 'magnet', 'star', 'curry', 'ramen'] : ['curry', 'magnet', 'star', 'curry', 'magnet']);
+  const calm = !!G.km; // きまぐれタイム（と その まえ）は トラックと ジャンプ台なし
+  if (!calm && rows > 6 && G.t > 10 && Math.random() < .11) return rampRow(z);
   const lanes = Kit.shuffle([0, 1, 2]);
   const r = Math.random();
   let nObs = r < .5 - hard * .25 ? 1 : r < .93 - hard * .1 ? 2 : 3;
   if (rows < 3) nObs = 1;
   const pickObs = (canTruck) => {
     const p = Math.random();
-    if (canTruck && p < .25 + hard * .1) return 'truck';
+    if (canTruck && !calm && p < .25 + hard * .1) return 'truck';
     if (p < .5) return 'box';
     if (p < .78) return 'gate';
     return t > 12 ? 'robot' : 'box';
@@ -306,12 +354,23 @@ function spawnRow(z) {
     else if (Math.random() < .75) ebiLine(lane, z - Kit.randInt(2, 6) * 2.2, Kit.randInt(3, 6), false);
   }
 }
+function rampRow(z) {
+  const lane = Kit.randInt(0, 2);
+  add('ramp', lane, z);
+  // 空中の エビ（ジャンプだいの とびかたに あわせる）
+  const v = G.v;
+  for (let i = 1; i <= 9; i++) { const tt = i * .2, y = .5 + RAMPV * tt - RAMPG / 2 * tt * tt; if (y < .8) break; add(i === 5 ? 'gold' : 'ebi', lane, z - v * tt, { y: y + .6 }); }
+  // ほかの レーンには じゃまもの
+  [0, 1, 2].filter(l => l !== lane).forEach(l => { if (Math.random() < .7) add(Kit.pick(['box', 'gate', 'truck']), l, z); });
+  G.gap = v * 1.6;
+}
 function start() {
   if (!R) return;
-  clearObjs();
+  clearObjs(); hPart.forEach(h => h.visible = false);
   const lv = LV[O.lv];
   G = { running: true, paused: false, over: false, t: 0, dist: 0, v: lv.v0, lv, lane: 1, x: 0, y: 0, vy: 0, slide: 0, hearts: 3, inv: 0,
-    ebi: 0, pts: 0, shield: false, magnet: 0, star: 0, gap: 14, rows: 0, slow: 0, lean: 0, runPh: 0, smash: 0, jumps: 0 };
+    ebi: 0, pts: 0, shield: false, magnet: 0, star: 0, gap: 14, rows: 0, slow: 0, lean: 0, runPh: 0, smash: 0, jumps: 0, fly: false, tricks: 0, flip: 0, flipKind: 0, trickN: 0, km: null, kmNext: Kit.rand(14, 20), kmClear: 0 };
+  MIL.cat.visible = false;
   // さいしょの すこしは なにも ない
   G.gap = 30;
   ['setupOv', 'resultOv', 'pauseOv'].forEach(id => $(id).hidden = true);
@@ -329,7 +388,8 @@ function hud() {
   $('hEbi').textContent = `🦐 ${G.ebi}`;
   $('hHeart').textContent = '❤️'.repeat(G.hearts) + '🤍'.repeat(Math.max(0, 3 - G.hearts));
   const p = [];
-  if (G.shield) p.push('<span>🫧</span>');
+  if (G.km && G.km.on) p.push(`<span>💕 ${Math.ceil(G.km.left)}</span>`);
+  if (G.shield) p.push('<span>🍛🫧</span>');
   if (G.magnet > 0) p.push(`<span>🧲 ${Math.ceil(G.magnet)}</span>`);
   if (G.star > 0) p.push(`<span>⭐ ${Math.ceil(G.star)}</span>`);
   const h = p.join(''); if ($('hPow').innerHTML !== h) $('hPow').innerHTML = h;
@@ -339,10 +399,18 @@ const score = () => Math.floor(G.dist / 2) + G.pts;
 /* ---------- そうさ ---------- */
 function act(a) {
   if (!G || !G.running || G.paused) return;
+  if ((a === 'L' || a === 'R') && G.km && G.km.on) { // むちゅうで いうことを きかない
+    G.shake = .35; if (!G.km.told) { G.km.told = true; flash('💕 ぷっちーは むちゅう…'); } return;
+  }
   if (a === 'L' && G.lane > 0) { G.lane--; G.lean = 1; Kit.sfx('whoosh'); }
   else if (a === 'R' && G.lane < 2) { G.lane++; G.lean = -1; Kit.sfx('whoosh'); }
   else if (a === 'U') {
     if (G.y <= .001) { G.vy = JUMP; G.slide = 0; G.jumps++; Kit.sfx('pop'); }
+    else if (G.fly && G.tricks < 3 && G.flip <= 0) { // アクロバット
+      G.tricks++; G.trickN++; G.vy = Math.max(G.vy, TRICKV); G.flip = 1; G.flipKind = (G.tricks - 1) % 3;
+      const b = 50 * G.tricks; G.pts += b; Kit.sfx('good'); Kit.vibrate(20);
+      flash(['くるりん！', 'くるくる〜！', 'スーパーくるりん！'][G.flipKind] + ` +${b}`);
+    }
   } else if (a === 'D') {
     if (G.y > .001) G.vy = Math.min(G.vy, -18); // くうちゅうなら すぐ おりる
     G.slide = .75; Kit.sfx('drop');
@@ -395,10 +463,32 @@ function take(o) {
   switch (o.kind) {
     case 'ebi': G.ebi++; G.pts += 10; Kit.sfx('coin'); break;
     case 'gold': G.ebi++; G.pts += 50; Kit.sfx('good'); flash('✨ きんの エビ！'); break;
-    case 'shield': G.shield = true; Kit.sfx('select'); flash('🫧 ぷちぷちシールド！'); break;
+    case 'curry': G.shield = true; Kit.sfx('select'); flash('🍛 カレーで ぷちぷちシールド！'); break;
     case 'magnet': G.magnet = 8; Kit.sfx('select'); flash('🧲 じしゃく！'); break;
     case 'star': G.star = 6; Kit.sfx('win'); flash('⭐ むてき！'); break;
-    case 'heart': G.hearts = Math.min(3, G.hearts + 1); Kit.sfx('good'); flash('❤️ かいふく！'); break;
+    case 'ramen': G.hearts = Math.min(5, G.hearts + 1); Kit.sfx('good'); flash('🍜 ラーメンで ライフアップ！'); break;
+  }
+}
+/* きまぐれタイム：かわいい ねこに むちゅうに なって、よこに うごけなく なる */
+function kimagure(dt) {
+  if (!G.km) { if (G.t >= G.kmNext && !G.fly) G.km = { on: false, wait: 0 }; return; }
+  const k = G.km;
+  if (!k.on) {
+    k.wait += dt;
+    const block = objs.some(o => !o.dead && (o.kind === 'truck' || (o.ramp && !o.used)) && o.z < 3);
+    if (block || G.fly) return;
+    k.on = true; k.left = 6; k.side = Kit.pick([-1, 1]); k.swap = Kit.rand(2, 2.8); k.h0 = G.hearts; k.puff = 0;
+    G.lane = k.side > 0 ? 2 : 0;
+    MIL.cat.visible = true; MIL.cat.position.set(k.side * 3.4, 0, -34); MIL.leaving = false;
+    flash('💕 かわいい ねこ！'); Kit.sfx('pop');
+    return;
+  }
+  k.left -= dt; k.swap -= dt; k.puff -= dt;
+  if (k.swap <= 0 && k.left > 1.8 && !objs.some(o => !o.item && !o.dead && !o.ramp && o.z > -G.v * 1.1 && o.z < 1.5)) { k.side *= -1; k.swap = Kit.rand(2, 2.8); G.lane = k.side > 0 ? 2 : 0; MIL.hop = 1; }
+  if (k.puff <= 0) { k.puff = .14; const sp = hPart.find(h => !h.visible); if (sp) { sp.visible = true; sp.life = 1; sp.position.set(G.x + Kit.rand(-.3, .3), G.y + 1.7, .2); sp.vx = k.side * Kit.rand(.6, 1.4); } }
+  if (k.left <= 0) {
+    G.km = null; G.kmNext = G.t + Kit.rand(22, 32); MIL.leaving = true;
+    if (G.hearts >= k.h0) { G.pts += 100; flash('💕 またね〜 +100'); Kit.sfx('good'); } else flash('💕 またね〜');
   }
 }
 function update(dt) {
@@ -415,8 +505,10 @@ function step(dt) {
   const d = G.v * dt; G.dist += d;
   roadTex.offset.y += d / TILE; grassTex.offset.y += d / TILE;
   // うごき
-  const tx = LANES[G.lane]; G.x += (tx - G.x) * Math.min(1, dt * 14);
-  G.vy -= GRAV * dt; G.y += G.vy * dt; if (G.y <= 0) { G.y = 0; G.vy = 0; }
+  const tx = LANES[G.lane]; G.x += (tx - G.x) * Math.min(1, dt * (G.km && G.km.on ? 4 : 14));
+  G.vy -= (G.fly ? RAMPG : GRAV) * dt; G.y += G.vy * dt; if (G.y <= 0) { if (G.fly) { G.fly = false; Kit.sfx('drop'); } G.y = 0; G.vy = 0; }
+  G.flip = Math.max(0, G.flip - dt * 1.6); G.shake = Math.max(0, (G.shake || 0) - dt);
+  kimagure(dt);
   G.slide = Math.max(0, G.slide - dt);
   G.inv = Math.max(0, G.inv - dt); G.magnet = Math.max(0, G.magnet - dt); G.star = Math.max(0, G.star - dt);
   // つぎの ならび
@@ -436,6 +528,8 @@ function step(dt) {
         const k = Math.min(1, dt * 7); o.x += (G.x - o.x) * k; o.y += (G.y + .7 - o.y) * k; o.z += (0 - o.z) * k * .6;
       }
       if (Math.abs(o.z) < .9 && Math.abs(o.x - G.x) < .85 && Math.abs(o.y - (G.y + .6)) < 1.1) take(o);
+    } else if (o.ramp) {
+      if (!o.used && G.y < .5 && Math.abs(o.z) < 1.3 && Math.abs(o.x - G.x) < .9) { o.used = true; G.fly = true; G.tricks = 0; G.vy = RAMPV; G.y = Math.max(G.y, .5); G.slide = 0; Kit.sfx('whoosh'); flash('🚀 ジャンプだい！ ⬆️で アクロバット'); }
     } else if (!o.hit && hitBy(o)) hurt(o);
     o.m.position.set(o.x, o.y, o.z);
   }
@@ -444,14 +538,14 @@ function step(dt) {
   if (G.running) hud();
 }
 function animate(dt, t) {
-  const g = G || { x: 0, y: 0, slide: 0, v: 0, inv: 0, star: 0, shield: false, lean: 0, runPh: 0 };
+  const g = G || { x: 0, y: 0, slide: 0, v: 0, inv: 0, star: 0, shield: false, lean: 0, runPh: 0, flip: 0, flipKind: 0, shake: 0 };
   const running = G && G.running && !G.paused;
   if (G) { G.runPh += (running ? G.v : 0) * dt * .9; G.lean *= Math.pow(.02, dt); }
   const ph = g.runPh || t * 6;
   player.position.set(g.x, g.y, 0);
   const air = g.y > .01, sl = g.slide > 0;
   const w = air ? 0 : Math.sin(ph);
-  legs.forEach((p, i) => { p.rotation.x = air ? (i < 2 ? -.9 : .9) : (i === 0 || i === 3 ? w : -w) * .9; });
+  legs.forEach((p, i) => { p.rotation.x = air ? (i < 2 ? -.9 : .9) * (g.fly ? 1.4 : 1) : (i === 0 || i === 3 ? w : -w) * .9; });
   body.position.y = air || sl ? 0 : Math.abs(Math.sin(ph)) * .1;
   body.scale.set(1, sl ? .55 : 1, sl ? 1.15 : 1);
   head.position.y = sl ? 1.0 : 1.12;
@@ -462,11 +556,36 @@ function animate(dt, t) {
   fur.emissive.setHex(g.star > 0 ? (Math.floor(t * 10) % 2 ? 0x664400 : 0x332200) : 0x000000);
   bubble.visible = !!g.shield; bubble.rotation.y = t;
   pShadow.position.set(g.x, .02, 0); pShadow.scale.setScalar(Math.max(.4, 1 - g.y * .25));
-  for (const o of objs) if (o.item && !o.dead) { o.m.rotation.y = t * 3; }
+  for (const o of objs) if (o.item && !o.dead) { if (o.kind === 'curry' || o.kind === 'ramen') { o.m.rotation.y = Math.sin(t * 2.5) * .35; o.m.position.y = o.y + Math.sin(t * 4) * .12; } else o.m.rotation.y = t * 3; }
+  // アクロバット
+  const pr = 1 - (g.flip || 0), e = g.flip > 0 ? pr * pr * (3 - 2 * pr) * Math.PI * 2 : 0;
+  flipG.rotation.set(g.flipKind === 0 ? -e : g.flipKind === 2 ? -e : 0, g.flipKind === 1 ? e : 0, g.flipKind === 2 ? e : 0);
+  // きまぐれタイム
+  const km = G && G.km && G.km.on ? G.km : null;
+  head.rotation.y = km ? -km.side * .6 : head.rotation.y * .9;
+  cat.position.x = g.shake > 0 ? Math.sin(t * 60) * .08 : 0;
+  if (km) {
+    const mc = MIL.cat, hop = MIL.hop > 0;
+    MIL.hop = Math.max(0, (MIL.hop || 0) - dt * .7);
+    mc.position.x += (km.side * 3.2 - mc.position.x) * Math.min(1, dt * (hop ? 2.2 : 4));
+    mc.position.z += (-5.5 - mc.position.z) * Math.min(1, dt * 2.5);
+    mc.position.y = hop ? Math.sin(MIL.hop * Math.PI) * 2.2 : Math.abs(Math.sin(t * 7)) * .25;
+    mc.rotation.y = -Math.sign(mc.position.x || 1) * .7;
+    MIL.tail.rotation.z = Math.sin(t * 5) * .5; MIL.head.rotation.z = Math.sin(t * 3) * .15;
+    MIL.legs.forEach((p, i) => { p.rotation.x = Math.sin(t * 14 + i * 1.6) * .5; });
+  } else if (MIL.cat.visible) {
+    if (MIL.leaving) { MIL.cat.position.z -= dt * 30; MIL.cat.rotation.y = Math.PI; if (MIL.cat.position.z < -60) MIL.cat.visible = false; }
+    else if (!G || !G.km) MIL.cat.visible = false;
+  }
+  for (const h of hPart) if (h.visible) {
+    h.life -= dt * .9; h.position.y += dt * 1.6; h.position.x += h.vx * dt; h.position.z -= dt * 1.5;
+    h.material.opacity = Math.min(1, h.life * 2); const sc = .35 + (1 - h.life) * .25; h.scale.set(sc, sc, sc);
+    if (h.life <= 0) h.visible = false;
+  }
   // カメラ
   cam.position.x += (g.x * .55 - cam.position.x) * Math.min(1, dt * 6);
-  cam.position.y = 4.5 + g.y * .25; cam.position.z = 6.6;
-  cam.lookAt(cam.position.x * .6, .5 + g.y * .2, -10);
+  cam.position.y = 4.5 + g.y * .5; cam.position.z = 6.6;
+  cam.lookAt(cam.position.x * .6, .5 + g.y * .45, -10);
 }
 function resize() {
   const w = stage.clientWidth, h = stage.clientHeight;
@@ -496,6 +615,7 @@ function finish() {
     <p style="margin:0;font-weight:900">${r.isNew ? '🎉 ベストきろく！' : `ベスト：${r.best}てん`}</p>
     <div class="res"><div><span>🏃 はしった きょり</span><b>${Math.floor(G.dist)}m</b></div>
     <div><span>🦐 あつめた エビ</span><b>${G.ebi}ひき</b></div>
+    ${G.trickN ? `<div><span>🤸 アクロバット</span><b>${G.trickN}かい</b></div>` : ''}
     ${G.smash ? `<div><span>⭐ むてきで はねとばした</span><b>${G.smash}こ</b></div>` : ''}</div>
     <div class="k-row" style="justify-content:center"><button class="k-btn is-orange is-big" id="again">もういっかい</button><button class="k-btn" id="toSetup">せっていへ</button></div>`;
   setTimeout(() => { $('resultOv').hidden = false; }, 800);
@@ -516,8 +636,11 @@ Kit.bar({ id: 'puchirun', guard: { active: () => G && G.running && !G.over, paus
     <li>⬆️ <b>ジャンプ</b>：上に スワイプ（↑ / W / スペース）。📦はこ・🤖おそうじロボットを とびこえる</li>
     <li>⬇️ <b>スライディング</b>：下に スワイプ（↓ / S）。👕せんたくものの 下を くぐる。ジャンプ中なら すぐ おりる</li>
     <li>🚚 <b>トラック</b>は とびこせないので、ちがう みちへ</li>
-    <li>❤️ ぶつかると ハートが へる。3つ なくなったら おしまい</li>
-    <li>🫧 <b>ぷちぷちシールド</b>：1回 ぶつかっても だいじょうぶ ／ 🧲 <b>じしゃく</b>：ちかくの エビを すいよせる ／ ⭐ <b>むてき</b>：じゃまものを はねとばす</li>
+    <li>❤️ ぶつかると ハートが へる。ぜんぶ なくなったら おしまい</li>
+    <li>💕 <b>きまぐれタイム</b>：かわいい ねこが あらわれると、ぷっちーは むちゅうで そっちへ いってしまい、よこに うごけない。じゃまものは ジャンプか スライディングで よけられるものだけ。ぶつからずに のりきると +100てん</li>
+    <li>🚀 <b>ジャンプだい</b>：のると 大ジャンプ。空中で ⬆️（上スワイプ）すると アクロバット（3回まで）で さらに 長く とべて、ボーナス てん。トラックも とびこせる</li>
+    <li>🍛 <b>カレー</b>：ぷちぷちシールド（1回 ぶつかっても だいじょうぶ） ／ 🍜 <b>ラーメン</b>：ハートが 1つ ふえる（5つまで）</li>
+    <li>🧲 <b>じしゃく</b>：ちかくの エビを すいよせる ／ ⭐ <b>むてき</b>：じゃまものを はねとばす</li>
     <li>🦐 エビ 10てん、✨きんの エビ 50てん。はしった きょりも てんすうに なる。どんどん はやく なるよ</li>
   </ul>` });
 { const ex = document.querySelector('.kbar-extra'); if (ex) ex.appendChild($('pauseBtn')); }
