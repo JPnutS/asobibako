@@ -12,6 +12,7 @@ self.ASOBI_GAMES = [
   { id: 'nurie', cat: 'play', name: 'おえかき・ぬりえ', icon: '🖌️', color: 'berry', tag: '一人で', who: '1人', desc: 'おえかきと、写真や絵から つくる ぬりえ' },
   { id: 'manga', cat: 'learn', name: 'マンガイラスト練習', icon: '✏️', color: 'grape', tag: '一人で', who: '1人', desc: 'お手本をなぞって マンガっぽい絵の かき方を練習' },
   { id: 'kamizumo', cat: 'play', name: '紙ずもう', icon: '🤼', color: 'orange', tag: '対戦', who: '1〜2人', desc: 'トントン たたいて 紙の 力士を たたかわせよう。番付を 上がって 横綱へ' },
+  { id: 'puchirun', cat: 'play', name: 'ぷっちーラン', icon: '🐱', color: 'orange', tag: '一人で', who: '1人', desc: '3つの みちを はしって じゃまものを よけ、エビを あつめよう' },
   { id: 'babanuki', cat: 'play', name: 'ババぬき', icon: '🃏', color: 'berry', tag: 'みんなで', who: '1人＋CPU', desc: 'CPUと対戦。ジジぬきもできるよ' },
   { id: 'connect4', cat: 'play', name: 'よんもくならべ', icon: '🔴', color: 'sun', tag: '対戦', who: '1〜2人', desc: 'たて・よこ・ななめに4つそろえよう' },
   { id: 'dots', cat: 'play', name: 'ドット＆ボックス', icon: '✏️', color: 'sky', tag: '対戦', who: '2〜4人', desc: '線をひいて、はこをたくさん取ろう' },

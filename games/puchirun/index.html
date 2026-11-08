@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ぷっちーラン</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  .stage { flex: 1; position: relative; min-height: 0; touch-action: none; user-select: none; -webkit-user-select: none; background: #bfe6ff; overflow: hidden; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .over { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(40, 60, 100, .35); overflow: auto; z-index: 5; }
+  .over .k-card { width: min(480px, 100%); }
+  .pauseBtn { width: 40px; height: 40px; }
+  .hud { position: absolute; left: 10px; right: 10px; top: 8px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; z-index: 3; pointer-events: none; font-weight: 900; color: #2a2238; }
+  .hud .pill { background: rgba(255,255,255,.85); border: 3px solid #2a2238; border-radius: 999px; padding: 2px 12px; font-size: 1.15rem; white-space: nowrap; }
+  .hud .score { font-family: var(--display); font-size: 1.5rem; }
+  .hud .col { display: grid; gap: 6px; justify-items: start; }
+  .hud .col.r { justify-items: end; }
+  .pows { display: flex; gap: 4px; }
+  .pows span { background: rgba(255,255,255,.85); border: 3px solid #2a2238; border-radius: 12px; padding: 0 6px; font-size: 1rem; }
+  .how { margin: 0; padding-left: 1.2em; line-height: 1.7; }
+  .res { display: grid; gap: 6px; width: 100%; }
+  .res div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 2px dashed var(--soft); padding: 4px 0; }
+  .msg { position: absolute; left: 0; right: 0; top: 34%; text-align: center; font-family: var(--display); font-size: 2.2rem; color: #fff; -webkit-text-stroke: 2px #2a2238; paint-order: stroke; z-index: 3; pointer-events: none; transition: opacity .3s; }
+  .hint { position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; font-weight: 900; color: #2a2238; opacity: .75; z-index: 3; pointer-events: none; text-shadow: 0 0 4px #fff, 0 0 4px #fff; }
+  .hurt { position: absolute; inset: 0; background: rgba(255, 60, 60, .35); z-index: 2; pointer-events: none; opacity: 0; transition: opacity .25s; }
+  .hurt.on { opacity: 1; transition: none; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <canvas id="cv"></canvas>
+  <div class="hurt" id="hurt"></div>
+  <div class="hud" id="hud" hidden>
+    <div class="col"><span class="pill score" id="hScore">0</span><span class="pill" id="hHeart">❤️❤️❤️</span></div>
+    <div class="col r"><span class="pill" id="hEbi">🦐 0</span><div class="pows" id="hPow"></div></div>
+  </div>
+  <div class="msg" id="msg"></div>
+  <div class="hint" id="hint" hidden>👆 スワイプ：←→ レーン ／ ↑ ジャンプ ／ ↓ スライディング</div>
+  <button class="k-btn k-icon pauseBtn" id="pauseBtn" aria-label="一時停止" hidden>⏸</button>
+  <div class="over" id="setupOv">
+    <div class="k-card k-stack">
+      <h2 style="text-align:center">🐱 ぷっちーラン</h2>
+      <p style="margin:0">ねこの <b>ぷっちー</b> が 3つの みちを はしるよ。じゃまものを よけて、🦐エビを あつめよう！</p>
+      <ul class="how">
+        <li>⬅️➡️ <b>よこに スワイプ</b>（または がめんの 左・右を タップ）で みちを かえる</li>
+        <li>⬆️ <b>上に スワイプ</b>で ジャンプ。📦はこ や 🤖ロボットを とびこえる</li>
+        <li>⬇️ <b>下に スワイプ</b>で スライディング。👕せんたくものの 下を くぐる</li>
+        <li>🚚 トラックは とびこせない。ちがう みちへ よけよう</li>
+        <li>🫧 シールド・🧲 じしゃく・⭐ むてき を とると いいこと あるよ</li>
+      </ul>
+      <span class="k-label">はやさ</span>
+      <div class="k-chips" id="optLv"></div>
+      <p class="k-muted" id="bestLine" style="margin:0"></p>
+      <button class="k-btn is-orange is-big is-wide" id="startBtn">スタート</button>
+      <p class="k-muted" id="noGL" style="margin:0" hidden>この きかいでは 3Dの がめんが うごかないみたい…</p>
+    </div>
+  </div>
+  <div class="over" id="pauseOv" hidden>
+    <div class="k-card k-stack k-center"><h2>ひとやすみ</h2>
+      <button class="k-btn is-sun is-big" id="resume">つづける</button>
+      <button class="k-btn" id="quit">やめる</button></div>
+  </div>
+  <div class="over" id="resultOv" hidden><div class="k-card k-stack k-center" id="resultCard"></div></div>
+</div>
+
+<script src="../../common/kit.js"></script>
+<script type="module">
+import * as THREE from '../../common/vendor/three.module.min.js';
+const $ = id => document.getElementById(id);
+const stage = $('stage'), cv = $('cv');
+const LV = {
+  1: { name: '🐢 ゆっくり', v0: 9, vMax: 18, acc: .12 },
+  2: { name: '🐈 ふつう', v0: 12, vMax: 25, acc: .18 },
+  3: { name: '🐆 はやい', v0: 16, vMax: 32, acc: .24 },
+};
+const O = Object.assign({ lv: 2 }, Kit.store.get('run:opt', {}));
+if (!LV[O.lv]) O.lv = 2;
+const LANE = 1.7, LANES = [-LANE, 0, LANE], FAR = -90, NEAR = 8;
+const GRAV = 30, JUMP = 10.5;
+
+function chips(root, items, cur, on) {
+  root.innerHTML = '';
+  items.forEach(([v, l]) => { const b = Kit.el(`<button class="k-chip" aria-pressed="${v === cur}">${l}</button>`); b.onclick = () => { Kit.sfx('select'); on(v); Kit.store.set('run:opt', O); renderSetup(); }; root.appendChild(b); });
+}
+function renderSetup() {
+  chips($('optLv'), Object.entries(LV).map(([k, v]) => [+k, v.name]), O.lv, v => O.lv = v);
+  const b = Kit.getBest(`run${O.lv}`);
+  $('bestLine').textContent = b ? `ベスト（${LV[O.lv].name}）：${b}てん` : '';
+}
+
+/* ---------- 3Dの せかい ---------- */
+let R;
+try { R = new THREE.WebGLRenderer({ canvas: cv, antialias: true }); }
+catch (e) { $('noGL').hidden = false; $('startBtn').disabled = true; }
+const scene = new THREE.Scene();
+const SKY = new THREE.Color('#bfe6ff');
+scene.background = SKY; scene.fog = new THREE.Fog(SKY, 38, 88);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x6a7a50, 1.5));
+const sun = new THREE.DirectionalLight(0xffffff, 1.5); sun.position.set(-3, 8, 4); scene.add(sun);
+const cam = new THREE.PerspectiveCamera(60, 1, .1, 120);
+const M = (c, o = {}) => new THREE.MeshLambertMaterial(Object.assign({ color: c }, o));
+const sph = (rad, m, x, y, z, sx = 1, sy = 1, sz = 1, seg = 20) => { const o = new THREE.Mesh(new THREE.SphereGeometry(rad, seg, Math.round(seg * .75)), m); o.position.set(x, y, z); o.scale.set(sx, sy, sz); return o; };
+const box = (w, h, d, m, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); return o; };
+
+// じめん（みちと しば）は テクスチャを ずらして 走っている ように 見せる
+function texOf(w, h, draw, rx, ry) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4; return t;
+}
+const TILE = 4;
+const roadTex = texOf(256, 128, (g, w, h) => {
+  g.fillStyle = '#f2dcae'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 40; i++) { g.fillStyle = Math.random() < .5 ? '#e8cf9c' : '#f8e7c4'; g.beginPath(); g.arc(Math.random() * w, Math.random() * h, 2 + Math.random() * 4, 0, 7); g.fill(); }
+  g.fillStyle = '#ffffff'; [w / 3, w * 2 / 3].forEach(x => g.fillRect(x - 3, 10, 6, h / 2));
+  g.fillStyle = '#c9a56b'; g.fillRect(0, 0, 8, h); g.fillRect(w - 8, 0, 8, h);
+}, 1, 120 / TILE);
+const road = new THREE.Mesh(new THREE.PlaneGeometry(LANE * 3 + .6, 120), new THREE.MeshLambertMaterial({ map: roadTex }));
+road.rotation.x = -Math.PI / 2; road.position.set(0, 0, -50); scene.add(road);
+const grassTex = texOf(128, 128, (g, w, h) => {
+  g.fillStyle = '#8fd46a'; g.fillRect(0, 0, w, h); g.fillStyle = '#82c95e'; g.fillRect(0, 0, w, h / 2);
+  for (let i = 0; i < 30; i++) { g.fillStyle = '#a6e07f'; g.fillRect(Math.random() * w, Math.random() * h, 3, 6); }
+}, 10, 120 / TILE);
+const grass = new THREE.Mesh(new THREE.PlaneGeometry(60, 120), new THREE.MeshLambertMaterial({ map: grassTex }));
+grass.rotation.x = -Math.PI / 2; grass.position.set(0, -.02, -50); scene.add(grass);
+
+// まわりの 木・しげみ・いえ
+const deco = [];
+{
+  const trunk = M('#a8744a'), leaf = M('#4fb35a'), leaf2 = M('#6cc96a'), bush = M('#5fbf5f');
+  const walls = ['#ffe3b8', '#ffd0d8', '#d8ecff', '#fff4c8'].map(c => M(c)), roofs = ['#e2604f', '#5a7fd6', '#f09a3e', '#7a5bb5'].map(c => M(c));
+  const kinds = [
+    () => { const g = new THREE.Group(); g.add(box(.3, 1.4, .3, trunk, 0, .7, 0)); g.add(sph(1, leaf, 0, 2, 0, 1, 1.1, 1, 12)); g.add(sph(.7, leaf2, .4, 2.6, .2, 1, 1, 1, 12)); return g; },
+    () => { const g = new THREE.Group(); g.add(box(.25, 1, .25, trunk, 0, .5, 0)); const c = new THREE.Mesh(new THREE.ConeGeometry(1, 2.6, 10), leaf); c.position.y = 2.1; g.add(c); return g; },
+    () => { const g = new THREE.Group(); g.add(sph(.7, bush, 0, .35, 0, 1.3, .8, 1, 10)); g.add(sph(.5, leaf2, .6, .3, .2, 1, .8, 1, 10)); return g; },
+    () => { const g = new THREE.Group(); const i = Kit.randInt(0, 3); g.add(box(2.4, 2, 2.4, walls[i], 0, 1, 0)); const r = new THREE.Mesh(new THREE.ConeGeometry(2.1, 1.4, 4), roofs[i]); r.rotation.y = Math.PI / 4; r.position.y = 2.7; g.add(r); g.add(box(.5, .8, .05, M('#8a5a3a'), 0, .4, 1.22)); g.add(box(.5, .5, .05, M('#bfe6ff'), .7, 1.3, 1.22)); return g; },
+  ];
+  for (let i = 0; i < 36; i++) {
+    const side = i % 2 ? 1 : -1, near = Math.random() < .6;
+    const k = near ? Kit.pick([0, 1, 2, 2]) : Kit.pick([0, 1, 3, 3]);
+    const o = kinds[k](); o.position.set(side * (near ? Kit.rand(3.6, 5) : Kit.rand(6.5, 10)), 0, FAR + (i / 36) * (NEAR - FAR));
+    o.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2; o.scale.setScalar(Kit.rand(.8, 1.15));
+    scene.add(o); deco.push(o);
+  }
+}
+
+/* ---------- ぷっちー（ぷちぷちエビの ねこ） ---------- */
+const fur = M('#ffc98a'), cream = M('#fff3dd'), dark = M('#2a2238'), pink = M('#ff9fb8'), stripe = M('#f0a35a'), mouthM = M('#c2405a');
+const player = new THREE.Group(); scene.add(player);
+const cat = new THREE.Group(); cat.rotation.y = Math.PI; cat.scale.setScalar(.95); player.add(cat);
+const body = new THREE.Group(); cat.add(body);
+body.add(sph(.5, fur, 0, .58, -.05, 1.05, .9, 1.35));
+body.add(sph(.36, cream, 0, .5, .2, 1, .85, 1.1));
+[-.25, 0, .25].forEach(z => body.add(sph(.12, stripe, 0, 1.0, z - .1, 3.6, .35, .7)));
+const head = new THREE.Group(); head.position.set(0, 1.12, .55); body.add(head);
+head.add(sph(.5, fur, 0, 0, 0, 1.08, .95, 1));
+[-1, 1].forEach(sx => {
+  const ear = new THREE.Mesh(new THREE.ConeGeometry(.17, .34, 16), fur); ear.position.set(sx * .3, .44, -.05); ear.rotation.z = -sx * .35; head.add(ear);
+  const inner = new THREE.Mesh(new THREE.ConeGeometry(.1, .22, 12), pink); inner.position.set(sx * .3, .42, .03); inner.rotation.z = -sx * .35; head.add(inner);
+  head.add(sph(.075, dark, sx * .19, .08, .44, 1, 1.25, .6));
+  head.add(sph(.08, pink, sx * .3, -.1, .38, 1.3, .6, .5));
+  // うしろあたまの しまもよう（うしろから 見えるので）
+  head.add(sph(.1, stripe, sx * .16, .3, -.3, 1, .4, 1.4));
+});
+head.add(sph(.12, stripe, 0, .36, -.25, 1, .4, 1.5));
+head.add(sph(.15, cream, 0, -.13, .42, 1.4, .9, .8));
+head.add(sph(.045, pink, 0, -.05, .53, 1.3, .9, 1));
+head.add(sph(.09, mouthM, 0, -.22, .48, 1.3, .1, .6));
+const legs = [[-.27, .38], [.27, .38], [-.27, -.45], [.27, -.45]].map(([x, z]) => {
+  const p = new THREE.Group(); p.position.set(x, .42, z);
+  const l = new THREE.Mesh(new THREE.CylinderGeometry(.11, .12, .4, 12), fur); l.position.y = -.2; p.add(l);
+  p.add(sph(.13, cream, 0, -.4, .03, 1, .6, 1.2));
+  body.add(p); return p;
+});
+const tail = new THREE.Group(); tail.position.set(0, .7, -.68); body.add(tail);
+for (let i = 0; i < 7; i++) tail.add(sph(.085 - i * .004, i % 2 ? stripe : fur, 0, i * .11, -i * .05 + i * i * .012));
+const shadowM = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .22, depthWrite: false });
+const pShadow = new THREE.Mesh(new THREE.CircleGeometry(.55, 20), shadowM); pShadow.rotation.x = -Math.PI / 2; pShadow.position.y = .02; scene.add(pShadow);
+// ぷちぷちシールド（あわの まく）
+const bubble = new THREE.Group(); player.add(bubble);
+{
+  const bm = new THREE.MeshLambertMaterial({ color: '#9fe3ff', transparent: true, opacity: .32, depthWrite: false });
+  bubble.add(sph(1, bm, 0, .8, 0, 1, 1, 1.15, 24));
+  const dm = new THREE.MeshLambertMaterial({ color: '#ffffff', transparent: true, opacity: .55, depthWrite: false });
+  for (let i = 0; i < 14; i++) { const a = i * 2.4, b = (i / 14) * Math.PI; bubble.add(sph(.13, dm, Math.cos(a) * Math.sin(b) * .98, .8 + Math.cos(b) * .98, Math.sin(a) * Math.sin(b) * 1.1, 1, 1, 1, 8)); }
+}
+bubble.visible = false;
+
+/* ---------- じゃまもの・アイテムの かたち ---------- */
+const MAT = {
+  card: M('#d6a165'), tape: M('#b07a40'), steel: M('#9aa3b5'), white: M('#ffffff'), cloth1: M('#ff8fb1'), cloth2: M('#7fc8ff'), cloth3: M('#ffe066'),
+  truck: M('#4f86e8'), truck2: M('#ffffff'), cab: M('#ff7a45'), tire: M('#2a2238'), glass: M('#bfe6ff'), robot: M('#e9edf5'), green: M('#4fe08a', { emissive: 0x1a6a3a }),
+  ebi: M('#ff8a4c'), ebiS: M('#ffd0b0'), gold: M('#ffcf3c', { emissive: 0x6a4a00 }), red: M('#ff4a5a'), star: M('#ffd84a', { emissive: 0x7a5a00 }), heart: M('#ff6b8b', { emissive: 0x551122 }),
+};
+const SHAPES = {
+  box: () => { const g = new THREE.Group(); g.add(box(1.25, 1, 1, MAT.card, 0, .5, 0)); g.add(box(1.27, .14, 1.02, MAT.tape, 0, .98, 0)); g.add(box(.14, 1.02, 1.02, MAT.tape, 0, .5, 0)); return g; },
+  gate: () => {
+    const g = new THREE.Group();
+    [-.75, .75].forEach(x => g.add(box(.1, 2.6, .1, MAT.steel, x, 1.3, 0)));
+    g.add(box(1.7, .08, .08, MAT.steel, 0, 2.5, 0));
+    [MAT.cloth1, MAT.cloth2, MAT.cloth3].forEach((m, i) => { const c = box(.48, 1.45, .06, m, -.5 + i * .5, 1.75, 0); g.add(c); });
+    return g;
+  },
+  truck: () => {
+    const g = new THREE.Group();
+    g.add(box(1.5, 1.9, 3.2, MAT.truck, 0, 1.35, -.4)); g.add(box(1.52, .25, 3.22, MAT.truck2, 0, 1.6, -.4));
+    g.add(box(1.5, 1.4, 1.2, MAT.cab, 0, 1.1, 1.75)); g.add(box(1.3, .6, .05, MAT.glass, 0, 1.45, 2.36));
+    [[-.75, 1.4], [.75, 1.4], [-.75, -1.3], [.75, -1.3]].forEach(([x, z]) => { const w = new THREE.Mesh(new THREE.CylinderGeometry(.36, .36, .25, 14), MAT.tire); w.rotation.z = Math.PI / 2; w.position.set(x, .36, z); g.add(w); });
+    return g;
+  },
+  robot: () => {
+    const g = new THREE.Group();
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(.55, .58, .3, 24), MAT.robot); c.position.y = .2; g.add(c);
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(.2, .2, .08, 16), MAT.steel); t.position.y = .38; g.add(t);
+    g.add(sph(.07, MAT.green, 0, .44, .1)); [-1, 1].forEach(s => g.add(sph(.06, MAT.tire, s * .2, .2, .52)));
+    return g;
+  },
+  ebi: (gold) => {
+    const g = new THREE.Group(), m = gold ? MAT.gold : MAT.ebi;
+    const t = new THREE.Mesh(new THREE.TorusGeometry(.26, .12, 10, 18, Math.PI * 1.35), m); t.rotation.z = -.3; g.add(t);
+    for (let i = 0; i < 4; i++) { const a = -.3 + i * .38; g.add(sph(.03, gold ? MAT.white : MAT.ebiS, Math.cos(a) * .26, Math.sin(a) * .26, .12, 1, 1, 1, 6)); }
+    const tl = new THREE.Mesh(new THREE.ConeGeometry(.13, .2, 3), m); tl.position.set(Math.cos(Math.PI * 1.05) * .26 - .05, Math.sin(Math.PI * 1.05) * .26 - .1, 0); g.add(tl);
+    g.add(sph(.035, MAT.tire, .18, -.12, .1, 1, 1, 1, 8));
+    g.scale.setScalar(gold ? 1.25 : 1); return g;
+  },
+  shield: () => {
+    const g = new THREE.Group();
+    g.add(sph(.42, new THREE.MeshLambertMaterial({ color: '#9fe3ff', transparent: true, opacity: .65 }), 0, 0, 0));
+    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; g.add(sph(.1, MAT.white, Math.cos(a) * .36, Math.sin(a) * .36, .15, 1, 1, .6, 8)); }
+    return g;
+  },
+  magnet: () => {
+    const g = new THREE.Group();
+    const t = new THREE.Mesh(new THREE.TorusGeometry(.3, .12, 10, 18, Math.PI), MAT.red); t.rotation.z = Math.PI; g.add(t);
+    [-.3, .3].forEach(x => g.add(box(.24, .2, .24, MAT.white, x, .08, 0)));
+    return g;
+  },
+  star: () => {
+    const s = new THREE.Shape(); for (let i = 0; i < 10; i++) { const r = i % 2 ? .22 : .5, a = Math.PI / 2 + i * Math.PI / 5; i ? s.lineTo(Math.cos(a) * r, Math.sin(a) * r) : s.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
+    const m = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: .16, bevelEnabled: true, bevelSize: .04, bevelThickness: .04, bevelSegments: 1 }), MAT.star); m.position.z = -.08;
+    const g = new THREE.Group(); g.add(m); return g;
+  },
+  heart: () => {
+    const s = new THREE.Shape(); s.moveTo(0, -.4); s.bezierCurveTo(.5, -.05, .45, .4, 0, .2); s.bezierCurveTo(-.45, .4, -.5, -.05, 0, -.4);
+    const m = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: .16, bevelEnabled: true, bevelSize: .04, bevelThickness: .04, bevelSegments: 1 }), MAT.heart); m.position.z = -.08;
+    const g = new THREE.Group(); g.add(m); return g;
+  },
+};
+// あたりはんてい：w=はば、d=おくゆき、h=たかさ（gate は y0 から上が じゃま）
+const OB = { box: { w: 1.25, d: 1, h: .95 }, gate: { w: 1.6, d: .3, y0: .95 }, truck: { w: 1.5, d: 4.4, h: 9 }, robot: { w: 1.1, d: 1.1, h: .4 } };
+
+/* ---------- ゲーム ---------- */
+let G = null;
+const objs = [];
+function clearObjs() { objs.forEach(o => scene.remove(o.m)); objs.length = 0; }
+function add(kind, lane, z, extra = {}) {
+  const gold = kind === 'gold';
+  const m = SHAPES[gold ? 'ebi' : kind](gold);
+  const o = Object.assign({ kind, lane, x: LANES[lane], y: 0, z, m, dead: false }, extra);
+  if (['ebi', 'gold', 'shield', 'magnet', 'star', 'heart'].includes(kind)) { o.item = true; if (!extra.y) o.y = .7; }
+  if (kind === 'robot') { o.dir = Math.random() < .5 ? -1 : 1; o.moving = G.t > 25; }
+  m.position.set(o.x, o.y, z); scene.add(m); objs.push(o); return o;
+}
+function ebiLine(lane, z0, n, arcOver) {
+  for (let i = 0; i < n; i++) {
+    const z = z0 + i * 2.2, k = n > 1 ? i / (n - 1) : 0;
+    add(Math.random() < .03 ? 'gold' : 'ebi', lane, z, { y: arcOver ? .7 + Math.sin(k * Math.PI) * 1.9 : .7 });
+  }
+}
+function spawnRow(z) {
+  const t = G.t, rows = ++G.rows;
+  const hard = Math.min(1, t / 70);
+  // パワーアップは ときどき
+  let pow = null;
+  if (rows > 4 && Math.random() < .09) pow = Kit.pick(G.hearts < 3 ? ['shield', 'magnet', 'star', 'heart'] : ['shield', 'magnet', 'star', 'shield', 'magnet']);
+  const lanes = Kit.shuffle([0, 1, 2]);
+  const r = Math.random();
+  let nObs = r < .5 - hard * .25 ? 1 : r < .93 - hard * .1 ? 2 : 3;
+  if (rows < 3) nObs = 1;
+  const pickObs = (canTruck) => {
+    const p = Math.random();
+    if (canTruck && p < .25 + hard * .1) return 'truck';
+    if (p < .5) return 'box';
+    if (p < .78) return 'gate';
+    return t > 12 ? 'robot' : 'box';
+  };
+  const used = [];
+  for (let i = 0; i < nObs; i++) {
+    const lane = lanes[i];
+    // ぜんぶ ふさがない：トラックは さいごの 1つの レーンには おかない
+    let k = pickObs(i < 2 && nObs < 3 || (nObs === 3 && i === 0));
+    if (k === 'robot' && used.includes('robot')) k = 'box';
+    add(k, lane, k === 'truck' ? z - 1.5 : z); used.push(k);
+    if (k === 'box' && Math.random() < .35) ebiLine(lane, z - 4.4, 5, true);
+  }
+  // あいている レーンに エビか パワーアップ
+  const free = lanes.slice(nObs);
+  if (free.length) {
+    const lane = Kit.pick(free);
+    if (pow) add(pow, lane, z, { y: .9 });
+    else if (Math.random() < .75) ebiLine(lane, z - Kit.randInt(2, 6) * 2.2, Kit.randInt(3, 6), false);
+  }
+}
+function start() {
+  if (!R) return;
+  clearObjs();
+  const lv = LV[O.lv];
+  G = { running: true, paused: false, over: false, t: 0, dist: 0, v: lv.v0, lv, lane: 1, x: 0, y: 0, vy: 0, slide: 0, hearts: 3, inv: 0,
+    ebi: 0, pts: 0, shield: false, magnet: 0, star: 0, gap: 14, rows: 0, slow: 0, lean: 0, runPh: 0, smash: 0, jumps: 0 };
+  // さいしょの すこしは なにも ない
+  G.gap = 30;
+  ['setupOv', 'resultOv', 'pauseOv'].forEach(id => $(id).hidden = true);
+  ['hud', 'pauseBtn', 'hint'].forEach(id => $(id).hidden = false);
+  setTimeout(() => { $('hint').hidden = true; }, 6000);
+  flash('よーい、どん！');
+  Kit.keepAwake(true);
+  Kit.music.play({ bpm: 140, lead: [659, 0, 784, 0, 880, 784, 659, 0, 587, 0, 659, 0, 523, 0, 0, 0, 659, 0, 784, 0, 988, 880, 784, 0, 880, 0, 784, 0, 659, 0, 0, 0], bass: [131, 0, 196, 0, 147, 0, 196, 0], vol: .017, type: 'triangle' });
+  hud();
+}
+let flashT = 0;
+function flash(s) { const m = $('msg'); m.textContent = s; m.style.opacity = 1; clearTimeout(flashT); flashT = setTimeout(() => { m.style.opacity = 0; }, 900); }
+function hud() {
+  $('hScore').textContent = score();
+  $('hEbi').textContent = `🦐 ${G.ebi}`;
+  $('hHeart').textContent = '❤️'.repeat(G.hearts) + '🤍'.repeat(Math.max(0, 3 - G.hearts));
+  const p = [];
+  if (G.shield) p.push('<span>🫧</span>');
+  if (G.magnet > 0) p.push(`<span>🧲 ${Math.ceil(G.magnet)}</span>`);
+  if (G.star > 0) p.push(`<span>⭐ ${Math.ceil(G.star)}</span>`);
+  const h = p.join(''); if ($('hPow').innerHTML !== h) $('hPow').innerHTML = h;
+}
+const score = () => Math.floor(G.dist / 2) + G.pts;
+
+/* ---------- そうさ ---------- */
+function act(a) {
+  if (!G || !G.running || G.paused) return;
+  if (a === 'L' && G.lane > 0) { G.lane--; G.lean = 1; Kit.sfx('whoosh'); }
+  else if (a === 'R' && G.lane < 2) { G.lane++; G.lean = -1; Kit.sfx('whoosh'); }
+  else if (a === 'U') {
+    if (G.y <= .001) { G.vy = JUMP; G.slide = 0; G.jumps++; Kit.sfx('pop'); }
+  } else if (a === 'D') {
+    if (G.y > .001) G.vy = Math.min(G.vy, -18); // くうちゅうなら すぐ おりる
+    G.slide = .75; Kit.sfx('drop');
+  }
+}
+let sw = null;
+stage.addEventListener('pointerdown', e => {
+  if (e.target.closest('button, .over')) return;
+  sw = { x: e.clientX, y: e.clientY, id: e.pointerId, done: false, t: performance.now() };
+});
+stage.addEventListener('pointermove', e => {
+  if (!sw || sw.id !== e.pointerId || sw.done) return;
+  const dx = e.clientX - sw.x, dy = e.clientY - sw.y;
+  if (Math.hypot(dx, dy) < 28) return;
+  sw.done = true;
+  act(Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'L' : 'R') : (dy < 0 ? 'U' : 'D'));
+});
+stage.addEventListener('pointerup', e => {
+  if (!sw || sw.id !== e.pointerId) return;
+  if (!sw.done && performance.now() - sw.t < 400) { const r = stage.getBoundingClientRect(); act(e.clientX - r.left < r.width / 2 ? 'L' : 'R'); }
+  sw = null;
+});
+stage.addEventListener('pointercancel', () => { sw = null; });
+const KEYS = { ArrowLeft: 'L', KeyA: 'L', ArrowRight: 'R', KeyD: 'R', ArrowUp: 'U', KeyW: 'U', Space: 'U', ArrowDown: 'D', KeyS: 'D' };
+addEventListener('keydown', e => {
+  const a = KEYS[e.code]; if (!a || !G || !G.running) return;
+  if (e.target.closest && e.target.closest('input, textarea')) return;
+  e.preventDefault(); if (!e.repeat) act(a);
+});
+
+/* ---------- まいフレーム ---------- */
+function hitBy(o) {
+  const ob = OB[o.kind];
+  if (Math.abs(o.z) > ob.d / 2 + .45) return false;
+  if (Math.abs(o.x - G.x) > ob.w / 2 + .3) return false;
+  if (o.kind === 'gate') return G.slide <= 0 && G.y < 2.2; // しゃがまないと ぶつかる
+  return G.y < ob.h;
+}
+function knock(o) { o.dead = true; o.fly = { vx: (o.x - G.x || Kit.rand(-1, 1)) * 4 + Kit.rand(-3, 3), vy: 9, vz: -8, rx: Kit.rand(-8, 8) }; }
+function hurt(o) {
+  if (G.star > 0) { knock(o); G.pts += 20; G.smash++; Kit.sfx('pop'); Kit.vibrate(15); return; }
+  if (G.inv > 0) return;
+  if (G.shield) { G.shield = false; knock(o); G.inv = 1; Kit.sfx('pop'); Kit.vibrate(30); flash('🫧 ぷちっ！'); return; }
+  o.hit = true; G.hearts--; G.inv = 1.8; G.slow = 1; Kit.sfx('bad'); Kit.vibrate([60, 40, 60]);
+  $('hurt').classList.add('on'); setTimeout(() => $('hurt').classList.remove('on'), 120);
+  if (G.hearts <= 0) finish();
+}
+function take(o) {
+  o.dead = true; scene.remove(o.m);
+  switch (o.kind) {
+    case 'ebi': G.ebi++; G.pts += 10; Kit.sfx('coin'); break;
+    case 'gold': G.ebi++; G.pts += 50; Kit.sfx('good'); flash('✨ きんの エビ！'); break;
+    case 'shield': G.shield = true; Kit.sfx('select'); flash('🫧 ぷちぷちシールド！'); break;
+    case 'magnet': G.magnet = 8; Kit.sfx('select'); flash('🧲 じしゃく！'); break;
+    case 'star': G.star = 6; Kit.sfx('win'); flash('⭐ むてき！'); break;
+    case 'heart': G.hearts = Math.min(3, G.hearts + 1); Kit.sfx('good'); flash('❤️ かいふく！'); break;
+  }
+}
+function update(dt) {
+  const t = performance.now() / 1000;
+  if (G && G.running && !G.paused) step(dt);
+  animate(dt, t);
+  if (R) R.render(scene, cam);
+}
+function step(dt) {
+  G.t += dt;
+  const target = Math.min(G.lv.vMax, G.lv.v0 + G.t * G.lv.acc) * (G.star > 0 ? 1.25 : 1);
+  G.slow = Math.max(0, G.slow - dt * .8);
+  G.v += (target * (1 - G.slow * .45) - G.v) * Math.min(1, dt * 3);
+  const d = G.v * dt; G.dist += d;
+  roadTex.offset.y += d / TILE; grassTex.offset.y += d / TILE;
+  // うごき
+  const tx = LANES[G.lane]; G.x += (tx - G.x) * Math.min(1, dt * 14);
+  G.vy -= GRAV * dt; G.y += G.vy * dt; if (G.y <= 0) { G.y = 0; G.vy = 0; }
+  G.slide = Math.max(0, G.slide - dt);
+  G.inv = Math.max(0, G.inv - dt); G.magnet = Math.max(0, G.magnet - dt); G.star = Math.max(0, G.star - dt);
+  // つぎの ならび
+  G.gap -= d;
+  if (G.gap <= 0) { spawnRow(FAR); const rt = Math.max(.85, 1.35 - G.t * .006); G.gap = G.v * rt + Kit.rand(0, 4); }
+  // ものを うごかす
+  for (const o of objs) {
+    if (o.fly) { o.fly.vy -= GRAV * dt; o.x += o.fly.vx * dt; o.y += o.fly.vy * dt; o.z += (d + o.fly.vz * dt); o.m.rotation.x += o.fly.rx * dt; o.m.position.set(o.x, o.y, o.z); continue; }
+    if (o.dead) continue;
+    o.z += d;
+    if (o.kind === 'robot' && o.moving) {
+      o.x += o.dir * 1.6 * dt;
+      if (o.x > LANE) { o.x = LANE; o.dir = -1; } if (o.x < -LANE) { o.x = -LANE; o.dir = 1; }
+    }
+    if (o.item) {
+      if (G.magnet > 0 && o.z > -14 && o.z < 1 && ['ebi', 'gold'].includes(o.kind)) {
+        const k = Math.min(1, dt * 7); o.x += (G.x - o.x) * k; o.y += (G.y + .7 - o.y) * k; o.z += (0 - o.z) * k * .6;
+      }
+      if (Math.abs(o.z) < .9 && Math.abs(o.x - G.x) < .85 && Math.abs(o.y - (G.y + .6)) < 1.1) take(o);
+    } else if (!o.hit && hitBy(o)) hurt(o);
+    o.m.position.set(o.x, o.y, o.z);
+  }
+  for (let i = objs.length - 1; i >= 0; i--) { const o = objs[i]; if (o.z > NEAR || o.y < -10 || (o.dead && !o.fly)) { scene.remove(o.m); objs.splice(i, 1); } }
+  for (const o of deco) { o.position.z += d; if (o.position.z > NEAR + 4) o.position.z -= (NEAR + 4 - FAR); }
+  if (G.running) hud();
+}
+function animate(dt, t) {
+  const g = G || { x: 0, y: 0, slide: 0, v: 0, inv: 0, star: 0, shield: false, lean: 0, runPh: 0 };
+  const running = G && G.running && !G.paused;
+  if (G) { G.runPh += (running ? G.v : 0) * dt * .9; G.lean *= Math.pow(.02, dt); }
+  const ph = g.runPh || t * 6;
+  player.position.set(g.x, g.y, 0);
+  const air = g.y > .01, sl = g.slide > 0;
+  const w = air ? 0 : Math.sin(ph);
+  legs.forEach((p, i) => { p.rotation.x = air ? (i < 2 ? -.9 : .9) : (i === 0 || i === 3 ? w : -w) * .9; });
+  body.position.y = air || sl ? 0 : Math.abs(Math.sin(ph)) * .1;
+  body.scale.set(1, sl ? .55 : 1, sl ? 1.15 : 1);
+  head.position.y = sl ? 1.0 : 1.12;
+  body.rotation.x = air ? Math.max(-.35, Math.min(.35, -g.vy * .03)) : 0;
+  tail.rotation.z = Math.sin(t * 8) * .4; tail.rotation.x = -.3 - (air ? .4 : 0);
+  cat.rotation.z = (G ? G.lean : 0) * .25;
+  cat.visible = !(g.inv > 0 && Math.floor(t * 14) % 2);
+  fur.emissive.setHex(g.star > 0 ? (Math.floor(t * 10) % 2 ? 0x664400 : 0x332200) : 0x000000);
+  bubble.visible = !!g.shield; bubble.rotation.y = t;
+  pShadow.position.set(g.x, .02, 0); pShadow.scale.setScalar(Math.max(.4, 1 - g.y * .25));
+  for (const o of objs) if (o.item && !o.dead) { o.m.rotation.y = t * 3; }
+  // カメラ
+  cam.position.x += (g.x * .55 - cam.position.x) * Math.min(1, dt * 6);
+  cam.position.y = 4.5 + g.y * .25; cam.position.z = 6.6;
+  cam.lookAt(cam.position.x * .6, .5 + g.y * .2, -10);
+}
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  if (!R || !w || !h) return;
+  R.setPixelRatio(Math.min(2, devicePixelRatio || 1)); R.setSize(w, h, false);
+  cam.aspect = w / h;
+  // よこに 3レーンが ちゃんと 入るように、たてながの がめんでは 見る はんいを ひろげる
+  const needH = 2 * Math.atan(3.4 / 7.6) * 180 / Math.PI;
+  cam.fov = Math.min(80, Math.max(52, 2 * Math.atan(Math.tan(needH / 2 * Math.PI / 180) / cam.aspect) * 180 / Math.PI));
+  cam.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+const loop = Kit.loop(update);
+
+/* ---------- おわり ---------- */
+function rankOf(s) { return s < 300 ? '🐾 よちよち ランナー' : s < 800 ? '🐱 げんきな ランナー' : s < 1600 ? '⭐ はやい ランナー' : s < 3000 ? '👑 ねこの おうさま' : '🌈 でんせつの ねこ'; }
+function finish() {
+  if (!G || G.over) return;
+  G.over = true; G.running = false; Kit.music.stop(); Kit.keepAwake(false);
+  ['pauseBtn', 'hint'].forEach(id => $(id).hidden = true);
+  const s = score();
+  const r = Kit.best(`run${O.lv}`, s);
+  if (r.isNew) Kit.confetti();
+  Kit.sfx('lose');
+  $('resultCard').innerHTML = `<h2>${rankOf(s)}</h2>
+    <p style="margin:0;font-size:2.4rem;font-family:var(--display)">${s}てん</p>
+    <p style="margin:0;font-weight:900">${r.isNew ? '🎉 ベストきろく！' : `ベスト：${r.best}てん`}</p>
+    <div class="res"><div><span>🏃 はしった きょり</span><b>${Math.floor(G.dist)}m</b></div>
+    <div><span>🦐 あつめた エビ</span><b>${G.ebi}ひき</b></div>
+    ${G.smash ? `<div><span>⭐ むてきで はねとばした</span><b>${G.smash}こ</b></div>` : ''}</div>
+    <div class="k-row" style="justify-content:center"><button class="k-btn is-orange is-big" id="again">もういっかい</button><button class="k-btn" id="toSetup">せっていへ</button></div>`;
+  setTimeout(() => { $('resultOv').hidden = false; }, 800);
+  $('again').onclick = () => { Kit.sfx('tap'); start(); };
+  $('toSetup').onclick = () => { $('resultOv').hidden = true; $('hud').hidden = true; $('setupOv').hidden = false; renderSetup(); };
+}
+function pause() { if (!G || !G.running || G.paused) return; G.paused = true; Kit.music.stop(); $('pauseOv').hidden = false; }
+$('pauseBtn').onclick = pause;
+$('resume').onclick = () => { G.paused = false; $('pauseOv').hidden = true; Kit.music.play(Kit.music.opts); };
+$('quit').onclick = () => { $('pauseOv').hidden = true; G.paused = false; finish(); };
+document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+$('startBtn').onclick = () => { Kit.sfx('tap'); Kit.audio(); start(); };
+
+Kit.bar({ id: 'puchirun', guard: { active: () => G && G.running && !G.over, pause: () => pause() }, title: '🐱 ぷっちーラン', help: `
+  <p>ぷちぷちエビの ねこ <b>ぷっちー</b> が 3つの みちを はしる ゲーム。ぶつからないように よけながら、🦐エビを あつめよう。</p>
+  <ul>
+    <li>⬅️➡️ <b>みちを かえる</b>：よこに スワイプ、または がめんの 左・右を タップ（パソコンは ←→ / A・D）</li>
+    <li>⬆️ <b>ジャンプ</b>：上に スワイプ（↑ / W / スペース）。📦はこ・🤖おそうじロボットを とびこえる</li>
+    <li>⬇️ <b>スライディング</b>：下に スワイプ（↓ / S）。👕せんたくものの 下を くぐる。ジャンプ中なら すぐ おりる</li>
+    <li>🚚 <b>トラック</b>は とびこせないので、ちがう みちへ</li>
+    <li>❤️ ぶつかると ハートが へる。3つ なくなったら おしまい</li>
+    <li>🫧 <b>ぷちぷちシールド</b>：1回 ぶつかっても だいじょうぶ ／ 🧲 <b>じしゃく</b>：ちかくの エビを すいよせる ／ ⭐ <b>むてき</b>：じゃまものを はねとばす</li>
+    <li>🦐 エビ 10てん、✨きんの エビ 50てん。はしった きょりも てんすうに なる。どんどん はやく なるよ</li>
+  </ul>` });
+{ const ex = document.querySelector('.kbar-extra'); if (ex) ex.appendChild($('pauseBtn')); }
+renderSetup();
+resize();
+loop.start();
+// デバッグ用
+if (location.hash === '#debug') window.__run = { get G() { return G; }, objs, act, start, add, spawnRow };
+</script>
+</body>
+</html>
