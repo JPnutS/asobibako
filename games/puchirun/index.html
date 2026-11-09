@@ -32,6 +32,7 @@
   .board { position: absolute; left: 10px; right: 10px; top: 92px; display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; z-index: 3; pointer-events: none; }
   .board span { background: rgba(255,255,255,.85); border: 2px solid #2a2238; border-radius: 10px; padding: 0 6px; font-weight: 900; font-size: .85rem; white-space: nowrap; }
   .board span.out { opacity: .45; }
+  .board span.hit { background: #ffc0cc; border-color: #c2405a; }
   .pows span.warn { background: #ffd2dc; border-color: #c2405a; animation: blink .5s infinite alternate; }
   @keyframes blink { to { transform: scale(1.12); } }
   .cd { position: absolute; left: 0; right: 0; top: 30%; text-align: center; font-family: var(--display); font-size: 5rem; color: #fff; -webkit-text-stroke: 3px #2a2238; paint-order: stroke; z-index: 4; pointer-events: none; }
@@ -404,7 +405,7 @@ function rampRow(z) {
 function start(battle = false) {
   if (!R) return;
   clearObjs(); hPart.forEach(h => h.visible = false);
-  if (!battle) NET = null;
+  if (!battle) { clearGhosts(); NET = null; }
   const lv = LV[battle ? NET.lv : O.lv];
   G = { running: true, paused: false, over: false, t: 0, dist: 0, v: lv.v0, lv, lane: 1, x: 0, y: 0, vy: 0, slide: 0, hearts: 3, inv: 0,
     ebi: 0, pts: 0, shield: false, magnet: 0, star: 0, gap: 14, rows: 0, slow: 0, lean: 0, runPh: 0, smash: 0, jumps: 0, fly: false, tricks: 0, flip: 0, flipKind: 0, trickN: 0, km: null, kmNext: Kit.rand(14, 20), kmClear: 0, bt: battle, cd: battle ? 3 : 0, chg: 0, ojQ: 0, ojT: 0 };
@@ -535,7 +536,7 @@ function kimagure(dt) {
 }
 function update(dt) {
   const t = performance.now() / 1000;
-  netTick(dt);
+  netTick(dt); ghostTick(dt, t);
   if (G && G.running && !G.paused) step(dt);
   animate(dt, t);
   if (R) R.render(scene, cam);
@@ -656,17 +657,18 @@ function openNet(code) {
   Net.open({ game: 'puchirun', min: 2, max: 4, joinCode: code, opts: () => ({ lv: O.lv }), onStart: startBattle, onLeave: leaveNet });
 }
 function leaveNet() {
-  if (NET && NET.room) NET.room.close(); NET = null;
+  if (NET && NET.room) NET.room.close(); clearGhosts(); NET = null;
   if (G) { G.over = true; G.running = false; }
   Kit.music.stop(); Kit.keepAwake(false); clearObjs();
   ['hud', 'board', 'pauseBtn', 'hint', 'cd', 'resultOv'].forEach(id => $(id).hidden = true);
   $('setupOv').hidden = false; renderSetup();
 }
 function startBattle(r) {
-  NET = { room: r, P: {}, outN: 0, ended: false, sendT: 0, boardT: 0, t0: 0, left: TL, lv: r.opts && LV[r.opts.lv] ? r.opts.lv : 2 };
+  if (NET) clearGhosts();
+  NET = { ghosts: {}, room: r, P: {}, outN: 0, ended: false, sendT: 0, boardT: 0, t0: 0, left: TL, lv: r.opts && LV[r.opts.lv] ? r.opts.lv : 2 };
   r.players.forEach(p => { NET.P[p.id] = { name: p.name, ebi: 0, hearts: 3, alive: true, out: 0 }; });
   r.onMessage = onNet;
-  Kit.audio(); start(true);
+  Kit.audio(); start(true); makeGhosts();
 }
 const myId = () => NET.room.peerId;
 const nameOf = id => (NET && NET.P[id] ? Kit.esc(NET.P[id].name) : '？');
@@ -675,7 +677,8 @@ function markOut(id) { const p = NET.P[id]; if (p && !p.alive && !p.out) p.out =
 function sync() {
   if (!NET || !G) return;
   const st = { ebi: G.ebi, hearts: Math.max(0, G.hearts), alive: !G.over || NET.ended && G.hearts > 0 };
-  Object.assign(NET.P[myId()], st); markOut(myId()); nsend(Object.assign({ t: 'st' }, st));
+  Object.assign(NET.P[myId()], st); markOut(myId());
+  nsend(Object.assign({ t: 'st', x: +G.x.toFixed(2), y: +G.y.toFixed(2), sl: G.slide > 0 ? 1 : 0, fl: +G.flip.toFixed(2), fk: G.flipKind, km: G.km && G.km.on ? 1 : 0 }, st));
 }
 function target() { // いちばん エビが おおい あいて
   const ids = Object.keys(NET.P).filter(id => id !== myId() && NET.P[id].alive);
@@ -696,7 +699,13 @@ function charge(n) { // エビを 5ひき とるごとに おじゃまを 1つ
 function onNet(m) {
   if (!NET || m.r !== NET.room.round) return;
   const from = m.from;
-  if (m.t === 'st') { if (NET.P[from]) { Object.assign(NET.P[from], { ebi: m.ebi, hearts: m.hearts, alive: m.alive }); markOut(from); } return; }
+  if (m.t === 'st') {
+    const P = NET.P[from]; if (!P) return;
+    if (m.hearts < P.hearts && m.alive) { P.hitT = 1.2; } // ぶつかった
+    if (P.alive && !m.alive) { P.hitT = 2; flash(`💤 ${nameOf(from)}が アウト！`); }
+    Object.assign(P, { ebi: m.ebi, hearts: m.hearts, alive: m.alive, gx: m.x, gy: m.y, sl: m.sl, fl: m.fl, fk: m.fk, km: m.km });
+    markOut(from); return;
+  }
   if (m.t === 'end') return showEnd(m.rank);
   if (m.t === 'steal') { // だれかの どろぼうじしゃく：じぶんの みちの エビが すいとられる
     if (!G || G.over || G.cd > 0) return;
@@ -736,13 +745,65 @@ function netStep(dt) {
     if (th.sendT <= 0 || th.left <= 0) { th.sendT = .4; if (th.acc) { nsend({ t: 'stolen', to: th.from, n: th.acc }); th.acc = 0; } }
     if (th.left <= 0) G.thief = null;
   }
-  NET.sendT -= dt; if (NET.sendT <= 0) { NET.sendT = .4; sync(); }
+  NET.sendT -= dt; if (NET.sendT <= 0) { NET.sendT = .15; sync(); }
+}
+/* あいての ねこ（ゴースト）：おなじ みちを はんとうめいで はしる。エビが おおい 人ほど 前に */
+const GLOOK = [{ fur: '#c4c6d0', stripe: '#8b8e9c', ui: '#5f6a80' }, { fur: '#6a6472', stripe: '#38333f', ui: '#38333f' }, { fur: '#fbf7f0', stripe: '#e3d5c0', ui: '#a08660' }];
+function makeGhosts() {
+  clearGhosts();
+  Object.keys(NET.P).filter(id => id !== myId()).forEach((id, i) => {
+    const look = GLOOK[i % 3], c = makeCat(look);
+    c.cat.traverse(o => { if (o.material) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = .45; o.material.depthWrite = false; } });
+    const root = new THREE.Group(), flip = new THREE.Group(); flip.position.y = .8; root.add(flip);
+    c.cat.rotation.y = Math.PI; c.cat.position.y = -.8; c.cat.scale.setScalar(.95); flip.add(c.cat);
+    const cv2 = document.createElement('canvas'); cv2.width = 320; cv2.height = 80;
+    const tex = new THREE.CanvasTexture(cv2); tex.colorSpace = THREE.SRGBColorSpace;
+    const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }));
+    label.scale.set(2.6, .65, 1); label.position.y = 2.3; label.renderOrder = 9; root.add(label);
+    root.position.set(0, 0, -6); scene.add(root);
+    NET.ghosts[id] = { id, i, look, root, flip, c, cv2, tex, label, z: -6, x: 0, y: 0, key: '' };
+  });
+}
+function clearGhosts() { if (NET && NET.ghosts) Object.values(NET.ghosts).forEach(g => scene.remove(g.root)); if (NET) NET.ghosts = {}; }
+function ghostLabel(gh, P, lead) {
+  const key = [P.name, P.ebi, P.hearts, P.alive, !!(P.hitT > 0), lead].join('|'); if (key === gh.key) return; gh.key = key;
+  const g = gh.cv2.getContext('2d'); g.clearRect(0, 0, 320, 80);
+  g.fillStyle = P.hitT > 0 ? 'rgba(255,200,210,.95)' : 'rgba(255,255,255,.92)'; g.strokeStyle = gh.look.ui; g.lineWidth = 6;
+  g.beginPath(); g.roundRect ? g.roundRect(4, 4, 312, 72, 30) : g.rect(4, 4, 312, 72); g.fill(); g.stroke();
+  g.fillStyle = '#2a2238'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = "900 28px 'Zen Maru Gothic', sans-serif";
+  const nm = (lead ? '👑' : '') + String(P.name).slice(0, 6);
+  g.fillText(`${nm}  🦐${P.ebi}  ${P.alive ? '❤️' + P.hearts : '💤'}`, 160, 42);
+  gh.tex.needsUpdate = true;
+}
+function ghostTick(dt, t) {
+  if (!NET || !NET.ghosts || !G) return;
+  const all = Object.values(NET.P), top = Math.max(...all.map(p => p.ebi));
+  for (const gh of Object.values(NET.ghosts)) {
+    const P = NET.P[gh.id]; if (!P) continue;
+    P.hitT = Math.max(0, (P.hitT || 0) - dt);
+    ghostLabel(gh, P, P.ebi === top && top > 0);
+    const tz = Kit.clamp(-(P.ebi - G.ebi) * .8 - 4.5 - gh.i * 1.6, -22, 1.5);
+    gh.z += (tz - gh.z) * Math.min(1, dt * 2); gh.x += ((P.gx || 0) - gh.x) * Math.min(1, dt * 10); gh.y += ((P.gy || 0) - gh.y) * Math.min(1, dt * 10);
+    gh.root.position.set(gh.x, P.alive ? gh.y : Math.max(-1.2, gh.root.position.y - dt * 2), gh.z);
+    const c = gh.c, air = gh.y > .05, run = P.alive && !NET.ended;
+    const ph = t * 14;
+    c.legs.forEach((l, i) => { l.rotation.x = air ? (i < 2 ? -.9 : .9) : run ? (i === 0 || i === 3 ? 1 : -1) * Math.sin(ph) * .9 : 0; });
+    c.body.scale.set(1, P.sl ? .55 : 1, P.sl ? 1.15 : 1);
+    c.body.position.y = run && !air && !P.sl ? Math.abs(Math.sin(ph)) * .1 : 0;
+    c.tail.rotation.z = Math.sin(t * 8) * .4;
+    c.head.rotation.y = P.km ? Math.sin(t * 3) * .6 : 0;
+    const pr = 1 - (P.fl || 0), e = P.fl > 0 ? pr * Math.PI * 2 : 0;
+    gh.flip.rotation.set(P.fk === 1 ? 0 : -e, P.fk === 1 ? e : 0, P.fk === 2 ? e : 0);
+    c.cat.visible = !(P.hitT > 0 && P.alive && Math.floor(t * 12) % 2);
+    c.cat.rotation.z = P.alive ? 0 : Math.PI / 2;
+  }
 }
 function renderBoard() {
   if (!NET) return;
   const me = myId();
   $('board').innerHTML = Object.entries(NET.P).filter(([id]) => id !== me)
-    .map(([, p]) => `<span class="${p.alive ? '' : 'out'}">🐈 ${Kit.esc(p.name)} 🦐${p.ebi} ${p.alive ? '❤️' + p.hearts : '💤'}</span>`).join('');
+    .map(([, p]) => `<span class="${p.alive ? (p.hitT > 0 ? 'hit' : '') : 'out'}">🐈 ${Kit.esc(p.name)} 🦐${p.ebi} ${p.alive ? '❤️' + p.hearts : '💤'}</span>`).join('');
 }
 function netTick(dt) {
   if (!NET || NET.ended) return;
@@ -830,6 +891,7 @@ Kit.bar({ id: 'puchirun', guard: { active: () => G && G.running && !G.over, paus
     <li>🧲 <b>じしゃく</b>：ちかくの エビを すいよせる ／ ⭐ <b>むてき</b>：じゃまものを はねとばす</li>
     <li>🦐 エビ 10てん、✨きんの エビ 50てん。はしった きょりも てんすうに なる。どんどん はやく なるよ</li>
     <li>🌐 <b>オンライン たいせん</b>（2〜4人）：へやを つくって ばんごうを おしえ、ほかの 人が 入ったら スタート。90びょうで エビが いちばん おおい人、または さいごまで のこった人の かち</li>
+    <li>👻 たいせん中は、あいての ねこが はんとうめいで おなじ みちを はしるよ。うえに 名前・エビの かず・ハート。エビが おおい 人ほど 前を はしる（👑は いちばん）。ぶつかると ピンクに なる</li>
     <li>📦 <b>おじゃま</b>：エビを 5ひき とるごとに（きんの エビ・アクロバット・きまぐれタイムを のりきると もっと たまる）、エビが いちばん おおい あいてに むらさきの おじゃまを おくる。じぶんに おじゃまが きているときに ためると、さきに それを けす</li>
     <li>🧲✨ <b>どろぼう じしゃく</b>（たいせんだけ）：とると 5びょうかん、あいて ぜんいんの みちに ある エビが 空へ すいとられて、じぶんの ものに なる。🍛シールドが あると まもれる</li>
   </ul>` });
