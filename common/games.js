@@ -5,7 +5,7 @@ self.ASOBI_GAMES = [
   { id: 'oekaki', cat: 'play', name: 'おえかきでんごん', icon: '🖍️', color: 'orange', tag: 'みんなで', who: '3〜10人', desc: '絵とことばでつたえていく。さいごはどうなる？' },
   { id: 'kakurenbo', cat: 'play', name: 'おばけかくれんぼ', icon: '👻', color: 'grape', tag: '一人で', who: '1人', desc: '水でっぽうで さがす／おばけになって かくれる' },
   { id: 'onigokko', cat: 'play', name: 'おにごっこ', icon: '🏃', color: 'berry', tag: 'みんなで', who: '1〜4人＋CPU', desc: 'ふつう・こおりおに・ふえおに' },
-  { id: 'puchi', cat: 'play', name: 'ぷちぷちエビ', icon: '🦐', color: 'orange', tag: '一人で', who: '1人', desc: 'ねこを うごかして ぷちぷちを エビに！' },
+  { id: 'puchi', cat: 'play', name: 'ぷちぷちエビ', icon: '🦐', color: 'orange', tag: '一人で', who: '1人・オンライン2〜4人', desc: 'ねこを うごかして ぷちぷちを エビに！ オンラインで きょうりょくも' },
   { id: 'puchic', cat: 'play', name: 'ぷちぷちチャレンジ', icon: '🫧', color: 'sky', tag: '対戦', who: '1〜2人＋CPU', desc: 'ぷちぷちを つぶして とくてんを きそおう' },
   { id: 'reji', cat: 'learn', name: 'レジでおかいもの', icon: '👛', color: 'grass', tag: '一人で', who: '1人', desc: 'こぜにが へるように はらう／おつりを わたす' },
   { id: 'anzan', cat: 'learn', name: 'フラッシュあんざん', icon: '🧮', color: 'sky', tag: '一人で', who: '1人', desc: 'つぎつぎ出る かずを あたまで たそう。きゅうに チャレンジ' },
