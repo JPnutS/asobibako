@@ -65,7 +65,7 @@
       </ul>
       <span class="k-label">あそびかた</span>
       <div class="k-chips" id="optMode"></div>
-      <p class="k-muted" id="netInfo" style="margin:0" hidden>🌐 2〜4人で べつべつの スマホ・タブレットから たいせん。🦐エビを 5ひき とるごとに あいてに <b>おじゃま</b> を おくれる（さきに たまっている おじゃまは けせる）。🧲✨<b>どろぼう じしゃく</b> で あいての エビを うばえる。90びょうで エビが いちばん おおい人、または さいごまで のこった人の かち！</p>
+      <p class="k-muted" id="netInfo" style="margin:0" hidden>🌐 2〜4人で べつべつの スマホ・タブレットから たいせん。🦐エビを 5ひき とるごとに あいてに <b>おじゃま</b> を おくれる（さきに たまっている おじゃまは けせる）。🧲✨<b>どろぼう じしゃく</b> を とると、5びょうかん あいて ぜんいんの みちの エビを すいとれる。90びょうで エビが いちばん おおい人、または さいごまで のこった人の かち！</p>
       <span class="k-label">はやさ</span>
       <div class="k-chips" id="optLv"></div>
       <p class="k-muted" id="bestLine" style="margin:0"></p>
@@ -427,6 +427,7 @@ function hud() {
   $('hEbi').textContent = `🦐 ${G.ebi}`;
   $('hHeart').textContent = '❤️'.repeat(G.hearts) + '🤍'.repeat(Math.max(0, 3 - G.hearts));
   const p = [];
+  if (G.thief) p.push(`<span class="warn">🧲✨ ${Math.ceil(G.thief.left)}</span>`);
   if (G.bt) { if (G.ojQ > 0) p.push(`<span class="warn">⚠️📦×${G.ojQ}</span>`); p.push(`<span>📦${'●'.repeat(G.chg)}${'○'.repeat(CHG - G.chg)}</span>`); }
   if (G.km && G.km.on) p.push(`<span>💕 ${Math.ceil(G.km.left)}</span>`);
   if (G.shield) p.push('<span>🍛🫧</span>');
@@ -503,7 +504,7 @@ function take(o) {
   switch (o.kind) {
     case 'ebi': G.ebi++; G.pts += 10; Kit.sfx('coin'); charge(1); break;
     case 'gold': G.ebi++; G.pts += 50; Kit.sfx('good'); flash('✨ きんの エビ！'); charge(3); break;
-    case 'thief': { const to = NET && target(); if (to) { nsend({ t: 'steal', to }); flash(`🧲✨ ${nameOf(to)}の エビを うばえ！`); Kit.sfx('select'); } break; }
+    case 'thief': if (NET && target()) { nsend({ t: 'steal' }); flash('🧲✨ みんなの エビを すいとるよ！'); Kit.sfx('select'); } break;
     case 'curry': G.shield = true; Kit.sfx('select'); flash('🍛 カレーで ぷちぷちシールド！'); break;
     case 'magnet': G.magnet = 8; Kit.sfx('select'); flash('🧲 じしゃく！'); break;
     case 'star': G.star = 6; Kit.sfx('win'); flash('⭐ むてき！'); break;
@@ -564,7 +565,7 @@ function step(dt) {
   if (G.gap <= 0) { spawnRow(FAR); const rt = Math.max(.85, 1.35 - G.t * .006); G.gap = G.v * rt + Kit.rand(0, 4); }
   // ものを うごかす
   for (const o of objs) {
-    if (o.fly) { o.fly.vy -= GRAV * dt; o.x += o.fly.vx * dt; o.y += o.fly.vy * dt; o.z += (d + o.fly.vz * dt); o.m.rotation.x += o.fly.rx * dt; o.m.position.set(o.x, o.y, o.z); continue; }
+    if (o.fly) { if (o.fly.up) o.m.scale.multiplyScalar(Math.pow(.4, dt)); else o.fly.vy -= GRAV * dt; o.x += o.fly.vx * dt; o.y += o.fly.vy * dt; o.z += (d + o.fly.vz * dt); o.m.rotation.x += o.fly.rx * dt; o.m.position.set(o.x, o.y, o.z); continue; }
     if (o.dead) continue;
     o.z += d;
     if (o.kind === 'robot' && o.moving) {
@@ -581,7 +582,7 @@ function step(dt) {
     } else if (!o.hit && hitBy(o)) hurt(o);
     o.m.position.set(o.x, o.y, o.z);
   }
-  for (let i = objs.length - 1; i >= 0; i--) { const o = objs[i]; if (o.z > NEAR || o.y < -10 || (o.dead && !o.fly)) { scene.remove(o.m); objs.splice(i, 1); } }
+  for (let i = objs.length - 1; i >= 0; i--) { const o = objs[i]; if (o.z > NEAR || o.y < -10 || o.y > 25 || (o.dead && !o.fly)) { scene.remove(o.m); objs.splice(i, 1); } }
   for (const o of deco) { o.position.z += d; if (o.position.z > NEAR + 4) o.position.z -= (NEAR + 4 - FAR); }
   if (G.running) hud();
 }
@@ -697,21 +698,20 @@ function onNet(m) {
   const from = m.from;
   if (m.t === 'st') { if (NET.P[from]) { Object.assign(NET.P[from], { ebi: m.ebi, hearts: m.hearts, alive: m.alive }); markOut(from); } return; }
   if (m.t === 'end') return showEnd(m.rank);
+  if (m.t === 'steal') { // だれかの どろぼうじしゃく：じぶんの みちの エビが すいとられる
+    if (!G || G.over || G.cd > 0) return;
+    if (G.shield) { G.shield = false; flash('🍛🫧 シールドで エビを まもった！'); Kit.sfx('pop'); return; }
+    G.thief = { from, left: 5, acc: 0, sendT: .4 };
+    flash(`🧲✨ ${nameOf(from)}の どろぼうじしゃく！`); Kit.sfx('bad'); Kit.vibrate(60);
+    return;
+  }
   if (m.to !== myId() || !G) return;
   if (m.t === 'oj') {
     if (G.over) return;
     G.ojQ += m.n; if (G.ojT <= 0) G.ojT = 1.5;
     Kit.sfx('bad'); flash(`⚠️ ${nameOf(from)}から おじゃま ×${m.n}`);
-  } else if (m.t === 'steal') {
-    let n = 0;
-    if (G.over) n = 0;
-    else if (G.shield) { G.shield = false; flash('🍛🫧 シールドで エビを まもった！'); Kit.sfx('pop'); }
-    else { n = Math.min(G.ebi, Math.max(3, Math.ceil(G.ebi * .25))); G.ebi -= n; if (n) { flash(`🧲 ${nameOf(from)}に エビを ${n}ひき とられた！`); Kit.sfx('bad'); Kit.vibrate(60); } }
-    nsend({ t: 'stolen', to: from, n }); sync();
   } else if (m.t === 'stolen') {
-    if (m.n > 0) { G.ebi += m.n; G.pts += m.n * 10; flash(`🧲✨ ${nameOf(from)}から エビを ${m.n}ひき うばった！`); Kit.sfx('good'); }
-    else flash(`🧲 ${nameOf(from)}に まもられた…`);
-    sync();
+    if (m.n > 0) { G.ebi += m.n; G.pts += m.n * 10; flash(`🧲✨ ${nameOf(from)}の エビ +${m.n}`); Kit.sfx('coin'); sync(); }
   }
 }
 function ojamaRows(n) { // 3レーン ぜんぶに おじゃま（ジャンプか スライディングで よける）
@@ -727,6 +727,14 @@ function netStep(dt) {
   if (G.ojQ > 0 && G.ojT > 0) {
     G.ojT -= dt;
     if (G.ojT <= 0) { const n = Math.min(G.ojQ, 4); G.ojQ -= n; ojamaRows(n); flash('📦 おじゃまが きた！'); if (G.ojQ > 0) G.ojT = n + 1.5; }
+  }
+  if (G.thief) { // みちの エビを 空へ すいとって、どろぼうに わたす
+    const th = G.thief; th.left -= dt; th.sendT -= dt;
+    for (const o of objs) if (!o.dead && (o.kind === 'ebi' || o.kind === 'gold') && o.z > -70 && o.z < .5) {
+      o.dead = true; o.fly = { vx: Kit.rand(-2, 2), vy: 14, vz: -10, rx: 0, up: true }; th.acc++;
+    }
+    if (th.sendT <= 0 || th.left <= 0) { th.sendT = .4; if (th.acc) { nsend({ t: 'stolen', to: th.from, n: th.acc }); th.acc = 0; } }
+    if (th.left <= 0) G.thief = null;
   }
   NET.sendT -= dt; if (NET.sendT <= 0) { NET.sendT = .4; sync(); }
 }
@@ -823,7 +831,7 @@ Kit.bar({ id: 'puchirun', guard: { active: () => G && G.running && !G.over, paus
     <li>🦐 エビ 10てん、✨きんの エビ 50てん。はしった きょりも てんすうに なる。どんどん はやく なるよ</li>
     <li>🌐 <b>オンライン たいせん</b>（2〜4人）：へやを つくって ばんごうを おしえ、ほかの 人が 入ったら スタート。90びょうで エビが いちばん おおい人、または さいごまで のこった人の かち</li>
     <li>📦 <b>おじゃま</b>：エビを 5ひき とるごとに（きんの エビ・アクロバット・きまぐれタイムを のりきると もっと たまる）、エビが いちばん おおい あいてに むらさきの おじゃまを おくる。じぶんに おじゃまが きているときに ためると、さきに それを けす</li>
-    <li>🧲✨ <b>どろぼう じしゃく</b>（たいせんだけ）：エビが いちばん おおい あいてから エビを うばう。🍛シールドが あると まもれる</li>
+    <li>🧲✨ <b>どろぼう じしゃく</b>（たいせんだけ）：とると 5びょうかん、あいて ぜんいんの みちに ある エビが 空へ すいとられて、じぶんの ものに なる。🍛シールドが あると まもれる</li>
   </ul>` });
 { const ex = document.querySelector('.kbar-extra'); if (ex) ex.appendChild($('pauseBtn')); }
 renderSetup();
