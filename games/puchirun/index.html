@@ -33,6 +33,8 @@
   .board span { background: rgba(255,255,255,.85); border: 2px solid #2a2238; border-radius: 10px; padding: 0 6px; font-weight: 900; font-size: .85rem; white-space: nowrap; }
   .board span.out { opacity: .45; }
   .board span.hit { background: #ffc0cc; border-color: #c2405a; }
+  .board .wipe { position: static; width: 100px; height: 140px; border-radius: 10px; box-shadow: 0 3px 0 rgba(42,34,56,.25); }
+  .wipeBtn { width: 40px; height: 40px; }
   .pows span.warn { background: #ffd2dc; border-color: #c2405a; animation: blink .5s infinite alternate; }
   @keyframes blink { to { transform: scale(1.12); } }
   .cd { position: absolute; left: 0; right: 0; top: 30%; text-align: center; font-family: var(--display); font-size: 5rem; color: #fff; -webkit-text-stroke: 3px #2a2238; paint-order: stroke; z-index: 4; pointer-events: none; }
@@ -51,6 +53,7 @@
   <div class="cd" id="cd" hidden></div>
   <div class="hint" id="hint" hidden>👆 スワイプ：←→ レーン ／ ↑ ジャンプ ／ ↓ スライディング</div>
   <button class="k-btn k-icon pauseBtn" id="pauseBtn" aria-label="一時停止" hidden>⏸</button>
+  <button class="k-btn k-icon wipeBtn" id="wipeBtn" aria-label="あいての ようす" hidden>📺</button>
   <div class="over" id="setupOv">
     <div class="k-card k-stack">
       <h2 style="text-align:center">🐱 ぷっちーラン</h2>
@@ -405,7 +408,7 @@ function rampRow(z) {
 function start(battle = false) {
   if (!R) return;
   clearObjs(); hPart.forEach(h => h.visible = false);
-  if (!battle) { clearGhosts(); NET = null; }
+  if (!battle) NET = null;
   const lv = LV[battle ? NET.lv : O.lv];
   G = { running: true, paused: false, over: false, t: 0, dist: 0, v: lv.v0, lv, lane: 1, x: 0, y: 0, vy: 0, slide: 0, hearts: 3, inv: 0,
     ebi: 0, pts: 0, shield: false, magnet: 0, star: 0, gap: 14, rows: 0, slow: 0, lean: 0, runPh: 0, smash: 0, jumps: 0, fly: false, tricks: 0, flip: 0, flipKind: 0, trickN: 0, km: null, kmNext: Kit.rand(14, 20), kmClear: 0, bt: battle, cd: battle ? 3 : 0, chg: 0, ojQ: 0, ojT: 0 };
@@ -536,7 +539,7 @@ function kimagure(dt) {
 }
 function update(dt) {
   const t = performance.now() / 1000;
-  netTick(dt); ghostTick(dt, t);
+  netTick(dt); wipeTick(dt);
   if (G && G.running && !G.paused) step(dt);
   animate(dt, t);
   if (R) R.render(scene, cam);
@@ -657,18 +660,17 @@ function openNet(code) {
   Net.open({ game: 'puchirun', min: 2, max: 4, joinCode: code, opts: () => ({ lv: O.lv }), onStart: startBattle, onLeave: leaveNet });
 }
 function leaveNet() {
-  if (NET && NET.room) NET.room.close(); clearGhosts(); NET = null;
+  if (NET && NET.room) NET.room.close(); NET = null; $('wipeBtn').hidden = true;
   if (G) { G.over = true; G.running = false; }
   Kit.music.stop(); Kit.keepAwake(false); clearObjs();
   ['hud', 'board', 'pauseBtn', 'hint', 'cd', 'resultOv'].forEach(id => $(id).hidden = true);
   $('setupOv').hidden = false; renderSetup();
 }
 function startBattle(r) {
-  if (NET) clearGhosts();
-  NET = { ghosts: {}, room: r, P: {}, outN: 0, ended: false, sendT: 0, boardT: 0, t0: 0, left: TL, lv: r.opts && LV[r.opts.lv] ? r.opts.lv : 2 };
+  NET = { mini: !!Kit.store.get('run:mini', false), wipes: null, room: r, P: {}, outN: 0, ended: false, sendT: 0, boardT: 0, t0: 0, left: TL, lv: r.opts && LV[r.opts.lv] ? r.opts.lv : 2 };
   r.players.forEach(p => { NET.P[p.id] = { name: p.name, ebi: 0, hearts: 3, alive: true, out: 0 }; });
   r.onMessage = onNet;
-  Kit.audio(); start(true); makeGhosts();
+  Kit.audio(); $('board').innerHTML = ''; start(true); $('wipeBtn').hidden = false;
 }
 const myId = () => NET.room.peerId;
 const nameOf = id => (NET && NET.P[id] ? Kit.esc(NET.P[id].name) : '？');
@@ -678,7 +680,7 @@ function sync() {
   if (!NET || !G) return;
   const st = { ebi: G.ebi, hearts: Math.max(0, G.hearts), alive: !G.over || NET.ended && G.hearts > 0 };
   Object.assign(NET.P[myId()], st); markOut(myId());
-  nsend(Object.assign({ t: 'st', x: +G.x.toFixed(2), y: +G.y.toFixed(2), sl: G.slide > 0 ? 1 : 0, fl: +G.flip.toFixed(2), fk: G.flipKind, km: G.km && G.km.on ? 1 : 0 }, st));
+  nsend(Object.assign({ t: 'st', v: viewList(), sp: Math.round(G.v), d: Math.round(G.dist), x: +G.x.toFixed(2), y: +G.y.toFixed(2), sl: G.slide > 0 ? 1 : 0, fl: +G.flip.toFixed(2), fk: G.flipKind, km: G.km && G.km.on ? 1 : 0 }, st));
 }
 function target() { // いちばん エビが おおい あいて
   const ids = Object.keys(NET.P).filter(id => id !== myId() && NET.P[id].alive);
@@ -703,7 +705,7 @@ function onNet(m) {
     const P = NET.P[from]; if (!P) return;
     if (m.hearts < P.hearts && m.alive) { P.hitT = 1.2; } // ぶつかった
     if (P.alive && !m.alive) { P.hitT = 2; flash(`💤 ${nameOf(from)}が アウト！`); }
-    Object.assign(P, { ebi: m.ebi, hearts: m.hearts, alive: m.alive, gx: m.x, gy: m.y, sl: m.sl, fl: m.fl, fk: m.fk, km: m.km });
+    Object.assign(P, { v: m.v, vt: performance.now(), sp: m.sp, dist: m.d, ebi: m.ebi, hearts: m.hearts, alive: m.alive, gx: m.x, gy: m.y, sl: m.sl, fl: m.fl, fk: m.fk, km: m.km });
     markOut(from); return;
   }
   if (m.t === 'end') return showEnd(m.rank);
@@ -747,63 +749,82 @@ function netStep(dt) {
   }
   NET.sendT -= dt; if (NET.sendT <= 0) { NET.sendT = .15; sync(); }
 }
-/* あいての ねこ（ゴースト）：おなじ みちを はんとうめいで はしる。エビが おおい 人ほど 前に */
-const GLOOK = [{ fur: '#c4c6d0', stripe: '#8b8e9c', ui: '#5f6a80' }, { fur: '#6a6472', stripe: '#38333f', ui: '#38333f' }, { fur: '#fbf7f0', stripe: '#e3d5c0', ui: '#a08660' }];
-function makeGhosts() {
-  clearGhosts();
-  Object.keys(NET.P).filter(id => id !== myId()).forEach((id, i) => {
-    const look = GLOOK[i % 3], c = makeCat(look);
-    c.cat.traverse(o => { if (o.material) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = .45; o.material.depthWrite = false; } });
-    const root = new THREE.Group(), flip = new THREE.Group(); flip.position.y = .8; root.add(flip);
-    c.cat.rotation.y = Math.PI; c.cat.position.y = -.8; c.cat.scale.setScalar(.95); flip.add(c.cat);
-    const cv2 = document.createElement('canvas'); cv2.width = 320; cv2.height = 80;
-    const tex = new THREE.CanvasTexture(cv2); tex.colorSpace = THREE.SRGBColorSpace;
-    const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }));
-    label.scale.set(2.6, .65, 1); label.position.y = 2.3; label.renderOrder = 9; root.add(label);
-    root.position.set(0, 0, -6); scene.add(root);
-    NET.ghosts[id] = { id, i, look, root, flip, c, cv2, tex, label, z: -6, x: 0, y: 0, key: '' };
-  });
+/* あいての ようす：ちいさな ワイプに、あいての みち（じゃまもの・エビ）と ねこを うえから かく */
+const VK = { box: 'b', gate: 'g', truck: 't', robot: 'r', ramp: 'j', ebi: 'e', gold: 'G', curry: 'c', ramen: 'n', magnet: 'm', star: 's', thief: 'T' };
+const VE = { b: '📦', g: '👕', r: '🤖', e: '🦐', G: '✨', c: '🍛', n: '🍜', m: '🧲', s: '⭐', T: '🧲' };
+function viewList() {
+  const v = [];
+  for (const o of objs) if (!o.dead && o.z > -37 && o.z < 3 && VK[o.kind]) v.push([o.oj ? (o.kind === 'box' ? 'B' : 'H') : VK[o.kind], +o.x.toFixed(1), Math.round(o.z), o.item ? +o.y.toFixed(1) : 0]);
+  return v;
 }
-function clearGhosts() { if (NET && NET.ghosts) Object.values(NET.ghosts).forEach(g => scene.remove(g.root)); if (NET) NET.ghosts = {}; }
-function ghostLabel(gh, P, lead) {
-  const key = [P.name, P.ebi, P.hearts, P.alive, !!(P.hitT > 0), lead].join('|'); if (key === gh.key) return; gh.key = key;
-  const g = gh.cv2.getContext('2d'); g.clearRect(0, 0, 320, 80);
-  g.fillStyle = P.hitT > 0 ? 'rgba(255,200,210,.95)' : 'rgba(255,255,255,.92)'; g.strokeStyle = gh.look.ui; g.lineWidth = 6;
-  g.beginPath(); g.roundRect ? g.roundRect(4, 4, 312, 72, 30) : g.rect(4, 4, 312, 72); g.fill(); g.stroke();
-  g.fillStyle = '#2a2238'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.font = "900 28px 'Zen Maru Gothic', sans-serif";
-  const nm = (lead ? '👑' : '') + String(P.name).slice(0, 6);
-  g.fillText(`${nm}  🦐${P.ebi}  ${P.alive ? '❤️' + P.hearts : '💤'}`, 160, 42);
-  gh.tex.needsUpdate = true;
-}
-function ghostTick(dt, t) {
-  if (!NET || !NET.ghosts || !G) return;
-  const all = Object.values(NET.P), top = Math.max(...all.map(p => p.ebi));
-  for (const gh of Object.values(NET.ghosts)) {
-    const P = NET.P[gh.id]; if (!P) continue;
-    P.hitT = Math.max(0, (P.hitT || 0) - dt);
-    ghostLabel(gh, P, P.ebi === top && top > 0);
-    const tz = Kit.clamp(-(P.ebi - G.ebi) * .8 - 4.5 - gh.i * 1.6, -22, 1.5);
-    gh.z += (tz - gh.z) * Math.min(1, dt * 2); gh.x += ((P.gx || 0) - gh.x) * Math.min(1, dt * 10); gh.y += ((P.gy || 0) - gh.y) * Math.min(1, dt * 10);
-    gh.root.position.set(gh.x, P.alive ? gh.y : Math.max(-1.2, gh.root.position.y - dt * 2), gh.z);
-    const c = gh.c, air = gh.y > .05, run = P.alive && !NET.ended;
-    const ph = t * 14;
-    c.legs.forEach((l, i) => { l.rotation.x = air ? (i < 2 ? -.9 : .9) : run ? (i === 0 || i === 3 ? 1 : -1) * Math.sin(ph) * .9 : 0; });
-    c.body.scale.set(1, P.sl ? .55 : 1, P.sl ? 1.15 : 1);
-    c.body.position.y = run && !air && !P.sl ? Math.abs(Math.sin(ph)) * .1 : 0;
-    c.tail.rotation.z = Math.sin(t * 8) * .4;
-    c.head.rotation.y = P.km ? Math.sin(t * 3) * .6 : 0;
-    const pr = 1 - (P.fl || 0), e = P.fl > 0 ? pr * Math.PI * 2 : 0;
-    gh.flip.rotation.set(P.fk === 1 ? 0 : -e, P.fk === 1 ? e : 0, P.fk === 2 ? e : 0);
-    c.cat.visible = !(P.hitT > 0 && P.alive && Math.floor(t * 12) % 2);
-    c.cat.rotation.z = P.alive ? 0 : Math.PI / 2;
-  }
-}
+const WW = 100, WH = 140;
 function renderBoard() {
   if (!NET) return;
-  const me = myId();
-  $('board').innerHTML = Object.entries(NET.P).filter(([id]) => id !== me)
-    .map(([, p]) => `<span class="${p.alive ? (p.hitT > 0 ? 'hit' : '') : 'out'}">🐈 ${Kit.esc(p.name)} 🦐${p.ebi} ${p.alive ? '❤️' + p.hearts : '💤'}</span>`).join('');
+  const me = myId(), box = $('board');
+  const ids = Object.keys(NET.P).filter(id => id !== me);
+  if (NET.mini) { // ちいさく：名前と かずだけ
+    box.innerHTML = ids.map(id => { const p = NET.P[id]; return `<span class="${p.alive ? (p.hitT > 0 ? 'hit' : '') : 'out'}">🐈 ${Kit.esc(p.name)} 🦐${p.ebi} ${p.alive ? '❤️' + p.hearts : '💤'}</span>`; }).join('');
+    NET.wipes = null; return;
+  }
+  if (NET.wipes && NET.wipes.length === ids.length) return;
+  box.innerHTML = '';
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  NET.wipes = ids.map(id => {
+    const c = document.createElement('canvas'); c.width = WW * dpr; c.height = WH * dpr; c.className = 'wipe';
+    const g = c.getContext('2d'); g.scale(dpr, dpr); box.appendChild(c);
+    return { id, c, g };
+  });
+}
+function drawWipe(w, now) {
+  const P = NET.P[w.id], g = w.g; if (!P) return;
+  const top = Math.max(...Object.values(NET.P).map(p => p.ebi));
+  const HD = 20, H = WH - HD, roadW = WW * .78, cx = WW / 2, lx = x => cx + x / (LANE * 1.5) * roadW / 2;
+  const adv = P.alive && !NET.ended ? (P.sp || 0) * Math.min(.4, (now - (P.vt || now)) / 1000) : 0;
+  const zy = z => HD + (z + 34) / 39 * H;
+  g.clearRect(0, 0, WW, WH);
+  g.save(); g.beginPath(); g.roundRect ? g.roundRect(1, 1, WW - 2, WH - 2, 10) : g.rect(1, 1, WW - 2, WH - 2); g.clip();
+  g.fillStyle = '#8fd46a'; g.fillRect(0, 0, WW, WH);
+  g.fillStyle = '#f2dcae'; g.fillRect(cx - roadW / 2, HD, roadW, H);
+  g.strokeStyle = '#fff'; g.lineWidth = 2; g.setLineDash([8, 8]); g.lineDashOffset = -((P.dist || 0) + adv) * 6 % 16;
+  [-.5, .5].forEach(k => { const x = lx(k * LANE); g.beginPath(); g.moveTo(x, HD); g.lineTo(x, WH); g.stroke(); });
+  g.setLineDash([]);
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  for (const [k, x, z0, y] of P.v || []) {
+    const z = z0 + adv; if (z > 3) continue;
+    const px = lx(x), py = zy(z);
+    if (k === 't') { g.fillStyle = '#4f86e8'; g.fillRect(px - 9, zy(z - 2.6), 18, zy(z + 1.8) - zy(z - 2.6)); g.fillStyle = '#ff7a45'; g.fillRect(px - 9, zy(z + 1.8) - 5, 18, 5); continue; }
+    if (k === 'B' || k === 'H') { g.fillStyle = k === 'B' ? '#9a6ad8' : '#c6a8f0'; g.fillRect(px - 10, py - (k === 'B' ? 5 : 2), 20, k === 'B' ? 10 : 4); continue; }
+    if (k === 'j') { g.fillStyle = '#ffd84a'; g.beginPath(); g.moveTo(px - 9, py + 6); g.lineTo(px + 9, py + 6); g.lineTo(px + 7, py - 6); g.lineTo(px - 7, py - 6); g.closePath(); g.fill(); g.fillStyle = '#ff6a4a'; g.fillRect(px - 2, py - 4, 4, 8); continue; }
+    if (k === 'g') { g.fillStyle = '#9aa3b5'; g.fillRect(px - 10, py - 1, 20, 2); }
+    const e = VE[k]; if (!e) continue;
+    const item = 'eGcnmsT'.includes(k);
+    g.font = `${item ? (k === 'e' ? 9 : 12) : 14}px sans-serif`;
+    g.fillText(e, px, py - (item ? y * 3 : 0));
+  }
+  // ねこ
+  const px = lx(P.gx || 0), py = zy(0), jy = (P.gy || 0) * 5, sc = 1 + (P.gy || 0) * .12;
+  g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.ellipse(px, py + 6, 8, 3, 0, 0, 7); g.fill();
+  g.save(); g.translate(px, py - jy);
+  if (P.fl > 0) g.rotate((1 - P.fl) * Math.PI * 2);
+  g.scale(sc, sc * (P.sl ? .55 : 1));
+  if (!(P.hitT > 0 && P.alive && Math.floor(now / 90) % 2)) { g.font = '20px sans-serif'; g.fillText(P.alive ? '🐱' : '😿', 0, 0); }
+  g.restore();
+  if (P.km) { g.font = '11px sans-serif'; g.fillText('💕', px + 10, py - 14 - jy); }
+  if (!P.alive) { g.fillStyle = 'rgba(40,30,60,.45)'; g.fillRect(0, HD, WW, H); g.font = '26px sans-serif'; g.fillText('💤', cx, HD + H / 2); }
+  // なまえの おび
+  g.fillStyle = P.hitT > 0 ? '#ffc0cc' : 'rgba(255,255,255,.95)'; g.fillRect(0, 0, WW, HD);
+  g.fillStyle = '#2a2238'; g.font = "900 11px 'Zen Maru Gothic', sans-serif";
+  g.fillText(`${P.ebi === top && top > 0 ? '👑' : ''}${String(P.name).slice(0, 5)} 🦐${P.ebi} ${P.alive ? '❤️' + P.hearts : ''}`, cx, HD / 2 + 1);
+  g.restore();
+  g.strokeStyle = P.hitT > 0 ? '#c2405a' : '#2a2238'; g.lineWidth = P.hitT > 0 ? 3 : 2;
+  g.beginPath(); g.roundRect ? g.roundRect(1, 1, WW - 2, WH - 2, 10) : g.rect(1, 1, WW - 2, WH - 2); g.stroke();
+}
+function wipeTick(dt) {
+  if (!NET) return;
+  for (const P of Object.values(NET.P)) P.hitT = Math.max(0, (P.hitT || 0) - dt);
+  if (!NET.wipes) return;
+  const now = performance.now();
+  for (const w of NET.wipes) drawWipe(w, now);
 }
 function netTick(dt) {
   if (!NET || NET.ended) return;
@@ -891,11 +912,12 @@ Kit.bar({ id: 'puchirun', guard: { active: () => G && G.running && !G.over, paus
     <li>🧲 <b>じしゃく</b>：ちかくの エビを すいよせる ／ ⭐ <b>むてき</b>：じゃまものを はねとばす</li>
     <li>🦐 エビ 10てん、✨きんの エビ 50てん。はしった きょりも てんすうに なる。どんどん はやく なるよ</li>
     <li>🌐 <b>オンライン たいせん</b>（2〜4人）：へやを つくって ばんごうを おしえ、ほかの 人が 入ったら スタート。90びょうで エビが いちばん おおい人、または さいごまで のこった人の かち</li>
-    <li>👻 たいせん中は、あいての ねこが はんとうめいで おなじ みちを はしるよ。うえに 名前・エビの かず・ハート。エビが おおい 人ほど 前を はしる（👑は いちばん）。ぶつかると ピンクに なる</li>
+    <li>📺 たいせん中は、うえの <b>ワイプ</b>に あいての みち（じゃまもの・エビ）と ねこの うごきが うつるよ。名前・エビの かず・ハートも。👑は いちばん。ぶつかると ピンクに なる。📺ボタンで ちいさく できる</li>
     <li>📦 <b>おじゃま</b>：エビを 5ひき とるごとに（きんの エビ・アクロバット・きまぐれタイムを のりきると もっと たまる）、エビが いちばん おおい あいてに むらさきの おじゃまを おくる。じぶんに おじゃまが きているときに ためると、さきに それを けす</li>
     <li>🧲✨ <b>どろぼう じしゃく</b>（たいせんだけ）：とると 5びょうかん、あいて ぜんいんの みちに ある エビが 空へ すいとられて、じぶんの ものに なる。🍛シールドが あると まもれる</li>
   </ul>` });
-{ const ex = document.querySelector('.kbar-extra'); if (ex) ex.appendChild($('pauseBtn')); }
+{ const ex = document.querySelector('.kbar-extra'); if (ex) { ex.appendChild($('wipeBtn')); ex.appendChild($('pauseBtn')); } }
+$('wipeBtn').onclick = () => { if (!NET) return; NET.mini = !NET.mini; Kit.store.set('run:mini', NET.mini); Kit.sfx('tap'); NET.wipes = null; renderBoard(); };
 renderSetup();
 { const jc = Net.joinCode(); if (jc) { O.mode = 'net'; renderSetup(); openNet(jc); } }
 resize();
