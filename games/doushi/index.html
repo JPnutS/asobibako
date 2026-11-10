@@ -27,14 +27,23 @@
   .score { font-family: 'Dela Gothic One', sans-serif; font-size: 1.4rem; color: #ff7a45; min-width: 3.5em; text-align: right; }
   .combo { font-size: .9rem; color: #ff5d8f; min-width: 4.5em; }
   .q { margin: 8px 12px 0; background: #fff; border: 3px solid var(--line); border-radius: 18px; box-shadow: 0 5px 0 var(--line); padding: 10px 12px 12px; text-align: center; position: relative; }
-  .cue { display: inline-block; padding: 3px 12px; border-radius: 99px; font-weight: 900; font-size: 1rem; color: #fff; }
+  .ask { margin-top: 8px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .ask small { font-weight: 900; font-size: .85rem; }
+  .ask.past small { color: #5b4fd0; } .ask.ing small { color: #1d8a5a; } .ask.s3 small { color: #c95a12; }
+  .cue { display: inline-block; padding: 4px 16px; border-radius: 99px; font-weight: 900; font-size: 1.15rem; color: #fff; box-shadow: 0 3px 0 rgba(0,0,0,.18); }
+  .frame { margin-top: 6px; font: 900 1.15rem/1.3 'Zen Maru Gothic', sans-serif; color: #2a2238; }
+  .frame .bl { display: inline-block; min-width: 3.2em; border-bottom: 3px solid currentColor; text-align: center; padding: 0 4px; }
+  .frame .bl.past { color: #5b4fd0; } .frame .bl.ing { color: #1d8a5a; } .frame .bl.s3 { color: #c95a12; }
+  .frame .bl.fill { border-radius: 6px; border-bottom-width: 0; background: #fff2a8; color: #2a2238; }
+  .say { position: absolute; left: 50%; bottom: 104px; transform: translateX(-50%); background: #fff; border: 2.5px solid var(--line); border-radius: 14px; padding: 3px 10px; font-weight: 900; font-size: .95rem; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .2s; }
+  .say::after { content: ''; position: absolute; left: 50%; bottom: -8px; margin-left: -6px; border: 6px solid transparent; border-top-color: var(--line); border-bottom: 0; }
   .cue.past { background: #7a6ff0; } .cue.ing { background: #2fb37a; } .cue.s3 { background: #ff8a3d; }
   .tiles { display: flex; justify-content: center; align-items: flex-end; gap: 2px; min-height: 58px; margin-top: 8px; position: relative; }
   .tile { display: inline-grid; place-items: center; min-width: var(--tw, 34px); height: calc(var(--tw, 34px) * 1.35); padding: 0; border: 2.5px solid var(--line); border-radius: 9px; background: #fff8ea; font: 900 calc(var(--tw, 34px) * .8)/1 'Zen Maru Gothic', sans-serif; color: #2a2238; box-shadow: 0 3px 0 var(--line); }
   .tile.add { background: #ffe1c8; color: #e0561f; }
   .tile.chg { background: #ffd2dc; color: #c2185b; }
   .tile.irr { background: #e9e2ff; color: #5b3fd6; }
-  .mean { font-weight: 900; color: var(--muted); margin-top: 6px; font-size: 1.05rem; }
+  .mean { font-weight: 900; color: var(--muted); font-size: 1.05rem; }
   .mean { display: flex; align-items: center; justify-content: center; gap: 8px; }
   .mean .emo { font-size: 2.4rem; line-height: 1; }
   .arrow { font-weight: 900; color: var(--muted); font-size: .95rem; }
@@ -62,6 +71,11 @@
   .zr { display: flex; align-items: center; gap: 10px; padding: 6px 2px; border-bottom: 1px dashed var(--soft); cursor: pointer; line-height: 1.5; }
   .ze { font-size: 2rem; width: 2.4rem; text-align: center; flex: none; }
   .zb { font-size: 1.1rem; }
+  .zt { font-size: .7rem; font-weight: 900; padding: 0 5px; border-radius: 99px; white-space: nowrap; }
+  .zt.t3 { background: #ff8a3d; color: #fff; } .zt.t2 { background: #ffe3cc; color: #c95a12; } .zt.t1 { background: #eee; color: #888; }
+  .zfil { display: flex; flex-wrap: wrap; gap: 6px; }
+  .zfil button { font: 900 .85rem 'Zen Maru Gothic', sans-serif; padding: 5px 10px; border: 2.5px solid var(--line); border-radius: 99px; background: #fff; color: #2a2238; cursor: pointer; }
+  .zfil button.on { background: #ffcf3c; }
   .zl { font-size: .8rem; color: #ffb400; white-space: nowrap; }
   .zf { display: inline-block; font-weight: 700; padding: 0 6px; border-radius: 6px; margin-right: 2px; }
   .zf.past { background: #ece9ff; color: #5b4fd0; } .zf.ing { background: #dcf5ea; color: #1d8a5a; } .zf.s3 { background: #ffeadb; color: #c95a12; }
@@ -85,9 +99,10 @@
   <div id="game" hidden>
     <div class="top"><div class="tbar"><i id="tbar"></i></div><span class="combo" id="combo"></span><span class="score" id="score">0</span></div>
     <div class="q" id="qcard">
-      <span class="cue" id="cue"></span>
-      <div class="tiles" id="tiles"></div>
       <div class="mean" id="mean"></div>
+      <div class="tiles" id="tiles"></div>
+      <div class="ask" id="ask"><span class="cue" id="cue"></span><small id="hint"></small></div>
+      <div class="frame" id="frame"></div>
       <div class="rule" id="rule"></div>
       <div class="stamp" id="stamp">ふきそく！</div>
     </div>
@@ -104,6 +119,7 @@
         <g id="eyesSad" visibility="hidden"><path d="M36 40 l11 4 l-11 4 M74 40 l-11 4 l11 4" fill="none" stroke="#2a2238" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g>
         <path id="mouth" d="M48 56 q3.5 4 7 0 q3.5 4 7 0" fill="none" stroke="#2a2238" stroke-width="2.6" stroke-linecap="round"/>
       </svg>
+      <div class="say" id="catSay"></div>
       <div class="msg" id="msg"></div>
     </div>
   </div>
@@ -121,13 +137,18 @@ const RAW = {
   e: [['like', '好きだ'], ['live', '住む'], ['use', '使う'], ['love', '大好きだ'], ['dance', 'おどる'], ['move', '動く'], ['close', '閉める'], ['practice', '練習する'], ['arrive', '着く'], ['smile', 'ほほえむ']],
   y: [['study', '勉強する'], ['try', 'やってみる'], ['cry', '泣く'], ['carry', '運ぶ'], ['worry', '心配する']],
   dbl: [['stop', '止まる'], ['plan', '計画する'], ['drop', '落とす']],
-  irr: [['go', '行く', 'went'], ['come', '来る', 'came'], ['eat', '食べる', 'ate'], ['see', '見る', 'saw'], ['have', '持っている', 'had'], ['make', '作る', 'made'], ['take', '取る', 'took'], ['get', '手に入れる', 'got'], ['give', 'あたえる', 'gave'], ['write', '書く', 'wrote'], ['run', '走る', 'ran'], ['swim', '泳ぐ', 'swam'], ['sit', 'すわる', 'sat'], ['buy', '買う', 'bought'], ['think', '思う', 'thought'], ['say', '言う', 'said'], ['tell', '伝える', 'told'], ['know', '知っている', 'knew'], ['find', '見つける', 'found'], ['leave', '出発する', 'left'], ['meet', '会う', 'met'], ['speak', '話す', 'spoke'], ['teach', '教える', 'taught'], ['catch', 'つかまえる', 'caught'], ['sing', '歌う', 'sang'], ['drink', '飲む', 'drank'], ['begin', '始まる', 'began'], ['do', 'する', 'did'], ['put', '置く', 'put'], ['sleep', 'ねむる', 'slept'], ['feel', '感じる', 'felt'], ['stand', '立つ', 'stood'], ['become', '〜になる', 'became'], ['lose', 'なくす', 'lost'], ['win', '勝つ', 'won'], ['send', '送る', 'sent'], ['ride', '乗る', 'rode'], ['draw', '描く', 'drew'], ['fly', '飛ぶ', 'flew']],
+  irr: [['go', '行く', 'went'], ['come', '来る', 'came'], ['eat', '食べる', 'ate'], ['see', '見る', 'saw'], ['have', '持っている', 'had'], ['make', '作る', 'made'], ['take', '取る', 'took'], ['get', '手に入れる', 'got'], ['give', 'あたえる', 'gave'], ['write', '書く', 'wrote'], ['run', '走る', 'ran'], ['swim', '泳ぐ', 'swam'], ['sit', 'すわる', 'sat'], ['buy', '買う', 'bought'], ['think', '思う', 'thought'], ['say', '言う', 'said'], ['tell', '伝える', 'told'], ['know', '知っている', 'knew'], ['find', '見つける', 'found'], ['leave', '出発する', 'left'], ['meet', '会う', 'met'], ['speak', '話す', 'spoke'], ['teach', '教える', 'taught'], ['catch', 'つかまえる', 'caught'], ['sing', '歌う', 'sang'], ['drink', '飲む', 'drank'], ['begin', '始める', 'began'], ['do', 'する', 'did'], ['put', '置く', 'put'], ['sleep', 'ねむる', 'slept'], ['feel', '感じる', 'felt'], ['stand', '立つ', 'stood'], ['become', '〜になる', 'became'], ['lose', 'なくす', 'lost'], ['win', '勝つ', 'won'], ['send', '送る', 'sent'], ['ride', '乗る', 'rode'], ['draw', '描く', 'drew'], ['fly', '飛ぶ', 'flew']],
 };
 const DBL = new Set(['stop', 'plan', 'drop', 'run', 'swim', 'sit', 'get', 'put', 'begin', 'win']); // さいごの 文字を かさねる
 /* 意味の イメージ（字面と 意味を むすびつける） */
 const EMO = {"play": "⚽", "watch": "📺", "help": "🤝", "cook": "🍳", "clean": "🧹", "walk": "🚶", "talk": "🗣️", "want": "🤲", "visit": "🏠", "start": "🏁", "look": "👀", "listen": "👂", "open": "📖", "call": "📞", "wash": "🧼", "finish": "🏆", "enjoy": "😆", "stay": "🏨", "work": "💼", "jump": "🤸", "like": "👍", "live": "🏡", "use": "✂️", "love": "❤️", "dance": "💃", "move": "📦", "close": "🚪", "practice": "🎹", "arrive": "🚉", "smile": "😊", "study": "📚", "try": "💪", "cry": "😢", "carry": "🎒", "worry": "😟", "stop": "🛑", "plan": "🗓️", "drop": "⬇️", "go": "🚌", "come": "👋", "eat": "🍙", "see": "👁️", "have": "🎁", "make": "🔨", "take": "📸", "get": "🙌", "give": "💝", "write": "✏️", "run": "🏃", "swim": "🏊", "sit": "🪑", "buy": "🛒", "think": "🤔", "say": "💬", "tell": "📣", "know": "💡", "find": "🔍", "leave": "🧳", "meet": "🤗", "speak": "🎙️", "teach": "👩\u200d🏫", "catch": "⚾", "sing": "🎤", "drink": "🥤", "begin": "🚀", "do": "✅", "put": "📥", "sleep": "😴", "feel": "💓", "stand": "🧍", "become": "🦋", "lose": "🤷", "win": "🥇", "send": "📮", "ride": "🚲", "draw": "🎨", "fly": "🕊️"};
+/* ぷっちーの 例文で つかう ことば（なければ なし） */
+const OBJ = {"play": "soccer", "watch": "TV", "help": "Mom", "cook": "curry", "clean": "the room", "walk": "to school", "talk": "with Ken", "want": "a fish", "visit": "Kyoto", "start": "the game", "look": "at the moon", "listen": "to music", "open": "the door", "call": "Ken", "wash": "the dishes", "finish": "lunch", "enjoy": "the party", "stay": "at home", "work": "hard", "jump": "high", "like": "fish", "live": "in Japan", "use": "a pen", "love": "milk", "dance": "well", "close": "the window", "practice": "the piano", "arrive": "at the station", "study": "English", "try": "sushi", "worry": "about Ken", "carry": "a bag", "plan": "a party", "drop": "a cup", "go": "to school", "come": "home", "eat": "fish", "see": "a bird", "have": "a ball", "make": "a cake", "take": "a photo", "get": "a gift", "give": "Mom a flower", "write": "a letter", "run": "fast", "swim": "in the sea", "sit": "down", "buy": "a fish", "think": "about fish", "say": "\"Hello!\"", "tell": "a story", "know": "Ken", "find": "a coin", "leave": "home", "meet": "Ken", "speak": "English", "teach": "math", "catch": "a ball", "sing": "a song", "drink": "milk", "begin": "the lesson", "do": "the homework", "put": "the ball here", "sleep": "well", "feel": "happy", "stand": "up", "become": "a hero", "lose": "a key", "win": "the game", "send": "a letter", "ride": "a bike", "draw": "a picture", "fly": "high"};
+/* テストに よく出る 度：3 よく出る／2 ふつう／1 そのほか */
+const TIER = {};
+["go", "come", "eat", "see", "have", "make", "take", "get", "do", "say", "know", "think", "write", "run", "swim", "buy", "play", "study", "like", "watch", "stop", "try", "live", "use", "visit", "help", "speak", "teach", "sing", "give"].forEach(b => TIER[b] = 3); ["tell", "find", "leave", "meet", "catch", "drink", "begin", "put", "sleep", "feel", "stand", "become", "lose", "win", "send", "ride", "draw", "fly", "cook", "clean", "walk", "talk", "want", "start", "look", "listen", "open", "wash", "finish", "enjoy", "dance", "practice", "arrive", "cry", "carry"].forEach(b => TIER[b] = 2);
 const VERBS = [];
-Object.entries(RAW).forEach(([g, list]) => list.forEach(([b, ja, past]) => VERBS.push({ b, ja, past, g, e: EMO[b] || '🔤' })));
+Object.entries(RAW).forEach(([g, list]) => list.forEach(([b, ja, past]) => VERBS.push({ b, ja, past, g, e: EMO[b] || '🔤', o: OBJ[b] || '', tier: TIER[b] || 1 })));
 const VOW = 'aeiou';
 const consY = b => b.endsWith('y') && !VOW.includes(b[b.length - 2]);
 /* 正しい形と、どう へんしんするか（アニメの もと） */
@@ -175,10 +196,11 @@ function wrongs(v, t, right) {
   return out;
 }
 const TENSE = {
-  past: { cls: 'past', label: '過去形（きのう 〜した）', say: 'yesterday' },
-  ing: { cls: 'ing', label: 'ing形（いま 〜している）', say: 'now' },
-  s3: { cls: 's3', label: '3単現（He / She が 〜する）', say: 'he' },
+  past: { cls: 'past', name: '過去形', label: '過去形', ask: '過去形に しよう', hint: '〜した', frame: '' },
+  ing: { cls: 'ing', name: '現在進行形', label: '現在進行形（ing形）', ask: '現在進行形の ing形に しよう', hint: 'is ＋ 〜ing ＝ 〜している', frame: 'is' },
+  s3: { cls: 's3', name: '3単現', label: '3単現', ask: '3単現の 形に しよう', hint: 'ぷっちー（He / She）＋ 〜s', frame: '' },
 };
+const sentence = (q, w) => ['Puchi', TENSE[q.t].frame, w, q.v.o].filter(Boolean).join(' ') + (/[!?"]$/.test(q.v.o) ? '' : '.');
 const RULE_TEXT = { ed: '+ed', e_d: 'e で おわる → +d', y_i: 'y → i にして', dbl: 'さいごの 文字を かさねて', ing: '+ing', e_drop: 'e を とって +ing', es: '+es', s: '+s', irr: 'ふきそく！' };
 /* ---------- ステージ ---------- */
 const ALL_Q = [];
@@ -252,7 +274,10 @@ function nextQ() {
   if (!G || G.over) return;
   const q = chooseQ(); G.q = q; G.recent.push(q.key); if (G.recent.length > Math.min(8, G.pool.length - 1)) G.recent.shift();
   const T = TENSE[q.t];
-  $('cue').className = 'cue ' + T.cls; $('cue').textContent = T.label;
+  $('cue').className = 'cue ' + T.cls; $('cue').textContent = T.ask; $('ask').className = 'ask ' + T.cls; $('hint').textContent = T.hint;
+  $('frame').innerHTML = Kit.esc(sentence(q, '\u0001')).replace('\u0001', `<span class="bl ${T.cls}">？</span>`);
+  if (G.n === 0) catSay('ぷっちーの 文を かんせい させてね', 1800);
+  else if (q.t === 's3' && Math.random() < .3) catSay('ぷっちーは He と おなじ あつかい', 1500);
   $('mean').innerHTML = `<span class="emo">${q.v.e}</span>${Kit.esc(q.v.ja)}`;
   ['rule', 'stamp'].forEach(id => { $(id).getAnimations().forEach(x => x.cancel()); $(id).style.opacity = 0; });
   const nT = Math.max(q.v.b.length, q.f.length);
@@ -273,6 +298,13 @@ function nextQ() {
   G.rise = Math.max(3.6, 7.2 - G.ok * .09 - Math.min(G.combo, 10) * .08);
   G.qT = 0; G.busy = false;
   say(q.v.b);
+}
+let sayT = 0;
+function catSay(t, ms = 900) { const e = $('catSay'); e.textContent = t; e.style.opacity = 1; clearTimeout(sayT); sayT = setTimeout(() => { e.style.opacity = 0; }, ms); }
+/* ぷっちーが ぷちぷちに とびついて わる */
+function pounce(b) {
+  const F = $('field'), c = $('cat'), dx = b.x - F.clientWidth / 2, dy = b.y - (F.clientHeight - 52);
+  c.animate([{ transform: 'translate(0,0)' }, { transform: `translate(${dx * .85}px,${dy * .85}px) rotate(${dx > 0 ? 15 : -15}deg) scale(.8)`, offset: .45 }, { transform: 'translate(0,0)' }], { duration: 520, easing: 'ease-out' });
 }
 function setTiles(list) {
   const box = $('tiles'); box.innerHTML = '';
@@ -305,11 +337,11 @@ function pick(b) {
     const speed = Math.max(0, 1 - G.qT / G.rise);
     const p = 10 + Math.min(20, G.combo * 2) + Math.round(speed * 10);
     G.score += p;
-    burst(b, true); b.el.remove(); Kit.sfx('pop'); Kit.vibrate(12); catFace('happy');
+    pounce(b); setTimeout(() => { burst(b, true); b.el.remove(); }, 200); Kit.sfx('pop'); Kit.vibrate(12); catFace('happy'); catSay(Kit.pick(['にゃっ！', 'それだ！', 'ぷちっ！', 'やったにゃ']));
     G.bubs.filter(x => x !== b).forEach(x => x.el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 250, fill: 'forwards' }));
     flash(G.combo >= 3 ? `${G.combo} コンボ！ +${p}` : `+${p}`);
   } else {
-    G.combo = 0; b.el.classList.add('bad'); Kit.sfx('bad'); Kit.vibrate(40); catFace('sad');
+    G.combo = 0; b.el.classList.add('bad'); Kit.sfx('bad'); Kit.vibrate(40); catFace('sad'); catSay('こっちが 正かい！', 1300);
     b.el.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-10px)' }, { transform: 'translateX(10px)' }, { transform: 'translateX(0)' }], { duration: 300 });
     const r = G.bubs.find(x => x.w === q.f); if (r) r.el.classList.add('good');
     G.miss.push(q); G.again.push({ q, wait: Kit.randInt(3, 5) });
@@ -368,8 +400,9 @@ async function morph(q) {
     Kit.sfx('tap');
     await wait(330);
   }
-  say(q.t === 's3' ? `${q.v.b}. ${q.f}.` : `${q.v.b}. ${q.f}.`);
-  await wait(q.rule === 'irr' ? 520 : 380);
+  $('frame').innerHTML = Kit.esc(sentence(q, '\u0001')).replace('\u0001', `<span class="bl fill">${q.f}</span>`);
+  say(`${q.v.b}. ${q.f}. ${sentence(q, q.f)}`);
+  await wait(q.rule === 'irr' ? 1500 : 1300);
 }
 /* ---------- まいフレーム ---------- */
 let msgT = 0;
@@ -395,7 +428,7 @@ function update(dt) {
     }
     if (top) { // にげられた
       G.busy = true; G.combo = 0; G.n++; tally(G.q, false); G.miss.push(G.q); G.again.push({ q: G.q, wait: Kit.randInt(3, 5) });
-      Kit.sfx('bad'); catFace('sad'); flash('にげられた…');
+      Kit.sfx('bad'); catFace('sad'); flash('にげられた…'); catSay('あっ、にげた…', 1200);
       const g = G; hud(); morph(G.q).then(() => { if (G !== g) return; catFace('normal'); nextQ(); });
     }
     hud();
@@ -427,9 +460,9 @@ function finish() {
     <p style="margin:0;font-weight:900">${r.isNew ? '🎉 ベストきろく！' : `ベスト：${r.best}てん`}${opened ? '<br>🔓 つぎの ステージが あいたよ！' : ''}</p>
     <div class="res"><div><span>⭕ 正かい</span><b>${G.ok} ／ ${G.n}もん</b></div><div><span>🔥 さいこう コンボ</span><b>${G.maxCombo}</b></div>
     ${S.id === 'nigate' ? '' : `<div><span>★ の めやす</span><b>${STAR.join(' ／ ')}もん 正かい</b></div>`}</div>
-    ${uniq.length ? `<div class="miss"><p class="k-label" style="margin:4px 0">まちがえた もの（タップで 読み上げ）</p>${uniq.map((q, i) => `<div data-i="${i}">${q.v.e} ${q.v.b} → <b style="color:#e0561f">${q.f}</b>　<span class="k-muted">${q.v.ja}・${TENSE[q.t].label.split('（')[0]}</span></div>`).join('')}</div>` : '<p style="margin:0">🎯 まちがい なし！</p>'}
+    ${uniq.length ? `<div class="miss"><p class="k-label" style="margin:4px 0">まちがえた もの（タップで 読み上げ）</p>${uniq.map((q, i) => `<div data-i="${i}">${q.v.e} ${q.v.b} → <b style="color:#e0561f">${q.f}</b>　<span class="k-muted">${q.v.ja}・${TENSE[q.t].name}</span></div>`).join('')}</div>` : '<p style="margin:0">🎯 まちがい なし！</p>'}
     <div class="k-row" style="justify-content:center"><button class="k-btn is-orange is-big" id="again">もういっかい</button><button class="k-btn" id="toMenu">ステージへ</button></div>`;
-  $('resultCard').querySelectorAll('.miss div').forEach(d => d.onclick = () => { const q = uniq[+d.dataset.i]; say(`${q.v.b}. ${q.f}.`); });
+  $('resultCard').querySelectorAll('.miss div').forEach(d => d.onclick = () => { const q = uniq[+d.dataset.i]; say(`${q.v.b}. ${q.f}. ${sentence(q, q.f)}`); });
   setTimeout(() => { $('resultOv').hidden = false; }, 400);
   $('again').onclick = () => { Kit.sfx('tap'); start(G.si); };
   $('toMenu').onclick = () => { Kit.sfx('tap'); toMenu(); };
@@ -440,9 +473,20 @@ $('zukanBtn').onclick = () => {
   Kit.sfx('tap');
   const lv = v => { const ks = ['past', 'ing', 's3'].map(t => M[v.b + ':' + t]); const s = ks.reduce((a, m) => a + Math.min(3, m ? m.s || 0 : 0), 0); return s >= 8 ? '★★★' : s >= 5 ? '★★☆' : s >= 2 ? '★☆☆' : '☆☆☆'; };
   const fm = (v, t) => { const F = formOf(v, t); return `<span class="zf ${t}${F.rule === 'irr' ? ' ir' : ''}">${F.f}</span>`; };
-  const rows = VERBS.map((v, i) => `<div class="zr" data-i="${i}"><span class="ze">${v.e}</span><div><b class="zb">${v.b}</b> <span class="k-muted">${v.ja}</span> <span class="zl">${lv(v)}</span><br>${fm(v, 'past')} ${fm(v, 'ing')} ${fm(v, 's3')}</div></div>`).join('');
-  const m = Kit.modal({ title: '📖 どうし ずかん', body: `<p class="k-muted" style="margin:0 0 6px">タップで 読み上げ。<span class="zf past">過去形</span> <span class="zf ing">ing形</span> <span class="zf s3">3単現</span>　<b style="color:#5b3fd6">太字</b>は ふきそく。★は おぼえぐあい。</p><div class="zk">${rows}</div>`, actions: [{ label: 'とじる', primary: true }] });
-  setTimeout(() => document.querySelectorAll('.zr[data-i]').forEach(tr => tr.onclick = () => { const v = VERBS[+tr.dataset.i]; say(`${v.b}. ${formOf(v, 'past').f}. ${formOf(v, 'ing').f}. ${formOf(v, 's3').f}.`); }), 50);
+  const row = (v, i) => `<div class="zr" data-i="${i}"><span class="ze">${v.e}</span><div><b class="zb">${v.b}</b> <span class="k-muted">${v.ja}</span> <span class="zt t${v.tier}">${['', 'そのほか', 'ふつう', 'よく出る'][v.tier]}</span> <span class="zl">${lv(v)}</span><br>${fm(v, 'past')} ${fm(v, 'ing')} ${fm(v, 's3')}</div></div>`;
+  const F = { tier: Kit.store.get('doushi:zkTier', 3), irr: false };
+  const m = Kit.modal({ title: '📖 どうし ずかん', body: `<div class="zfil" id="zfil"><button data-t="3">⭐ テストに よく出る</button><button data-t="2">よく出る＋ふつう</button><button data-t="1">ぜんぶ</button><button data-irr="1">ふきそくだけ</button></div><p class="k-muted" style="margin:4px 0 6px;font-size:.85rem">タップで 読み上げ。<span class="zf past">過去形</span> <span class="zf ing">ing形</span> <span class="zf s3">3単現</span>　<b style="color:#5b3fd6">太字</b>は ふきそく。<span id="zcount"></span></p><div class="zk" id="zk"></div>`, actions: [{ label: 'とじる', primary: true }] });
+  const paint = () => {
+    const list = VERBS.map((v, i) => [v, i]).filter(([v]) => v.tier >= F.tier && (!F.irr || v.past || v.b === 'have')).sort((a, b) => b[0].tier - a[0].tier || a[1] - b[1]);
+    document.getElementById('zk').innerHTML = list.map(([v, i]) => row(v, i)).join('');
+    document.getElementById('zcount').textContent = `${list.length}こ`;
+    document.querySelectorAll('#zfil button').forEach(x => x.classList.toggle('on', x.dataset.irr ? F.irr : +x.dataset.t === F.tier));
+    document.querySelectorAll('.zr[data-i]').forEach(tr => tr.onclick = () => { const v = VERBS[+tr.dataset.i]; say(`${v.b}. ${formOf(v, 'past').f}. ${formOf(v, 'ing').f}. ${formOf(v, 's3').f}.`); });
+  };
+  setTimeout(() => {
+    document.querySelectorAll('#zfil button').forEach(x => x.onclick = () => { Kit.sfx('tap'); if (x.dataset.irr) F.irr = !F.irr; else { F.tier = +x.dataset.t; Kit.store.set('doushi:zkTier', F.tier); } paint(); });
+    paint();
+  }, 30);
 };
 function pause() { if (G && G.running && !G.over) { G.running = false; G.paused = true; Kit.music.stop(); } }
 function resume() { if (G && G.paused) { G.paused = false; G.running = true; } }
@@ -451,13 +495,13 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) pause
 Kit.bar({ id: 'doushi', extra: $('voiceBtn'), guard: { active: () => G && !G.over, pause, resume }, title: '🔤 ぷちぷち どうし', help: `
   <p>中1の 英語の どうしの 形（過去形・ing形・3単現）を、たくさん といて 体で おぼえる ゲーム。</p>
   <ul>
-    <li>うえに 「原形・意味・どの形か」が 出るよ。下から 上がってくる <b>ぷちぷちの 中から 正しい 形</b> を タップ（パソコンは 1〜4キー）。</li>
+    <li>うえに 原形と 意味、「〇〇に しよう」（過去形・現在進行形・3単現）と、ぷっちーが しゅごの 文（Puchi ＿＿ soccer. など）が 出るよ。下から 上がってくる <b>ぷちぷちの 中から 正しい 形</b> を タップ（パソコンは 1〜4キー）。</li>
     <li>正かいすると ぷっちーが ぷちぷちを わって、単語が へんしんする アニメが 出るよ。y が i に かわったり、e が おちたり、文字が ふえたり。うごきで ルールを おぼえよう。</li>
     <li>まちがえたり、ぷちぷちが 上まで にげると、正しい 形が 出て、その もんだいは すこし あとで もう一度 出るよ。</li>
     <li>はやく こたえるほど、コンボが つづくほど とくてんアップ。1回 60びょう。</li>
     <li>ステージ：1 きほん → 2 へんしんルール → 3 ふきそく → 4 ミックス。★★ で つぎが あく。まちがえた ものは 🔥にがて に たまる。</li>
-    <li>🗣 ボタンで 英語の 読み上げ（もんだいの 原形と、正かいの 形）を オン／オフ。</li>
-    <li>📖 どうし ずかん で ぜんぶの 形と おぼえぐあいが 見られるよ。</li>
+    <li>正かいすると 文が かんせいして、ぷっちーの 文を 英語で 読み上げるよ。🗣 ボタンで オン／オフ。</li>
+    <li>📖 どうし ずかん で ぜんぶの 形と おぼえぐあいが 見られるよ。「テストに よく出る」で しぼりこめる（よく出る度は 教科書で よく つかう どうしを もとに した めやす）。</li>
   </ul>` });
 renderMenu();
 if (location.hash === '#debug') window.__d = { get G() { return G; }, ALL_Q, formOf, wrongs, VERBS, start, pick };
