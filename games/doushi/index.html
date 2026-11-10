@@ -56,6 +56,13 @@
   .bub .k { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); font-size: .7rem; color: rgba(42,34,56,.45); }
   .bub.bad { background: radial-gradient(circle at 32% 28%, #fff 0 14%, #ffd2dc 15%, #ff8fa8 100%); }
   .bub.good { background: radial-gradient(circle at 32% 28%, #fff 0 14%, #fff4c0 15%, #ffcf3c 100%); }
+  .bub .mk { position: absolute; right: -4px; top: -4px; width: 34px; height: 34px; border-radius: 50%; background: #e0245e; color: #fff; display: grid; place-items: center; font-style: normal; font-size: 1.1rem; border: 3px solid #fff; box-shadow: 0 2px 0 rgba(0,0,0,.2); animation: mkIn .25s ease-out; }
+  .bub .mk.ok { background: #fff; color: #2fb37a; }
+  @keyframes mkIn { from { transform: scale(2.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .yours { margin-top: 4px; font-weight: 900; color: #c2185b; font-size: 1rem; }
+  .yours s { text-decoration-thickness: 3px; }
+  .shard { position: absolute; border: 3px solid rgba(255,255,255,.95); border-color: rgba(255,255,255,.95) transparent transparent transparent; border-radius: 50%; pointer-events: none; }
+  .popw { position: absolute; font: 900 1.6rem 'Dela Gothic One', sans-serif; color: #ffcf3c; -webkit-text-stroke: 2px #2a2238; paint-order: stroke; pointer-events: none; }
   .ring { position: absolute; border: 5px solid #fff; border-radius: 50%; pointer-events: none; }
   .bit { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: #fff; pointer-events: none; }
   .cat { position: absolute; left: 50%; bottom: 4px; width: 110px; height: 96px; margin-left: -55px; pointer-events: none; transition: transform .15s; }
@@ -92,6 +99,7 @@
       <div class="stages" id="stages"></div>
       <div class="k-row" style="justify-content:center">
         <button class="k-btn is-sky" id="zukanBtn">📖 動詞図鑑</button>
+        <button class="k-btn" id="setBtn">⚙ 設定</button>
       </div>
       <p class="k-muted" id="total" style="margin:0;text-align:center"></p>
     </div>
@@ -143,7 +151,7 @@ const DBL = new Set(['stop', 'plan', 'drop', 'run', 'swim', 'sit', 'get', 'put',
 /* 意味の イメージ（字面と 意味を むすびつける） */
 const EMO = {"play": "⚽", "watch": "📺", "help": "🤝", "cook": "🍳", "clean": "🧹", "walk": "🚶", "talk": "🗣️", "want": "🤲", "visit": "🏠", "start": "🏁", "look": "👀", "listen": "👂", "open": "📖", "call": "📞", "wash": "🧼", "finish": "🏆", "enjoy": "😆", "stay": "🏨", "work": "💼", "jump": "🤸", "like": "👍", "live": "🏡", "use": "✂️", "love": "❤️", "dance": "💃", "move": "📦", "close": "🚪", "practice": "🎹", "arrive": "🚉", "smile": "😊", "study": "📚", "try": "💪", "cry": "😢", "carry": "🎒", "worry": "😟", "stop": "🛑", "plan": "🗓️", "drop": "⬇️", "go": "🚌", "come": "👋", "eat": "🍙", "see": "👁️", "have": "🎁", "make": "🔨", "take": "📸", "get": "🙌", "give": "💝", "write": "✏️", "run": "🏃", "swim": "🏊", "sit": "🪑", "buy": "🛒", "think": "🤔", "say": "💬", "tell": "📣", "know": "💡", "find": "🔍", "leave": "🧳", "meet": "🤗", "speak": "🎙️", "teach": "👩\u200d🏫", "catch": "⚾", "sing": "🎤", "drink": "🥤", "begin": "🚀", "do": "✅", "put": "📥", "sleep": "😴", "feel": "💓", "stand": "🧍", "become": "🦋", "lose": "🤷", "win": "🥇", "send": "📮", "ride": "🚲", "draw": "🎨", "fly": "🕊️"};
 /* ぷっちーの 例文で つかう ことば（なければ なし） */
-const OBJ = {"play": "soccer", "watch": "TV", "help": "Mom", "cook": "curry", "clean": "the room", "walk": "to school", "talk": "with Ken", "want": "a fish", "visit": "Kyoto", "start": "the game", "look": "at the moon", "listen": "to music", "open": "the door", "call": "Ken", "wash": "the dishes", "finish": "lunch", "enjoy": "the party", "stay": "at home", "work": "hard", "jump": "high", "like": "fish", "live": "in Japan", "use": "a pen", "love": "milk", "dance": "well", "close": "the window", "practice": "the piano", "arrive": "at the station", "study": "English", "try": "sushi", "worry": "about Ken", "carry": "a bag", "plan": "a party", "drop": "a cup", "go": "to school", "come": "home", "eat": "fish", "see": "a bird", "have": "a ball", "make": "a cake", "take": "a photo", "get": "a gift", "give": "Mom a flower", "write": "a letter", "run": "fast", "swim": "in the sea", "sit": "down", "buy": "a fish", "think": "about fish", "say": "\"Hello!\"", "tell": "a story", "know": "Ken", "find": "a coin", "leave": "home", "meet": "Ken", "speak": "English", "teach": "math", "catch": "a ball", "sing": "a song", "drink": "milk", "begin": "the lesson", "do": "the homework", "put": "the ball here", "sleep": "well", "feel": "happy", "stand": "up", "become": "a hero", "lose": "a key", "win": "the game", "send": "a letter", "ride": "a bike", "draw": "a picture", "fly": "high"};
+const OBJ = {"play": "soccer", "watch": "TV", "help": "Mom", "cook": "curry", "clean": "the room", "walk": "to school", "talk": "with a friend", "want": "a fish", "visit": "Kyoto", "start": "the game", "look": "at the moon", "listen": "to music", "open": "the door", "call": "Mom", "wash": "the dishes", "finish": "lunch", "enjoy": "the party", "stay": "at home", "work": "hard", "jump": "high", "like": "fish", "live": "in Japan", "use": "a pen", "love": "milk", "dance": "well", "close": "the window", "practice": "the piano", "arrive": "at the station", "study": "English", "try": "sushi", "worry": "about the test", "carry": "a bag", "plan": "a party", "drop": "a cup", "go": "to school", "come": "home", "eat": "fish", "see": "a bird", "have": "a ball", "make": "a cake", "take": "a photo", "get": "a gift", "give": "Mom a flower", "write": "a letter", "run": "fast", "swim": "in the sea", "sit": "down", "buy": "a fish", "think": "about fish", "say": "\"Hello!\"", "tell": "a story", "know": "the answer", "find": "a coin", "leave": "home", "meet": "a friend", "speak": "English", "teach": "math", "catch": "a ball", "sing": "a song", "drink": "milk", "begin": "the lesson", "do": "the homework", "put": "the ball here", "sleep": "well", "feel": "happy", "stand": "up", "become": "a hero", "lose": "a key", "win": "the game", "send": "a letter", "ride": "a bike", "draw": "a picture", "fly": "high"};
 /* テストに よく出る 度：3 よく出る／2 ふつう／1 そのほか */
 const TIER = {};
 ["go", "come", "eat", "see", "have", "make", "take", "get", "do", "say", "know", "think", "write", "run", "swim", "buy", "play", "study", "like", "watch", "stop", "try", "live", "use", "visit", "help", "speak", "teach", "sing", "give"].forEach(b => TIER[b] = 3); ["tell", "find", "leave", "meet", "catch", "drink", "begin", "put", "sleep", "feel", "stand", "become", "lose", "win", "send", "ride", "draw", "fly", "cook", "clean", "walk", "talk", "want", "start", "look", "listen", "open", "wash", "finish", "enjoy", "dance", "practice", "arrive", "cry", "carry"].forEach(b => TIER[b] = 2);
@@ -198,9 +206,12 @@ function wrongs(v, t, right) {
 const TENSE = {
   past: { cls: 'past', name: '過去形', label: '過去形', ask: '過去形にしよう', hint: '〜した', frame: '' },
   ing: { cls: 'ing', name: '現在進行形', label: '現在進行形（ing形）', ask: '現在進行形のing形にしよう', hint: 'is ＋ 〜ing ＝ 〜している', frame: 'is' },
-  s3: { cls: 's3', name: '3単現', label: '3単現', ask: '3単現の形にしよう', hint: 'ぷっちー（He / She）＋ 〜s', frame: '' },
+  s3: { cls: 's3', name: '3単現', label: '3単現', ask: '3単現の形にしよう', hint: '', frame: '' },
 };
-const sentence = (q, w) => ['Puchi', TENSE[q.t].frame, w, q.v.o].filter(Boolean).join(' ') + (/[!?"]$/.test(q.v.o) ? '' : '.');
+/* 主語の 名前（⚙設定で かえられる） */
+const BAD_NAME = /^(i|you|we|they)$/i;
+let NAME = Kit.store.get('doushi:name', 'Aki');
+const sentence = (q, w) => [NAME, TENSE[q.t].frame, w, q.v.o].filter(Boolean).join(' ') + (/[!?"]$/.test(q.v.o) ? '' : '.');
 const RULE_TEXT = { ed: '+ed', e_d: 'eで終わる → +d', y_i: 'y → i に変えて', dbl: '最後の文字を重ねて', ing: '+ing', e_drop: 'eを取って +ing', es: '+es', s: '+s', irr: '不規則！' };
 /* ---------- ステージ ---------- */
 const ALL_Q = [];
@@ -250,7 +261,7 @@ function start(si) {
   const S = STAGES[si];
   let pool = ALL_Q.filter(S.pick);
   if (S.decoy) pool = pool.concat(Kit.shuffle(ALL_Q.filter(S.decoy)).slice(0, Math.round(pool.length * .25)));
-  G = { si, S, pool, t: TIME, score: 0, combo: 0, maxCombo: 0, ok: 0, n: 0, miss: [], recent: [], again: [], busy: false, running: true, over: false, q: null, bubs: [], rise: 7 };
+  G = { si, S, pool, t: TIME, score: 0, combo: 0, maxCombo: 0, ok: 0, n: 0, miss: [], recent: [], again: [], busy: false, running: true, over: false, q: null, bubs: [], missW: {}, pickW: null, rise: 7 };
   $('menu').hidden = true; $('game').hidden = false; $('resultOv').hidden = true;
   $('field').querySelectorAll('.bub').forEach(e => e.remove());
   Kit.keepAwake(true);
@@ -274,10 +285,10 @@ function nextQ() {
   if (!G || G.over) return;
   const q = chooseQ(); G.q = q; G.recent.push(q.key); if (G.recent.length > Math.min(8, G.pool.length - 1)) G.recent.shift();
   const T = TENSE[q.t];
-  $('cue').className = 'cue ' + T.cls; $('cue').textContent = T.ask; $('ask').className = 'ask ' + T.cls; $('hint').textContent = T.hint;
+  $('cue').className = 'cue ' + T.cls; $('cue').textContent = T.ask; $('ask').className = 'ask ' + T.cls; $('hint').textContent = q.t === 's3' ? `${NAME}（He / She と同じ）＋ 〜s` : T.hint;
   $('frame').innerHTML = Kit.esc(sentence(q, '\u0001')).replace('\u0001', `<span class="bl ${T.cls}">？</span>`);
-  if (G.n === 0) catSay('ぷっちーの文を完成させてね', 1800);
-  else if (q.t === 's3' && Math.random() < .3) catSay('ぷっちーは He と同じ扱い', 1500);
+  if (G.n === 0) catSay(`${NAME}の文を完成させてね`, 1800);
+  else if (q.t === 's3' && Math.random() < .3) catSay(`${NAME}は He / She と同じ扱い`, 1500);
   $('mean').innerHTML = `<span class="emo">${q.v.e}</span>${Kit.esc(q.v.ja)}`;
   ['rule', 'stamp'].forEach(id => { $(id).getAnimations().forEach(x => x.cancel()); $(id).style.opacity = 0; });
   const nT = Math.max(q.v.b.length, q.f.length);
@@ -296,7 +307,7 @@ function nextQ() {
     F.appendChild(el); return b;
   });
   G.rise = Math.max(3.6, 7.2 - G.ok * .09 - Math.min(G.combo, 10) * .08);
-  G.qT = 0; G.busy = false;
+  G.qT = 0; G.busy = false; G.pickW = null;
   say(q.v.b);
 }
 let sayT = 0;
@@ -311,13 +322,30 @@ function setTiles(list) {
   return list.map(o => { const el = Kit.el(`<span class="tile ${o.cls || ''}">${o.c}</span>`); box.appendChild(el); return el; });
 }
 function burst(b, good) {
-  const F = $('field'), x = b.x, y = b.y;
-  const ring = Kit.el(`<div class="ring"></div>`); F.appendChild(ring);
-  ring.animate([{ left: x - 10 + 'px', top: y - 10 + 'px', width: '20px', height: '20px', opacity: 1 }, { left: x - b.sz * .8 + 'px', top: y - b.sz * .8 + 'px', width: b.sz * 1.6 + 'px', height: b.sz * 1.6 + 'px', opacity: 0 }], { duration: 380, easing: 'ease-out' }).onfinish = () => ring.remove();
+  const F = $('field'), x = b.x + Math.sin(b.ph) * 6, y = b.y;
+  // わっか 2重
+  [[0, 1.9, 5], [90, 2.6, 3]].forEach(([dl, k, bw]) => {
+    const ring = Kit.el(`<div class="ring" style="border-width:${bw}px"></div>`); F.appendChild(ring);
+    ring.animate([{ left: x - b.sz * .4 + 'px', top: y - b.sz * .4 + 'px', width: b.sz * .8 + 'px', height: b.sz * .8 + 'px', opacity: 1 }, { left: x - b.sz * k / 2 + 'px', top: y - b.sz * k / 2 + 'px', width: b.sz * k + 'px', height: b.sz * k + 'px', opacity: 0 }], { duration: 420, delay: dl, easing: 'cubic-bezier(.1,.8,.3,1)', fill: 'backwards' }).onfinish = () => ring.remove();
+  });
+  // まくの かけら（カーブした 破片が とびちる）
   for (let k = 0; k < 10; k++) {
-    const d = Kit.el(`<div class="bit" style="background:${good ? (k % 2 ? '#ffcf3c' : '#fff') : '#fff'}"></div>`); F.appendChild(d);
-    const a = Math.random() * 6.28, r = Kit.rand(30, 70);
-    d.animate([{ left: x + 'px', top: y + 'px', opacity: 1 }, { left: x + Math.cos(a) * r + 'px', top: y + Math.sin(a) * r + 'px', opacity: 0 }], { duration: 420, easing: 'ease-out' }).onfinish = () => d.remove();
+    const a = k / 10 * 6.28 + Math.random() * .4, r = b.sz * Kit.rand(.7, 1.3), sz = Kit.rand(18, 34);
+    const d = Kit.el(`<div class="shard" style="width:${sz}px;height:${sz}px"></div>`); F.appendChild(d);
+    const rot = a * 57 + 90;
+    d.animate([{ left: x + Math.cos(a) * b.sz * .4 - sz / 2 + 'px', top: y + Math.sin(a) * b.sz * .4 - sz / 2 + 'px', transform: `rotate(${rot}deg)`, opacity: 1 }, { left: x + Math.cos(a) * r - sz / 2 + 'px', top: y + Math.sin(a) * r + 30 - sz / 2 + 'px', transform: `rotate(${rot + Kit.rand(-120, 120)}deg) scale(.4)`, opacity: 0 }], { duration: 550, easing: 'cubic-bezier(.15,.9,.4,1)' }).onfinish = () => d.remove();
+  }
+  // しぶき
+  for (let k = 0; k < 18; k++) {
+    const s = Kit.rand(5, 11), c = good ? ['#ffcf3c', '#fff', '#7ad3ff', '#ff8fb8'][k % 4] : '#fff';
+    const d = Kit.el(`<div class="bit" style="width:${s}px;height:${s}px;background:${c}"></div>`); F.appendChild(d);
+    const a = Math.random() * 6.28, r = Kit.rand(40, 110);
+    d.animate([{ left: x + 'px', top: y + 'px', opacity: 1 }, { left: x + Math.cos(a) * r + 'px', top: y + Math.sin(a) * r + 'px', opacity: 1, offset: .7 }, { left: x + Math.cos(a) * r * 1.1 + 'px', top: y + Math.sin(a) * r + 40 + 'px', opacity: 0 }], { duration: 650, easing: 'ease-out' }).onfinish = () => d.remove();
+  }
+  if (good) {
+    const t = Kit.el(`<div class="popw">${Kit.pick(['POP!', 'パチン!', 'ぷちっ!'])}</div>`); F.appendChild(t);
+    t.animate([{ left: x - 40 + 'px', top: y - 20 + 'px', transform: 'scale(.3) rotate(-10deg)', opacity: 1 }, { transform: 'scale(1.25) rotate(-6deg)', opacity: 1, offset: .3 }, { left: x - 40 + 'px', top: y - 70 + 'px', transform: 'scale(1) rotate(-6deg)', opacity: 0 }], { duration: 700, easing: 'ease-out' }).onfinish = () => t.remove();
+    F.animate([{ transform: 'translate(0,0)' }, { transform: 'translate(-4px,3px)' }, { transform: 'translate(4px,-2px)' }, { transform: 'translate(-2px,1px)' }, { transform: 'translate(0,0)' }], { duration: 180 });
   }
 }
 function catFace(kind) {
@@ -337,13 +365,16 @@ function pick(b) {
     const speed = Math.max(0, 1 - G.qT / G.rise);
     const p = 10 + Math.min(20, G.combo * 2) + Math.round(speed * 10);
     G.score += p;
-    pounce(b); setTimeout(() => { burst(b, true); b.el.remove(); }, 200); Kit.sfx('pop'); Kit.vibrate(12); catFace('happy'); catSay(Kit.pick(['にゃっ！', 'それだ！', 'ぷちっ！', 'やったにゃ']));
+    pounce(b); b.el.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.18,.86)' }, { transform: 'scale(.9,1.12)' }, { transform: 'scale(1.3)' }], { duration: 200, fill: 'forwards', easing: 'ease-in' });
+    setTimeout(() => { burst(b, true); b.el.remove(); Kit.sfx('pop'); Kit.sfx('coin'); Kit.vibrate([20, 30, 25]); }, 200); catFace('happy'); catSay(Kit.pick(['にゃっ！', 'それだ！', 'ぷちっ！', 'やったにゃ']));
     G.bubs.filter(x => x !== b).forEach(x => x.el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 250, fill: 'forwards' }));
     flash(G.combo >= 3 ? `${G.combo} コンボ！ +${p}` : `+${p}`);
   } else {
+    G.pickW = b.w; G.missW[q.key] = b.w; b.el.insertAdjacentHTML('beforeend', '<i class="mk">✕</i>');
+    G.bubs.forEach(x => { if (x !== b && x.w !== q.f) x.el.animate([{ opacity: 1 }, { opacity: .25 }], { duration: 250, fill: 'forwards' }); });
     G.combo = 0; b.el.classList.add('bad'); Kit.sfx('bad'); Kit.vibrate(40); catFace('sad'); catSay('こっちが正解！', 1300);
     b.el.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-10px)' }, { transform: 'translateX(10px)' }, { transform: 'translateX(0)' }], { duration: 300 });
-    const r = G.bubs.find(x => x.w === q.f); if (r) r.el.classList.add('good');
+    const r = G.bubs.find(x => x.w === q.f); if (r) { r.el.classList.add('good'); r.el.insertAdjacentHTML('beforeend', '<i class="mk ok">⭕</i>'); }
     G.miss.push(q); G.again.push({ q, wait: Kit.randInt(3, 5) });
   }
   hud();
@@ -400,7 +431,7 @@ async function morph(q) {
     Kit.sfx('tap');
     await wait(330);
   }
-  $('frame').innerHTML = Kit.esc(sentence(q, '\u0001')).replace('\u0001', `<span class="bl fill">${q.f}</span>`);
+  $('frame').innerHTML = Kit.esc(sentence(q, '\u0001')).replace('\u0001', `<span class="bl fill">${q.f}</span>`) + (G && G.pickW != null ? `<div class="yours">${G.pickW ? `あなたの答え：<s>${Kit.esc(G.pickW)}</s> ✕` : '答える前に逃げました'}</div>` : '');
   say(`${q.v.b}. ${q.f}. ${sentence(q, q.f)}`);
   await wait(q.rule === 'irr' ? 1500 : 1300);
 }
@@ -427,7 +458,7 @@ function update(dt) {
       if (b.y < -b.sz * .3) top = true;
     }
     if (top) { // にげられた
-      G.busy = true; G.combo = 0; G.n++; tally(G.q, false); G.miss.push(G.q); G.again.push({ q: G.q, wait: Kit.randInt(3, 5) });
+      G.busy = true; G.combo = 0; G.n++; tally(G.q, false); G.miss.push(G.q); G.pickW = ''; G.missW[G.q.key] = ''; G.again.push({ q: G.q, wait: Kit.randInt(3, 5) });
       Kit.sfx('bad'); catFace('sad'); flash('逃げられた…'); catSay('あっ、逃げた…', 1200);
       const g = G; hud(); morph(G.q).then(() => { if (G !== g) return; catFace('normal'); nextQ(); });
     }
@@ -460,7 +491,7 @@ function finish() {
     <p style="margin:0;font-weight:900">${r.isNew ? '🎉 ベスト記録！' : `ベスト：${r.best}点`}${opened ? '<br>🔓 次のステージが解放されました！' : ''}</p>
     <div class="res"><div><span>⭕ 正解</span><b>${G.ok} ／ ${G.n}問</b></div><div><span>🔥 最高コンボ</span><b>${G.maxCombo}</b></div>
     ${S.id === 'nigate' ? '' : `<div><span>★の目安</span><b>${STAR.join(' ／ ')}問 正解</b></div>`}</div>
-    ${uniq.length ? `<div class="miss"><p class="k-label" style="margin:4px 0">間違えたもの（タップで読み上げ）</p>${uniq.map((q, i) => `<div data-i="${i}">${q.v.e} ${q.v.b} → <b style="color:#e0561f">${q.f}</b>　<span class="k-muted">${q.v.ja}・${TENSE[q.t].name}</span></div>`).join('')}</div>` : '<p style="margin:0">🎯 間違いなし！</p>'}
+    ${uniq.length ? `<div class="miss"><p class="k-label" style="margin:4px 0">間違えたもの（タップで読み上げ）</p>${uniq.map((q, i) => `<div data-i="${i}">${q.v.e} ${q.v.b} → <b style="color:#e0561f">${q.f}</b>${G.missW[q.key] ? ` <span style="color:#c2185b">（✕ <s>${Kit.esc(G.missW[q.key])}</s>）</span>` : ''}　<span class="k-muted">${q.v.ja}・${TENSE[q.t].name}</span></div>`).join('')}</div>` : '<p style="margin:0">🎯 間違いなし！</p>'}
     <div class="k-row" style="justify-content:center"><button class="k-btn is-orange is-big" id="again">もう一回</button><button class="k-btn" id="toMenu">ステージへ</button></div>`;
   $('resultCard').querySelectorAll('.miss div').forEach(d => d.onclick = () => { const q = uniq[+d.dataset.i]; say(`${q.v.b}. ${q.f}. ${sentence(q, q.f)}`); });
   setTimeout(() => { $('resultOv').hidden = false; }, 400);
@@ -488,6 +519,17 @@ $('zukanBtn').onclick = () => {
     paint();
   }, 30);
 };
+$('setBtn').onclick = () => {
+  Kit.sfx('tap');
+  const m = Kit.modal({ title: '⚙ 設定', body: `<label class="k-label" for="nmIn">文の主語にする名前（英字）</label><input id="nmIn" class="k-input" maxlength="14" autocomplete="off" autocapitalize="words" spellcheck="false" value="${Kit.esc(NAME)}" style="width:100%;font-size:1.2rem;padding:8px 10px;border:3px solid var(--line);border-radius:12px"><p class="k-muted" style="margin:6px 0 0;font-size:.85rem">例：Aki ／ Ken ／ Mr. Sato。3単現の練習になるよう、I・you・we・they は使えません。</p><p id="nmErr" style="margin:4px 0 0;color:#c2185b;font-weight:900;font-size:.9rem"></p>`,
+    actions: [{ label: '初期値（Aki）', onClick: () => { document.getElementById('nmIn').value = 'Aki'; return false; } }, { label: '保存', primary: true, onClick: () => {
+      let v = document.getElementById('nmIn').value.trim().replace(/\s+/g, ' ');
+      const err = !/^[A-Za-z][A-Za-z .'-]{0,13}$/.test(v) ? '英字で入力してください（14文字まで）' : BAD_NAME.test(v) ? 'I・you・we・they 以外にしてください' : '';
+      if (err) { document.getElementById('nmErr').textContent = err; return false; }
+      NAME = v.charAt(0).toUpperCase() + v.slice(1); Kit.store.set('doushi:name', NAME); Kit.toast && Kit.toast(`主語を ${NAME} にしました`);
+    } }] });
+  setTimeout(() => { const i = document.getElementById('nmIn'); i && i.focus(); }, 50);
+};
 function pause() { if (G && G.running && !G.over) { G.running = false; G.paused = true; Kit.music.stop(); } }
 function resume() { if (G && G.paused) { G.paused = false; G.running = true; } }
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); else resume(); });
@@ -495,7 +537,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) pause
 Kit.bar({ id: 'doushi', extra: $('voiceBtn'), guard: { active: () => G && !G.over, pause, resume }, title: 'ぷちぷちEnglish', help: `
   <p>中1英語の動詞の形（過去形・現在進行形のing形・3単現）を、たくさん解いて感覚で覚えるゲームです。</p>
   <ul>
-    <li>上に、原形と意味、「〇〇にしよう」という指示、ぷっちーが主語の穴あき文（Puchi ＿＿ soccer. など）が出ます。下から上がってくる<b>ぷちぷちの中から正しい形</b>をタップ（パソコンは1〜4キー）。</li>
+    <li>上に、原形と意味、「〇〇にしよう」という指示、主語の入った穴あき文（Aki ＿＿ soccer. など。主語の名前は ⚙設定 で変えられます）が出ます。下から上がってくる<b>ぷちぷちの中から正しい形</b>をタップ（パソコンは1〜4キー）。</li>
     <li>正解するとぷっちーがぷちぷちを割り、単語が変身するアニメが出ます。yがiに変わる、eが落ちる、文字が増える。動きでルールを覚えましょう。</li>
     <li>間違えたり、ぷちぷちが上まで逃げたりすると正しい形が出て、その問題は少しあとでもう一度出ます。</li>
     <li>早く答えるほど、コンボが続くほど得点アップ。1回60秒。</li>
