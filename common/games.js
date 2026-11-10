@@ -22,6 +22,7 @@ self.ASOBI_GAMES = [
   { id: 'reji', cat: 'learn', name: 'レジでおかいもの', icon: '👛', color: 'grass', tag: '一人で', who: '1人', desc: 'こぜにが へるように はらう／おつりを わたす' },
   { id: 'anzan', cat: 'learn', name: 'フラッシュあんざん', icon: '🧮', color: 'sky', tag: '一人で', who: '1人', desc: 'つぎつぎ出る かずを あたまで たそう。きゅうに チャレンジ' },
   { id: 'manga', cat: 'learn', name: 'マンガイラスト練習', icon: '✏️', color: 'grape', tag: '一人で', who: '1人', desc: 'お手本をなぞって マンガっぽい絵の かき方を練習' },
+  { id: 'doushi', cat: 'learn', name: 'ぷちぷち どうし', icon: '🔤', color: 'sky', tag: '一人で', who: '1人', desc: '英語の どうしの 形を ぷちぷち わって おぼえよう（中1）' },
   { id: 'flick', cat: 'learn', name: 'フリックれんしゅう', icon: '📱', color: 'grass', tag: '一人で', who: '1人', desc: 'ほんもののフリックでタイピング' },
   { id: 'omatsuri', cat: 'use', name: 'おこづかい電卓', icon: '💰', color: 'orange', tag: 'べんり', who: '', desc: '買った物を記録して、残りがすぐわかる電卓' },
   { id: 'kaimono', cat: 'use', name: 'おかいもの算数', icon: '🛒', color: 'grass', tag: 'べんり', who: '', desc: '何割引でいくら？どっちがおトク？計算のしかたが見える' },
