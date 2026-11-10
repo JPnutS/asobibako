@@ -315,17 +315,22 @@
 
   /* ---------- このサイトを しょうかいする QRコード ---------- */
   let qrLib = null;
-  function shareQR(url = ROOT, title = ADULT ? 'このサイトを共有' : 'ともだちに しょうかい') {
+  /* QRコードの svg を作る（qrcode.js は使うときだけ読む） */
+  function qrSvg(url, style = '') {
     if (!qrLib) qrLib = new Promise((res, rej) => {
       const sc = document.createElement('script'); sc.src = ROOT + 'tools/vendor/qrcode.js';
       sc.onload = res; sc.onerror = () => { qrLib = null; rej(); }; document.head.appendChild(sc);
     });
-    qrLib.then(() => {
+    return qrLib.then(() => {
       const q = window.qrcode(0, 'M'); q.addData(url, 'Byte'); q.make();
       const n = q.getModuleCount(), m = 2;
       let d = '';
       for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) d += `M${c + m} ${r + m}h1v1h-1z`;
-      const svg = `<svg viewBox="0 0 ${n + m * 2} ${n + m * 2}" shape-rendering="crispEdges" style="width:min(64vw,260px);height:auto;display:block;margin:0 auto;background:#fff;border-radius:12px"><path d="${d}" fill="#111"/></svg>`;
+      return `<svg viewBox="0 0 ${n + m * 2} ${n + m * 2}" shape-rendering="crispEdges" style="background:#fff;${style}" aria-hidden="true"><path d="${d}" fill="#111"/></svg>`;
+    });
+  }
+  function shareQR(url = ROOT, title = ADULT ? 'このサイトを共有' : 'ともだちに しょうかい') {
+    qrSvg(url, 'width:min(64vw,260px);height:auto;display:block;margin:0 auto;border-radius:12px').then(svg => {
       const actions = [{ label: ADULT ? '閉じる' : 'とじる' }];
       if (navigator.share) actions.unshift({ label: ADULT ? '共有…' : 'おくる', onClick: () => { navigator.share({ title: document.title, url }).catch(() => {}); return false; } });
       else if (navigator.clipboard) actions.unshift({ label: ADULT ? 'URLをコピー' : 'URLをコピー', onClick: () => { navigator.clipboard.writeText(url).then(() => toast(ADULT ? 'コピーしました' : 'コピーしたよ'), () => {}); return false; } });
@@ -338,5 +343,5 @@
     }, () => toast(ADULT ? 'QRコードを作れませんでした' : 'QRコードが つくれなかったよ'));
   }
 
-  window.Kit = { ROOT, shareQR, HOME, ADULT, micButton, store, settings, saveSettings, audio, tone, noise, sfx, music, vibrate, esc, shuffle, rand, randInt, pick, clamp, el, modal, ask, toast, confetti, best, getBest, addWin, loop, fitCanvas, keepAwake, busy, bar };
+  window.Kit = { ROOT, shareQR, qrSvg, HOME, ADULT, micButton, store, settings, saveSettings, audio, tone, noise, sfx, music, vibrate, esc, shuffle, rand, randInt, pick, clamp, el, modal, ask, toast, confetti, best, getBest, addWin, loop, fitCanvas, keepAwake, busy, bar };
 })();
