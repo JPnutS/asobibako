@@ -316,7 +316,7 @@
   /* ---------- このサイトを しょうかいする QRコード ---------- */
   let qrLib = null;
   /* QRコードの svg を作る（qrcode.js は使うときだけ読む） */
-  function qrSvg(url, style = '') {
+  function qrSvg(url, style = '', plain = false) {   // plain：背景なし・文字の色でかく（見出しになじませる）
     if (!qrLib) qrLib = new Promise((res, rej) => {
       const sc = document.createElement('script'); sc.src = ROOT + 'tools/vendor/qrcode.js';
       sc.onload = res; sc.onerror = () => { qrLib = null; rej(); }; document.head.appendChild(sc);
@@ -326,7 +326,7 @@
       const n = q.getModuleCount(), m = 2;
       let d = '';
       for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) d += `M${c + m} ${r + m}h1v1h-1z`;
-      return `<svg viewBox="0 0 ${n + m * 2} ${n + m * 2}" shape-rendering="crispEdges" style="background:#fff;${style}" aria-hidden="true"><path d="${d}" fill="#111"/></svg>`;
+      return `<svg viewBox="0 0 ${n + m * 2} ${n + m * 2}" shape-rendering="crispEdges" style="${plain ? '' : 'background:#fff;'}${style}" aria-hidden="true"><path d="${d}" fill="${plain ? 'currentColor' : '#111'}"/></svg>`;
     });
   }
   function shareQR(url = ROOT, title = ADULT ? 'このサイトを共有' : 'ともだちに しょうかい') {
