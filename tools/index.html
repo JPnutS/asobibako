@@ -20,10 +20,10 @@
     border-bottom: 1px solid var(--line);
   }
   .head-in { max-width: 880px; margin: 0 auto; display: grid; gap: 8px; position: relative; }
-  .qrb { position: absolute; top: 0; right: 0; display: grid; justify-items: center; gap: 3px; padding: 6px 6px 4px; background: #fff; color: #1f2328; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; font: inherit; font-size: .66rem; font-weight: 700; letter-spacing: .05em; }
-  .head small { padding-right: 68px; }
-  .qrb .qi { width: 48px; height: 48px; display: block; }
-  .qrb .qi svg { width: 100%; height: 100%; display: block; }
+  .qrb { position: absolute; top: 30px; right: 0; width: 76px; height: 76px; padding: 0; border: 0; background: none; color: var(--ink, inherit); opacity: .7; cursor: pointer; }
+  .qrb:active { opacity: .4; }
+  .head h1 { padding-right: 84px; }
+  .qrb svg { width: 100%; height: 100%; display: block; }
   .head small { font-size: .78rem; letter-spacing: .3em; color: var(--sun); font-weight: 700; }
   .head h1 { font-size: clamp(2rem, 8vw, 3rem); letter-spacing: .08em; }
   .head p { margin: 0; color: var(--muted); }
@@ -61,7 +61,7 @@
 <body>
 <header class="head">
   <div class="head-in">
-    <button class="qrb" id="shareBtn" aria-label="QRコードで共有"><span class="qi" id="qrMini"></span>共有</button>
+    <button class="qrb" id="shareBtn" title="QRコード" aria-label="QRコードで共有"></button>
     <small>ASOBIBAKO — TOOLS &amp; GAMES</small>
     <h1>あそびばこ<span class="sub">道具と遊び</span></h1>
     <p>暮らしに効く道具と、集まった夜のための遊び。写真や動画は、端末の中だけで扱います。</p>
@@ -126,7 +126,7 @@ $('optTheme').onclick = () => {
   render();
 };
 $('shareBtn').onclick = () => Kit.shareQR(Kit.ROOT + 'tools/');
-Kit.qrSvg(Kit.ROOT + 'tools/').then(svg => { $('qrMini').innerHTML = svg; }, () => {});
+Kit.qrSvg(Kit.ROOT + 'tools/', '', true).then(svg => { $('shareBtn').innerHTML = svg; }, () => {});
 let deferred = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; $('installBtn').hidden = false; });
 $('installBtn').onclick = async () => { if (!deferred) return; deferred.prompt(); await deferred.userChoice; deferred = null; $('installBtn').hidden = true; };
