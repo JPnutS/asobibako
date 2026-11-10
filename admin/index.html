@@ -43,65 +43,28 @@
 <script>
 'use strict';
 /* 管理画面：ゲームと道具の「並び順」と「表示／非表示」を変える。
-   ふだんは「依頼文をコピー」して Claude にたのむ。GitHub トークン（この端末にだけ保存）を入れたときだけ、その場で保存できる */
+   ここでは何も書きかえない。「依頼文をコピー」して Claude にたのむ */
 Kit.bar({ title: '管理', help: `
   <p>ゲームや道具の<b>並び順</b>と<b>表示／非表示</b>を変えられます。</p>
   <p>「依頼文をコピー」を押して、Claude とのチャットに貼り付けると反映してもらえます。</p>
-  <p>GitHub のトークンを入れておくと「その場で保存」もできます（トークンはこの端末の中にだけ保存）。</p>
   <p>非表示にしたものは一覧から消えるだけで、いつでも戻せます。</p>` });
 
-const REPO = 'JPnutS/asobibako', BRANCH = 'main', API = 'https://api.github.com/repos/' + REPO;
 const FILES = {
   kids: { path: 'common/games.js', key: 'ASOBI_GAMES', label: '子ども用', groupBy: 'cat', groups: [['play', '遊ぶ'], ['learn', '学ぶ'], ['use', '使う']] },
   tools: { path: 'tools/items.js', key: 'OTONA_ITEMS', label: '道具と遊び', groupBy: 'kind', groups: [['tool', '道具'], ['game', '遊び']] },
 };
 const $ = id => document.getElementById(id);
 const app = $('app');
-let token = Kit.store.get('token', '');
 let tab = Kit.store.get('tab', 'kids');
-const data = {};   // kids / tools → { text, sha, head, list, orig }
+const data = {};   // kids / tools → { list, orig }
 let msg = '';
 
-/* ---------- GitHub ---------- */
-async function gh(path, opt = {}) {
-  const res = await fetch(API + path, Object.assign({}, opt, {
-    headers: Object.assign({ Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json' }, opt.headers || {}),
-  }));
-  if (!res.ok) {
-    const e = new Error('http ' + res.status); e.status = res.status;
-    try { e.body = await res.json(); } catch (x) { /* なにもしない */ }
-    throw e;
-  }
-  return res.json();
-}
-const b64dec = s => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\n/g, '')), c => c.charCodeAt(0)));
-const b64enc = s => { const b = new TextEncoder().encode(s); let t = ''; for (let i = 0; i < b.length; i += 0x8000) t += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(t); };
-async function getFile(path) {
-  const j = await gh(`/contents/${path}?ref=${BRANCH}&t=${Date.now()}`);
-  return { text: b64dec(j.content), sha: j.sha };
-}
-async function putFile(path, text, sha, message) {
-  return gh(`/contents/${path}`, { method: 'PUT', body: JSON.stringify({ message, content: b64enc(text), sha, branch: BRANCH }) });
-}
-function errText(e) {
-  if (e.status === 401) return 'トークンが正しくないか、期限が切れています。';
-  if (e.status === 403 || e.status === 404) return 'このトークンでは asobibako を変更できません。「Contents：Read and write」を許可したか確認してください。';
-  if (e.status === 409 || e.status === 422) return 'ほかの変更と重なりました。読み込み直してから、もう一度保存してください。';
-  if (!navigator.onLine) return 'インターネットにつながっていません。';
-  return '通信に失敗しました（' + (e.status || e.message) + '）。';
-}
-
-/* ---------- 一覧ファイルを読む・書く ---------- */
+/* ---------- 一覧ファイルを読む ---------- */
 function parse(text, key) {
   const self = {};
   new Function('self', text)(self);   // 自分のリポジトリのファイルだけを読む
   const start = text.indexOf(`self.${key} = [`);
   return { head: text.slice(0, start), list: self[key] };
-}
-const q = v => `'${String(v).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
-function serialize(head, key, list) {
-  const line = o => '  { ' + Object.entries(o).filter(([k, v]) => !(k === 'hidden' && !v)).map(([k, v]) => `${k}: ${typeof v === 'string' ? q(v) : JSON.stringify(v)}`).join(', ') + ' },';
-  return `${head}self.${key} = [\n${list.map(line).join('\n')}\n];\n`;
 }
 async function load() {
   msg = ''; app.innerHTML = '<p class="help" style="text-align:center;padding:40px 0">読み込み中…</p>';
@@ -119,23 +82,6 @@ async function load() {
 }
 
 /* ---------- 画面 ---------- */
-function login(err = '') {
-  const m = Kit.modal({ title: 'その場で保存する設定', body: `<div class="k-stack">
-    <p class="help" style="margin:0">GitHub のトークンを一度だけ入れてください。この端末の中にだけ保存されます。</p>
-    <div class="help"><b>トークンの作り方</b><ol>
-      <li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub のトークン作成ページ</a>を開く</li>
-      <li>名前は「あそびばこ管理」など。期限は好きな長さ</li>
-      <li>Repository access →「Only select repositories」→ <b>asobibako</b></li>
-      <li>Permissions → Repository permissions →「<b>Contents</b>」を「<b>Read and write</b>」</li>
-      <li>「Generate token」を押して、出てきた文字（github_pat_…）をコピー</li>
-    </ol></div>
-    <input class="k-input" id="tok" type="password" autocomplete="off" placeholder="github_pat_…">
-    ${err ? `<p class="err">${Kit.esc(err)}</p>` : ''}</div>`,
-    actions: [{ label: 'やめる' }, { label: '保存する', primary: true, onClick: () => {
-      const t = $('tok').value.trim(); if (!t) return false;
-      token = t; Kit.store.set('token', t); m.close(); save(); return false;
-    } }] });
-}
 const icon = (k, g) => k === 'tools' ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${g.icon}</svg>` : g.icon;
 const dirty = k => JSON.stringify(data[k].list) !== data[k].orig;
 function render() {
@@ -159,10 +105,9 @@ function render() {
   const any = dirty('kids') || dirty('tools');
   h += `${msg}<div class="bar">
     <button class="k-btn" id="reset" ${any ? '' : 'disabled'}>戻す</button>
-    <button class="k-btn" id="save" ${any ? '' : 'disabled'}>保存</button>
     <button class="k-btn is-sun" id="copy" ${any ? '' : 'disabled'}>依頼文コピー</button>
   </div>
-  ${token ? '<p class="help" style="text-align:center"><a href="#" id="logout">この端末からトークンを消す</a></p>' : ''}`;
+  <p class="help" style="text-align:center">ここで変えても、サイトはまだ変わりません。依頼文を Claude に送ると反映されます。</p>`;
   app.innerHTML = h;
 }
 function move(id, dir) {
@@ -181,8 +126,6 @@ app.addEventListener('click', async e => {
   if (b.dataset.down) { move(b.dataset.down, 1); Kit.sfx('tap'); msg = ''; render(); return; }
   if (b.dataset.hide) { const g = data[tab].list.find(x => x.id === b.dataset.hide); g.hidden = !g.hidden; Kit.sfx('tap'); msg = ''; render(); return; }
   if (b.id === 'reset') { Object.values(data).forEach(D => { D.list = JSON.parse(D.orig); }); msg = ''; render(); return; }
-  if (b.id === 'logout') { e.preventDefault(); if (await Kit.ask('この端末からトークンを消しますか？', '消す', 'やめる')) { token = ''; Kit.store.remove('token'); render(); } return; }
-  if (b.id === 'save') { if (token) save(); else login(); }
   if (b.id === 'copy') copyRequest();
 });
 /* Claude にたのむ文。並び順は id で書く */
@@ -210,37 +153,6 @@ function showText(text) {
   const m = Kit.modal({ title: '依頼文', body: `<p class="help">全部選んでコピーし、Claude とのチャットに貼り付けてください。</p><textarea class="k-input" rows="10" style="width:100%" readonly>${Kit.esc(text)}</textarea>` });
   const ta = m.box.querySelector('textarea'); ta.focus(); ta.select();
 }
-async function save() {
-  const btn = $('save'); btn.disabled = true; btn.textContent = '保存中…';
-  try {
-    const changed = [];
-    for (const [k, f] of Object.entries(FILES)) {
-      if (!dirty(k)) continue;
-      const D = data[k];
-      // 最新のファイルに、ここで決めた並び順と表示だけを当てはめる（ほかの変更は消さない）
-      const { text: cur, sha } = await getFile(f.path);
-      const { head, list } = parse(cur, f.key);
-      const byId = new Map(list.map(g => [g.id, g]));
-      const next = D.list.filter(g => byId.has(g.id)).map(g => Object.assign({}, byId.get(g.id), { hidden: !!g.hidden }))
-        .concat(list.filter(g => !D.list.some(x => x.id === g.id)));
-      await putFile(f.path, serialize(head, f.key, next), sha, `管理画面：${f.label}の並び順・表示を変更`);
-      D.orig = JSON.stringify(D.list);
-      changed.push(f.label);
-    }
-    // 遊ぶ側の端末が新しい一覧に切りかわるよう、オフライン保存の版を1つ上げる
-    const sw = await getFile('sw.js');
-    const next = sw.text.replace(/asobibako-v(\d+)/, (m, n) => 'asobibako-v' + (+n + 1));
-    if (next !== sw.text) await putFile('sw.js', next, sw.sha, '管理画面：オフライン保存の版を更新');
-    msg = `<p class="ok">保存しました（${changed.join('・')}）。数分でサイトに反映されます。</p>`;
-    Kit.sfx('good');
-  } catch (e) {
-    if (e.status === 401) { token = ''; Kit.store.remove('token'); }
-    msg = `<p class="err">${Kit.esc(errText(e))}</p>`;
-    Kit.sfx('bad');
-  }
-  render();
-}
-
 load();
 </script>
 </body>
