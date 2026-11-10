@@ -88,6 +88,11 @@
       <p class="k-muted" style="margin:0;font-size:.9rem">一度開いた道具は、オフラインでも使えます。</p>
       <button class="k-btn is-small is-sun" id="installBtn" hidden>ホーム画面に追加</button>
     </div>
+    <div class="k-card k-stack">
+      <h3>共有する</h3>
+      <p class="k-muted" style="margin:0;font-size:.9rem">QRコードを見せると、ほかの人のスマホでこのページを開けます。</p>
+      <button class="k-btn is-small" id="shareBtn">QRコードを表示</button>
+    </div>
   </section>
   <p class="kids"><a href="../index.html">子ども向けの「あそびばこ」へ</a></p>
 </main>
@@ -97,7 +102,7 @@
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
-const items = self.OTONA_ITEMS;
+const items = self.OTONA_ITEMS.filter(g => !g.hidden);   // hidden は管理画面で非表示にしたもの
 function tile(g) {
   const stat = Kit.store.get('stat:' + g.id, '');
   return `<a class="item ${g.kind}" href="games/${g.id}/index.html">
@@ -120,6 +125,7 @@ $('optTheme').onclick = () => {
   if (next === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.dataset.theme = next;
   render();
 };
+$('shareBtn').onclick = () => Kit.shareQR(Kit.ROOT + 'tools/');
 let deferred = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; $('installBtn').hidden = false; });
 $('installBtn').onclick = async () => { if (!deferred) return; deferred.prompt(); await deferred.userChoice; deferred = null; $('installBtn').hidden = true; };

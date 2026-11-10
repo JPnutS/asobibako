@@ -313,5 +313,30 @@
     return b;
   }
 
-  window.Kit = { ROOT, HOME, ADULT, micButton, store, settings, saveSettings, audio, tone, noise, sfx, music, vibrate, esc, shuffle, rand, randInt, pick, clamp, el, modal, ask, toast, confetti, best, getBest, addWin, loop, fitCanvas, keepAwake, busy, bar };
+  /* ---------- このサイトを しょうかいする QRコード ---------- */
+  let qrLib = null;
+  function shareQR(url = ROOT, title = ADULT ? 'このサイトを共有' : 'ともだちに しょうかい') {
+    if (!qrLib) qrLib = new Promise((res, rej) => {
+      const sc = document.createElement('script'); sc.src = ROOT + 'tools/vendor/qrcode.js';
+      sc.onload = res; sc.onerror = () => { qrLib = null; rej(); }; document.head.appendChild(sc);
+    });
+    qrLib.then(() => {
+      const q = window.qrcode(0, 'M'); q.addData(url, 'Byte'); q.make();
+      const n = q.getModuleCount(), m = 2;
+      let d = '';
+      for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) d += `M${c + m} ${r + m}h1v1h-1z`;
+      const svg = `<svg viewBox="0 0 ${n + m * 2} ${n + m * 2}" shape-rendering="crispEdges" style="width:min(64vw,260px);height:auto;display:block;margin:0 auto;background:#fff;border-radius:12px"><path d="${d}" fill="#111"/></svg>`;
+      const actions = [{ label: ADULT ? '閉じる' : 'とじる' }];
+      if (navigator.share) actions.unshift({ label: ADULT ? '共有…' : 'おくる', onClick: () => { navigator.share({ title: document.title, url }).catch(() => {}); return false; } });
+      else if (navigator.clipboard) actions.unshift({ label: ADULT ? 'URLをコピー' : 'URLをコピー', onClick: () => { navigator.clipboard.writeText(url).then(() => toast(ADULT ? 'コピーしました' : 'コピーしたよ'), () => {}); return false; } });
+      modal({
+        title,
+        body: `${svg}<p style="text-align:center;word-break:break-all;margin:12px 0 0;font-size:.85rem;opacity:.75">${esc(url)}</p>
+          <p style="text-align:center;margin:6px 0 0;font-size:.9rem">${ADULT ? 'スマホのカメラで読み取ると開けます' : 'スマホの カメラで よみとってね'}</p>`,
+        actions,
+      });
+    }, () => toast(ADULT ? 'QRコードを作れませんでした' : 'QRコードが つくれなかったよ'));
+  }
+
+  window.Kit = { ROOT, shareQR, HOME, ADULT, micButton, store, settings, saveSettings, audio, tone, noise, sfx, music, vibrate, esc, shuffle, rand, randInt, pick, clamp, el, modal, ask, toast, confetti, best, getBest, addWin, loop, fitCanvas, keepAwake, busy, bar };
 })();

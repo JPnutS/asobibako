@@ -116,6 +116,11 @@
       <p class="k-muted" style="margin:0">一度開いたゲームは、インターネットがなくても遊べます。</p>
       <button class="k-btn is-small is-grass" id="installBtn" hidden>ホーム画面に追加</button>
     </div>
+    <div class="k-card k-stack">
+      <h3>ともだちに しょうかい</h3>
+      <p class="k-muted" style="margin:0">QRコードを 見せると、ほかの人の スマホでも あそびばこが ひらけます。</p>
+      <button class="k-btn is-small is-sky" id="shareBtn">📱 QRコードを出す</button>
+    </div>
   </section>
 
   <a class="grown" href="tools/index.html">
@@ -129,7 +134,7 @@
 <script src="common/games.js"></script>
 <script>
 'use strict';
-const games = self.ASOBI_GAMES;
+const games = self.ASOBI_GAMES.filter(g => !g.hidden);   // hidden は管理画面で非表示にしたもの
 document.getElementById('gameCount').textContent = games.length;
 const TABS = [['play', '🎮', '遊ぶ'], ['learn', '📚', '学ぶ'], ['use', '🧰', '使う']];
 const FILTERS = ['全部', '一人で', '対戦', 'みんなで']; // 「遊ぶ」の中だけ
@@ -195,6 +200,7 @@ $('clearAll').onclick = async () => {
   Kit.store.remove('recent');
   Kit.toast('記録を消しました'); render();
 };
+$('shareBtn').onclick = () => { Kit.sfx('select'); Kit.shareQR(Kit.ROOT); };
 let deferred = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; $('installBtn').hidden = false; });
 $('installBtn').onclick = async () => { if (!deferred) return; deferred.prompt(); await deferred.userChoice; deferred = null; $('installBtn').hidden = true; };
