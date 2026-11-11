@@ -249,9 +249,14 @@ function renderMenu() {
 let voiceOn = Kit.store.get('doushi:voice', true), enVoice = null;
 function pickVoice() { try { const vs = speechSynthesis.getVoices(); enVoice = vs.find(v => /en[-_]US/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null; } catch (e) { /* なし */ } }
 if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+/* 読み上げ：おわったら resolve（とまっても 長さに おうじた 時間で すすむ） */
 function say(text) {
-  if (!voiceOn || !('speechSynthesis' in window)) return;
-  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; if (enVoice) u.voice = enVoice; u.rate = .9; speechSynthesis.speak(u); } catch (e) { /* なし */ }
+  if (!voiceOn || !('speechSynthesis' in window)) return Promise.resolve();
+  return new Promise(res => {
+    let done = false; const fin = () => { if (!done) { done = true; clearTimeout(t); res(); } };
+    const t = setTimeout(fin, 1500 + text.length * 110);
+    try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; if (enVoice) u.voice = enVoice; u.rate = .9; u.onend = fin; u.onerror = fin; speechSynthesis.speak(u); } catch (e) { fin(); }
+  });
 }
 function paintVoice() { $('voiceBtn').textContent = voiceOn ? '🗣' : '🤐'; $('voiceBtn').title = voiceOn ? '英語の読み上げ：オン' : '英語の読み上げ：オフ'; }
 $('voiceBtn').onclick = () => { voiceOn = !voiceOn; Kit.store.set('doushi:voice', voiceOn); paintVoice(); Kit.sfx('tap'); if (voiceOn) say('Hello!'); else try { speechSynthesis.cancel(); } catch (e) { /* なし */ } };
@@ -438,8 +443,8 @@ async function morph(q) {
     await wait(330);
   }
   $('frame').innerHTML = Kit.esc(sentence(q, '\u0001')).replace('\u0001', `<span class="bl fill">${q.f}</span>`) + (G && G.pickW != null ? `<div class="yours">${G.pickW ? `あなたの答え：<s>${Kit.esc(G.pickW)}</s> ✕` : '逃げられました'}</div>` : '');
-  say(`${q.v.b}. ${q.f}. ${sentence(q, q.f)}`);
-  await wait(q.rule === 'irr' ? 1500 : 1300);
+  await Promise.all([say(`${q.v.b}. ${q.f}. ${sentence(q, q.f)}`), wait(q.rule === 'irr' ? 1500 : 1300)]);
+  await wait(250);
 }
 /* ---------- まいフレーム ---------- */
 let msgT = 0;
