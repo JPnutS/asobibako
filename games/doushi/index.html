@@ -56,6 +56,7 @@
   .bub .k { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); font-size: .7rem; color: rgba(42,34,56,.45); }
   .bub.bad { background: radial-gradient(circle at 32% 28%, #fff 0 14%, #ffd2dc 15%, #ff8fa8 100%); }
   .bub.good { background: radial-gradient(circle at 32% 28%, #fff 0 14%, #fff4c0 15%, #ffcf3c 100%); }
+  .bub .w { white-space: nowrap; }
   .bub .df { color: #e0561f; text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 3px; }
   .bub .mk { position: absolute; right: -4px; top: -4px; width: 34px; height: 34px; border-radius: 50%; background: #e0245e; color: #fff; display: grid; place-items: center; font-style: normal; font-size: 1.1rem; border: 3px solid #fff; box-shadow: 0 2px 0 rgba(0,0,0,.2); animation: mkIn .25s ease-out; }
   .bub .mk.ok { background: #fff; color: #2fb37a; }
@@ -302,7 +303,7 @@ function nextQ() {
   G.bubs.forEach(b => b.el.remove());
   const sz = Math.min(112, (W - 16) / opts.length - 6);
   G.bubs = opts.map((w, i) => {
-    const el = Kit.el(`<div class="bub" style="width:${sz}px;height:${sz}px;margin:${-sz / 2}px 0 0 ${-sz / 2}px;font-size:${Math.min(1.3, sz / 5.6 / Math.max(5, w.length) * 4.9)}rem"><span class="k">${i + 1}</span>${diffHtml(q.v.b, w)}</div>`);
+    const el = Kit.el(`<div class="bub" style="width:${sz}px;height:${sz}px;margin:${-sz / 2}px 0 0 ${-sz / 2}px;font-size:${Math.min(1.5, sz * .9 / (Math.max(5, w.length) * .55) / 16).toFixed(2)}rem"><span class="k">${i + 1}</span><span class="w">${diffHtml(q.v.b, w)}</span></div>`);
     const b = { el, w, x: (i + .5) * W / opts.length, y: H + sz * .6 + (i % 2) * 18, ph: Math.random() * 6, sz };
     el.addEventListener('pointerdown', e => { e.preventDefault(); pick(b); });
     F.appendChild(el); return b;
