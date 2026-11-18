@@ -10,211 +10,242 @@
 <style>
   html, body { height: 100%; }
   body { display: flex; flex-direction: column; overflow: hidden; background: #2a1d3a; }
-  .wrap { flex: 1; min-height: 0; position: relative; overflow: hidden; background: radial-gradient(circle at 50% 0%, #ffe9c7, #ffd29a 60%, #f2a96b); }
-  .shop { position: absolute; inset: 0; margin: 0 auto; max-width: 560px; display: flex; flex-direction: column; color: #3a2416; touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  .wrap { flex: 1; min-height: 0; position: relative; overflow: hidden; background: linear-gradient(#3b2a4a, #22182e); }
+  .shop { position: absolute; inset: 0; margin: 0 auto; max-width: 560px; display: flex; flex-direction: column; color: #3a2416; touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; background: #2b2f3a; box-shadow: 0 0 40px rgba(0,0,0,.4); }
+  .shop svg { overflow: visible; }
   /* うえの 表示 */
-  .top { display: flex; align-items: center; gap: 6px; padding: 6px 10px 4px; font-weight: 900; }
-  .top .day { font-weight: 900; font-family: 'Zen Maru Gothic', sans-serif; font-size: 1.1rem; color: #c2410c; margin-right: auto; }
-  .pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 99px; background: rgba(255,255,255,.7); box-shadow: 0 2px 0 rgba(120,60,20,.18); font-size: .95rem; }
+  .top { position: relative; z-index: 4; display: flex; align-items: center; gap: 6px; padding: 5px 8px; font-weight: 900; background: linear-gradient(#4a2c1c, #2e1a10); flex: none; }
+  .top .day { font-family: 'Zen Maru Gothic', sans-serif; font-size: 1rem; color: #fff; margin-right: auto; background: rgba(40,20,30,.55); padding: 2px 12px; border-radius: 99px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  .pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 99px; background: rgba(40,20,30,.55); color: #fff; font-size: .92rem; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
   .pill b { font-family: 'Dela Gothic One', sans-serif; font-weight: 400; }
-  .combo { color: #e11d48; }
-  /* カウンターと おきゃくさん */
-  .counter { position: relative; height: 128px; flex: none; overflow: hidden; background: repeating-linear-gradient(90deg, #fff7ec 0 22px, #ffeedd 22px 44px); border-top: 4px solid #e8553f; }
-  .counter::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 18px; background: repeating-linear-gradient(90deg, #e8553f 0 18px, #fff 18px 36px); clip-path: polygon(0 0, 100% 0, 100% 60%, 97% 100%, 94% 60%, 91% 100%, 88% 60%, 85% 100%, 82% 60%, 79% 100%, 76% 60%, 73% 100%, 70% 60%, 67% 100%, 64% 60%, 61% 100%, 58% 60%, 55% 100%, 52% 60%, 49% 100%, 46% 60%, 43% 100%, 40% 60%, 37% 100%, 34% 60%, 31% 100%, 28% 60%, 25% 100%, 22% 60%, 19% 100%, 16% 60%, 13% 100%, 10% 60%, 7% 100%, 4% 60%, 1% 100%, 0 60%); opacity: .9; }
-  .desk { position: absolute; left: 0; right: 0; bottom: 0; height: 30px; background: linear-gradient(#c97b4a, #9a5530); border-top: 4px solid #e8a372; box-shadow: 0 -4px 10px rgba(0,0,0,.12); z-index: 2; }
-  .custs { position: absolute; left: 0; right: 0; bottom: 24px; top: 20px; display: flex; justify-content: space-around; align-items: flex-end; padding: 0 6px; }
-  .cust { position: relative; width: 31%; display: flex; flex-direction: column; align-items: center; transition: transform .45s cubic-bezier(.3,1.4,.5,1), opacity .4s; cursor: pointer; }
-  .cust.in { transform: translateX(160%); opacity: 0; }
-  .cust.out { transform: translateY(40px); opacity: 0; }
-  .cust .face { position: relative; width: 62px; height: 62px; border-radius: 50%; display: grid; place-items: center; font-size: 42px; background: conic-gradient(var(--pc, #22c55e) calc(var(--p, 1) * 360deg), rgba(0,0,0,.08) 0); padding: 4px; }
-  .cust .face span { width: 100%; height: 100%; border-radius: 50%; background: #fff; display: grid; place-items: center; line-height: 1; }
-  .cust.sel .face { box-shadow: 0 0 0 3px #fff, 0 0 0 6px #ff7a45; }
-  .cust .bub { position: absolute; top: -4px; left: 50%; transform: translateX(8px); background: #fff; border-radius: 12px; padding: 1px 6px; font-size: .95rem; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,.15); z-index: 1; }
-  .cust .react { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); font-size: 30px; animation: up 1s forwards; pointer-events: none; }
+  .pill.pop { animation: pop .35s; }
+  @keyframes pop { 50% { transform: scale(1.25); } }
+  .combo { background: linear-gradient(135deg, #ff7a45, #ff3d6e); }
+  /* おみせの 客せき */
+  .counter { position: relative; height: 150px; flex: none; overflow: hidden; background: linear-gradient(#ffe7c2, #ffd49a); }
+  .counter .wall { position: absolute; inset: 0; background:
+      radial-gradient(ellipse 60px 40px at 18% 18px, rgba(255,240,180,.95), transparent 70%),
+      radial-gradient(ellipse 60px 40px at 50% 18px, rgba(255,240,180,.95), transparent 70%),
+      radial-gradient(ellipse 60px 40px at 82% 18px, rgba(255,240,180,.95), transparent 70%),
+      linear-gradient(transparent 62%, #b8693c 62% 64%, #d98c56 64%),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.0) 0 40px, rgba(190,110,60,.08) 40px 42px); }
+  .win { position: absolute; top: 30px; width: 22%; height: 52px; border-radius: 10px 10px 4px 4px; background: linear-gradient(#9fd8ff, #d9f1ff 70%, #ffe9b8); border: 4px solid #fff; box-shadow: inset 0 0 0 2px #e8b07a, 0 3px 0 rgba(0,0,0,.08); overflow: hidden; }
+  .win::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 3px; background: #fff; }
+  .win::after { content: ''; position: absolute; left: 10%; bottom: 6px; width: 30%; height: 10px; border-radius: 50%; background: #8ed16a; box-shadow: 34px 2px 0 #6fbf4f; }
+  .win.w1 { left: 6%; } .win.w2 { right: 6%; }
+  .sign { position: absolute; left: 50%; top: 28px; transform: translateX(-50%); padding: 4px 12px; border-radius: 12px; background: #3a2416; color: #ffd27a; font: 400 .95rem 'Dela Gothic One', sans-serif; letter-spacing: 1px; text-shadow: 0 0 8px rgba(255,190,80,.9), 0 0 2px #fff; box-shadow: 0 4px 0 rgba(0,0,0,.2), inset 0 0 0 2px #ffb347; white-space: nowrap; }
+  .lamp { position: absolute; top: 20px; width: 2px; height: 10px; background: #3a2416; }
+  .lamp::after { content: ''; position: absolute; left: -9px; top: 9px; width: 20px; height: 10px; border-radius: 10px 10px 2px 2px; background: #3a2416; box-shadow: 0 6px 12px 2px rgba(255,220,140,.9); }
+  .awn { position: absolute; left: 0; right: 0; top: 0; height: 22px; z-index: 1; background: repeating-linear-gradient(90deg, #ef5a44 0 26px, #fff6ea 26px 52px); box-shadow: 0 3px 6px rgba(0,0,0,.18); }
+  .awn::after { content: ''; position: absolute; left: 0; right: 0; bottom: -9px; height: 10px; background: radial-gradient(circle at 13px 0, #ef5a44 12px, transparent 13px) 0 0 / 52px 10px, radial-gradient(circle at 39px 0, #fff6ea 12px, transparent 13px) 0 0 / 52px 10px; }
+  .desk { position: absolute; left: 0; right: 0; bottom: 0; height: 26px; z-index: 3; background: linear-gradient(#f7f2ea, #d9d0c2); border-top: 5px solid #ef5a44; box-shadow: 0 -6px 12px rgba(0,0,0,.15); }
+  .desk::after { content: ''; position: absolute; left: 0; right: 0; top: 3px; height: 3px; background: rgba(255,255,255,.8); }
+  .custs { position: absolute; left: 0; right: 0; bottom: 20px; top: 24px; z-index: 2; display: flex; justify-content: space-around; align-items: flex-end; padding: 0 4px; }
+  .cust { position: relative; width: 31%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; transition: transform .5s cubic-bezier(.3,1.4,.5,1), opacity .4s; cursor: pointer; }
+  .cust.in { transform: translateX(170%); opacity: 0; }
+  .cust.out { transform: translateY(60px); opacity: 0; transition-duration: .4s; }
+  .cust .bod { position: relative; display: flex; flex-direction: column; align-items: center; animation: bob 1.6s ease-in-out infinite; animation-delay: var(--dl, 0s); }
+  @keyframes bob { 50% { transform: translateY(-3px); } }
+  .cust .head { font-size: 46px; line-height: 1; position: relative; z-index: 1; filter: drop-shadow(0 3px 2px rgba(0,0,0,.18)); margin-bottom: -10px; }
+  .cust .shirt { width: 76px; height: 34px; }
+  .cust.sel .bod::before { content: ''; position: absolute; left: 50%; bottom: -6px; width: 92px; height: 92px; margin-left: -46px; border-radius: 50%; background: radial-gradient(circle, rgba(255,240,170,.85), rgba(255,240,170,0) 68%); z-index: -1; }
+  .cust.sel .arrow { display: block; }
+  .arrow { display: none; position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); color: #ff5a3c; font-size: 14px; animation: bob 0.8s infinite; }
+  .bub { position: absolute; top: -2px; right: -4px; z-index: 2; background: #fff; border-radius: 14px; padding: 2px 6px 5px; font-size: .9rem; white-space: nowrap; box-shadow: 0 3px 8px rgba(0,0,0,.18); display: grid; gap: 2px; justify-items: center; }
+  .bub::after { content: ''; position: absolute; left: 10px; bottom: -6px; border: 6px solid transparent; border-top-color: #fff; border-bottom: 0; }
+  .pbar { width: 100%; min-width: 34px; height: 5px; border-radius: 3px; background: #eee; overflow: hidden; }
+  .pbar i { display: block; height: 100%; width: 100%; background: #22c55e; border-radius: 3px; transition: background .3s; }
+  .cust .react { position: absolute; top: 0; left: 50%; transform: translateX(-50%); font-size: 30px; animation: up 1s forwards; pointer-events: none; z-index: 5; }
   @keyframes up { from { transform: translate(-50%, 10px) scale(.6); opacity: 0; } 20% { opacity: 1; transform: translate(-50%, 0) scale(1.15); } to { transform: translate(-50%, -26px) scale(1); opacity: 0; } }
-  .cust.mad .face span { animation: shake .4s; }
-  @keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
-  /* しごと ばしょ */
-  .work { flex: 1; min-height: 0; display: grid; grid-template-columns: 44% 1fr; gap: 8px; padding: 8px 10px 4px; }
-  .ticket { background: #fffdf6; border-radius: 6px 6px 14px 14px; padding: 8px 8px 10px; box-shadow: 0 6px 14px rgba(120,60,20,.2); position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 3px; transform: rotate(-1deg); }
-  .ticket::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 5px; background: repeating-linear-gradient(90deg, #ffb59e 0 8px, transparent 8px 14px); }
-  .ticket h3 { font-family: 'Zen Maru Gothic', sans-serif; margin: 2px 0 2px; font-size: .95rem; font-weight: 900; display: flex; align-items: center; gap: 6px; }
-  .ticket h3 .who { font-size: 1.3rem; }
+  .cust.mad .head { animation: shake .4s; }
+  .cust.angry .head::after { content: '💢'; position: absolute; right: -10px; top: -6px; font-size: 18px; animation: pop .6s infinite; }
+  @keyframes shake { 25% { transform: translateX(-5px) rotate(-6deg); } 75% { transform: translateX(5px) rotate(6deg); } }
+  /* しごと ばしょ（ステンレスの だい） */
+  .work { flex: 1; min-height: 0; display: grid; grid-template-columns: 43% 1fr; gap: 8px; padding: 14px 10px 6px; background: linear-gradient(rgba(255,255,255,.35), transparent 30%), repeating-linear-gradient(90deg, rgba(255,255,255,.12) 0 2px, transparent 2px 5px), linear-gradient(#dfe4ea, #b9c1cb); position: relative; }
+  .rail { position: absolute; left: 6px; width: calc(43% + 8px); top: 6px; height: 8px; border-radius: 4px; background: linear-gradient(#f4f6f8, #9aa4b0); box-shadow: 0 2px 3px rgba(0,0,0,.25); z-index: 2; }
+  .ticket { background: #fffdf6; border-radius: 2px 2px 10px 10px; padding: 10px 8px 10px; box-shadow: 0 8px 16px rgba(40,30,20,.25); position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 3px; transform-origin: top center; animation: sway 4s ease-in-out infinite; }
+  @keyframes sway { 50% { transform: rotate(-1.2deg); } }
+  .ticket.new { animation: tin .4s; }
+  @keyframes tin { from { transform: translateY(-30px) rotate(4deg); opacity: 0; } }
+  .ticket::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 8px; background: radial-gradient(circle at 6px 8px, #b9c1cb 5px, transparent 5.5px) 0 0 / 12px 8px; }
+  .ticket h3 { font-family: 'Zen Maru Gothic', sans-serif; margin: 0 0 2px; font-size: .92rem; font-weight: 900; display: flex; align-items: center; gap: 6px; border-bottom: 2px dashed #f0d9bf; padding-bottom: 4px; line-height: 1.2; }
+  .ticket h3 .who { font-size: 1.4rem; }
   .ticket .empty { margin: auto; text-align: center; color: #b08a6e; font-weight: 700; font-size: .9rem; }
-  .trow { display: flex; align-items: center; gap: 6px; font-size: .78rem; font-weight: 700; line-height: 1; min-height: 15px; }
-  .trow .mini { width: 46px; display: flex; justify-content: center; flex: none; }
+  .trow { display: flex; align-items: center; gap: 6px; font-size: .78rem; font-weight: 700; line-height: 1; min-height: 16px; }
+  .trow .mini { width: 48px; display: flex; justify-content: center; flex: none; }
   .trow.ok { color: #16a34a; } .trow.ok::after { content: '✓'; margin-left: auto; font-weight: 900; }
   .trow.ng { color: #e11d48; } .trow.ng::after { content: '✕'; margin-left: auto; font-weight: 900; }
+  .trow.now { background: #fff4c2; border-radius: 6px; }
   .tsides { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-  .tsides span { font-size: .78rem; font-weight: 900; border-radius: 99px; padding: 2px 7px; background: #fff1de; }
+  .tsides span { font-size: .76rem; font-weight: 900; border-radius: 99px; padding: 2px 7px; background: #fff1de; }
   .tsides span.ok { background: #dcfce7; color: #15803d; }
-  .side { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
-  .plate { flex: 1; min-height: 96px; position: relative; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 12px; }
-  .plate::after { content: ''; position: absolute; left: 8%; right: 8%; bottom: 0; height: 22px; border-radius: 50%; background: radial-gradient(ellipse at 50% 35%, #fff 0 50%, #e9e2d6 70%, #cfc4b2); box-shadow: 0 4px 0 rgba(0,0,0,.08); }
-  .stack { position: relative; z-index: 1; display: flex; flex-direction: column-reverse; align-items: center; }
-  .tray { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-  .tslot { height: 50px; border-radius: 12px; border: 2.5px dashed rgba(150,90,40,.3); display: grid; place-items: center; position: relative; background: rgba(255,255,255,.3); }
-  .tslot.has { border-style: solid; border-color: rgba(150,90,40,.15); background: rgba(255,255,255,.65); cursor: pointer; }
-  .tslot .lab { position: absolute; bottom: 1px; font-size: .62rem; font-weight: 900; opacity: .6; }
-  .tslot.off { visibility: hidden; }
+  .side { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+  .trayBox { flex: 1; min-height: 0; display: flex; flex-direction: column; border-radius: 16px; padding: 6px 8px 8px; background: linear-gradient(#ff6b57, #d93a2c); box-shadow: inset 0 2px 0 rgba(255,255,255,.35), inset 0 -4px 0 rgba(0,0,0,.15), 0 6px 12px rgba(0,0,0,.25); }
+  .trayBox .paper { flex: 1; min-height: 0; display: flex; flex-direction: column; border-radius: 10px; background: repeating-linear-gradient(45deg, #fffaf0 0 10px, #fff1dc 10px 20px); box-shadow: inset 0 0 0 2px rgba(0,0,0,.05); padding: 4px; gap: 4px; }
+  .plate { flex: 1; min-height: 80px; position: relative; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 8px; }
+  .plate::after { content: ''; position: absolute; left: 10%; right: 10%; bottom: 2px; height: 14px; border-radius: 50%; background: rgba(60,30,10,.18); filter: blur(2px); }
+  .stack { position: relative; z-index: 1; }
+  .tray { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+  .tslot { height: 52px; border-radius: 10px; border: 2px dashed rgba(200,90,50,.3); display: grid; place-items: center; position: relative; }
+  .tslot.has { border-color: transparent; cursor: pointer; }
+  .tslot .lab { position: absolute; bottom: 0; font-size: .6rem; font-weight: 900; color: #a0522d; background: rgba(255,250,240,.85); border-radius: 6px; padding: 0 4px; white-space: nowrap; }
+  .tslot.off { display: none; }
+  .tslot svg { height: 46px; width: auto; filter: drop-shadow(0 3px 2px rgba(0,0,0,.2)); }
+  .tslot .new { animation: drop .3s cubic-bezier(.3,1.5,.6,1); }
   .acts { display: grid; grid-template-columns: auto 1fr; gap: 6px; }
   .btn { appearance: none; border: none; border-radius: 14px; font: 900 1.05rem 'Zen Maru Gothic', sans-serif; padding: 10px 12px; cursor: pointer; box-shadow: 0 4px 0 rgba(0,0,0,.18); transition: transform .08s; color: #3a2416; background: #fff; }
   .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.18); }
-  .btn.serve { background: linear-gradient(135deg, #ff7a45, #ff3d6e); color: #fff; font-size: 1.15rem; }
-  .btn.trash { width: 52px; font-size: 1.3rem; padding: 6px; }
-  /* ちょうりき */
-  .stations { display: flex; gap: 6px; padding: 4px 10px; flex: none; }
-  .stn { flex: 1; border-radius: 14px; padding: 6px 4px 4px; background: linear-gradient(#5b6475, #3c4352); box-shadow: inset 0 2px 0 rgba(255,255,255,.18), 0 4px 0 rgba(0,0,0,.2); color: #fff; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; position: relative; min-width: 0; }
-  .stn .nm { font-size: .7rem; font-weight: 900; opacity: .9; }
-  .stn.grill { flex: 2.2; background: linear-gradient(#3a3f4c, #252a34); }
-  .gslots { display: flex; gap: 4px; width: 100%; justify-content: space-around; padding: 4px 2px; border-radius: 10px; background: repeating-linear-gradient(90deg, #1b1e25 0 6px, #2c313c 6px 9px); }
-  .gs { width: 44px; height: 44px; flex: none; border: 2px dashed rgba(255,255,255,.18); box-sizing: border-box; border-radius: 50%; display: grid; place-items: center; position: relative; }
-  .gs .ring { position: absolute; inset: -3px; border-radius: 50%; background: conic-gradient(var(--rc, #fbbf24) calc(var(--p, 0) * 360deg), transparent 0); -webkit-mask: radial-gradient(circle, transparent 58%, #000 60%); mask: radial-gradient(circle, transparent 58%, #000 60%); }
+  .btn.serve { background: linear-gradient(135deg, #ffb13d, #ff6a2c); color: #fff; font-size: 1.15rem; box-shadow: 0 4px 0 #c2410c; text-shadow: 0 1px 0 rgba(0,0,0,.2); }
+  .btn.trash { width: 52px; font-size: 1.3rem; padding: 6px; background: linear-gradient(#f4f6f8, #c9d0d8); }
+  /* ちょうりき（おくの キッチン） */
+  .stations { display: flex; gap: 6px; padding: 8px 10px 6px; flex: none; background: linear-gradient(#3a3f4c, #2b2f3a); box-shadow: inset 0 6px 8px rgba(0,0,0,.3); }
+  .stn { flex: 1; border-radius: 14px; padding: 4px 4px 3px; background: linear-gradient(#545c6b, #3a404c); box-shadow: inset 0 2px 0 rgba(255,255,255,.15), 0 3px 0 rgba(0,0,0,.3); color: #fff; display: flex; flex-direction: column; align-items: center; gap: 1px; cursor: pointer; position: relative; min-width: 0; }
+  .stn .nm { font-size: .64rem; font-weight: 900; opacity: .85; }
+  .stn.grill { flex: 2.3; background: linear-gradient(#2b2f38, #1d2027); }
+  .gslots { position: relative; display: flex; gap: 4px; width: 100%; justify-content: space-around; padding: 6px 2px; border-radius: 10px; background: radial-gradient(ellipse at 50% 120%, rgba(255,120,40,.45), transparent 70%), repeating-linear-gradient(90deg, #15171c 0 5px, #30343e 5px 8px); box-shadow: inset 0 0 0 2px #0e0f13; }
+  .gs { width: 44px; height: 44px; flex: none; border-radius: 50%; display: grid; place-items: center; position: relative; border: 2px dashed rgba(255,255,255,.14); box-sizing: border-box; }
   .gs[data-s='raw'], .gs[data-s='done'], .gs[data-s='burnt'] { border-color: transparent; }
-  .gs .pt { width: 84%; height: 84%; border-radius: 50%; box-shadow: inset 0 -3px 0 rgba(0,0,0,.25), 0 2px 4px rgba(0,0,0,.4); }
-  .gs .tag { position: absolute; bottom: -4px; font-size: .58rem; font-weight: 900; background: #fff; color: #3a2416; padding: 0 4px; border-radius: 6px; white-space: nowrap; }
+  .gs .ring { position: absolute; inset: -4px; border-radius: 50%; background: conic-gradient(var(--rc, #fbbf24) calc(var(--p, 0) * 360deg), transparent 0); -webkit-mask: radial-gradient(circle, transparent 60%, #000 62%); mask: radial-gradient(circle, transparent 60%, #000 62%); }
+  .gs .pt { width: 40px; height: 40px; filter: drop-shadow(0 2px 2px rgba(0,0,0,.5)); animation: siz .15s infinite alternate; }
+  @keyframes siz { to { transform: translateY(-.6px); } }
+  .gs .tag { position: absolute; bottom: -6px; font-size: .56rem; font-weight: 900; background: #fff; color: #3a2416; padding: 0 4px; border-radius: 6px; white-space: nowrap; z-index: 1; }
+  .gs.done .tag { background: #22c55e; color: #fff; }
   .gs.done .pt { animation: glow 1s infinite alternate; }
-  @keyframes glow { to { box-shadow: inset 0 -3px 0 rgba(0,0,0,.25), 0 0 12px 3px rgba(255,200,80,.9); } }
-  .smoke { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,.55); top: 0; left: 50%; animation: smk 1.2s infinite; pointer-events: none; }
-  @keyframes smk { from { transform: translate(-50%, 0) scale(.6); opacity: .8; } to { transform: translate(-30%, -26px) scale(1.8); opacity: 0; } }
-  .stn .ic { font-size: 1.7rem; line-height: 1.2; position: relative; }
-  .stn .st { font-size: .62rem; font-weight: 900; background: rgba(255,255,255,.18); padding: 0 6px; border-radius: 6px; white-space: nowrap; }
+  @keyframes glow { to { filter: drop-shadow(0 0 6px rgba(255,210,90,1)); } }
+  .steam { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.5); top: 4px; left: 50%; animation: stm 1.4s infinite; pointer-events: none; filter: blur(1px); }
+  .steam:nth-of-type(2) { animation-delay: .5s; left: 30%; } .steam:nth-of-type(3) { animation-delay: .9s; left: 66%; }
+  @keyframes stm { from { transform: translate(-50%, 0) scale(.5); opacity: .8; } to { transform: translate(-30%, -30px) scale(2.2); opacity: 0; } }
+  .gs[data-s='burnt'] .steam { background: rgba(60,60,60,.7); }
+  .stn .ic { width: 100%; height: 48px; display: grid; place-items: center; }
+  .stn .ic svg { height: 46px; width: auto; max-width: 100%; }
+  .stn .st { font-size: .58rem; font-weight: 900; background: rgba(255,255,255,.16); padding: 0 6px; border-radius: 6px; white-space: nowrap; }
   .stn.ready .st { background: #fbbf24; color: #3a2416; }
   .stn.burnt .st { background: #111; }
   .stn.locked { display: none; }
-  .fbar { width: 80%; height: 5px; border-radius: 3px; background: rgba(255,255,255,.15); overflow: hidden; }
+  #fryer .bask { transition: transform .4s; } #fryer .fr { opacity: 0; transition: opacity .3s; }
+  #fryer.cook .bask { transform: translateY(8px); } #fryer.ready .fr, #fryer.burnt .fr { opacity: 1; }
+  #fryer.burnt .fr { fill: #4a3020; stroke: #2a1a10; }
+  #fryer .bub circle { opacity: 0; } #fryer.cook .bub circle { animation: fb .6s infinite; } #fryer.cook .bub circle:nth-child(2n) { animation-delay: .3s; }
+  @keyframes fb { 0% { opacity: 0; transform: translateY(2px); } 50% { opacity: 1; } 100% { opacity: 0; transform: translateY(-3px); } }
+  .fbar { width: 80%; height: 4px; border-radius: 2px; background: rgba(255,255,255,.15); overflow: hidden; }
   .fbar i { display: block; height: 100%; background: #fbbf24; width: 0; }
-  /* ざいりょう */
-  .bins { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 6px 10px calc(10px + env(safe-area-inset-bottom)); flex: none; }
-  .bin { appearance: none; border: none; border-radius: 14px; background: #fffaf2; box-shadow: 0 4px 0 #d9a77a; padding: 6px 2px 4px; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; font: 900 .7rem 'Zen Maru Gothic', sans-serif; color: #3a2416; min-height: 52px; justify-content: flex-end; }
-  .bin:active { transform: translateY(3px); box-shadow: 0 1px 0 #d9a77a; }
-  .bin.locked { opacity: .25; pointer-events: none; }
-  .bin .burger { transform: scaleY(1.7); margin: 4px 0; }
+  /* ざいりょう（バット） */
+  .bins { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 6px 10px calc(10px + env(safe-area-inset-bottom)); flex: none; background: linear-gradient(#cfd6dd, #aab3bd); box-shadow: inset 0 3px 6px rgba(0,0,0,.18); }
+  .bin { appearance: none; border: none; border-radius: 12px; background: linear-gradient(#f4f6f8, #b9c1cb); box-shadow: inset 0 1px 0 #fff, 0 3px 0 #7d8794; padding: 4px 3px 3px; display: flex; flex-direction: column; align-items: stretch; gap: 2px; cursor: pointer; font: 900 .66rem 'Zen Maru Gothic', sans-serif; color: #3a2416; }
+  .bin .well { height: 34px; border-radius: 8px; background: linear-gradient(#7d8794, #aab3bd 40%, #d3d9df); box-shadow: inset 0 3px 4px rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+  .bin .well .burger { position: absolute; left: 50%; transform: translateX(-50%); }
+  .bin span { text-align: center; white-space: nowrap; }
+  .bin:active { transform: translateY(2px); box-shadow: inset 0 1px 0 #fff, 0 1px 0 #7d8794; }
+  .bin.locked { opacity: .3; pointer-events: none; filter: grayscale(.6); }
   .hint { animation: hint 0.9s infinite; }
-  @keyframes hint { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,90,60,.0), 0 4px 0 rgba(0,0,0,.18); } 50% { box-shadow: 0 0 0 5px rgba(255,90,60,.55), 0 4px 0 rgba(0,0,0,.18); } }
+  @keyframes hint { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,170,40,0), 0 3px 0 rgba(0,0,0,.2); } 50% { box-shadow: 0 0 0 5px rgba(255,170,40,.85), 0 3px 0 rgba(0,0,0,.2); } }
   .gs.hint { animation: hint2 0.9s infinite; }
-  @keyframes hint2 { 50% { box-shadow: 0 0 0 4px rgba(255,200,80,.9); } }
+  @keyframes hint2 { 50% { box-shadow: 0 0 0 4px rgba(255,210,80,.95); } }
   /* ぐざい */
-  .L { position: relative; flex: none; }
-  .L.drop { animation: drop .28s cubic-bezier(.3,1.5,.6,1); }
-  @keyframes drop { from { transform: translateY(-40px); opacity: .4; } }
-  .L.bun_b { width: 100%; height: 26%; border-radius: 6px 6px 40% 40% / 6px 6px 60% 60%; background: linear-gradient(#f4c17a 0 30%, #d98c3c); }
-  .L.bun_t { width: 104%; height: 60%; border-radius: 50% 50% 10% 10% / 90% 90% 12% 12%; background: radial-gradient(ellipse at 40% 25%, #ffd79a, #e29a45 55%, #c2701e); }
-  .L.bun_t::after { content: ''; position: absolute; inset: 18% 18% 45%; background: radial-gradient(ellipse 3px 2px, #fff6e0 90%, transparent) 0 0 / 22% 50%; opacity: .9; }
-  .L.patty { width: 104%; height: 28%; border-radius: 40% / 60%; background: radial-gradient(circle at 30% 40%, #8a4a26 0 6%, transparent 7%) 0 0 / 18% 60%, linear-gradient(#7a4022, #4e2612); }
-  .L.patty.raw { background: linear-gradient(#f0a0a0, #c86a6a); }
-  .L.cheese { width: 106%; height: 12%; background: linear-gradient(#ffe066, #f5b700); clip-path: polygon(0 0, 100% 0, 100% 60%, 88% 60%, 82% 160%, 76% 60%, 40% 60%, 33% 190%, 26% 60%, 0 60%); z-index: 1; }
-  .L.lettuce { width: 112%; height: 14%; border-radius: 40%; background: radial-gradient(circle at 50% 100%, #7ed957 50%, transparent 52%) 0 0 / 12% 100%, linear-gradient(#a3e66b, #4caf50); }
-  .L.tomato { width: 98%; height: 13%; border-radius: 30%; background: radial-gradient(ellipse at 25% 50%, #ff8a7a 0 18%, transparent 20%), radial-gradient(ellipse at 75% 50%, #ff8a7a 0 18%, transparent 20%), linear-gradient(#ff5a4a, #d72f2f); }
-  .L.onion { width: 96%; height: 9%; border-radius: 40%; background: repeating-linear-gradient(90deg, #f3e8ff 0 10%, #c4a3e8 10% 13%); }
-  .L.pickle { width: 92%; height: 9%; background: radial-gradient(circle, #8bc34a 0 50%, #557a2a 55% 62%, transparent 64%) 0 0 / 25% 100%; }
-  .L.bacon { width: 108%; height: 11%; border-radius: 30%; background: repeating-linear-gradient(90deg, #c2412d 0 14%, #ffb4a2 14% 20%); clip-path: polygon(0 20%, 12% 0, 25% 25%, 38% 0, 50% 25%, 62% 0, 75% 25%, 88% 0, 100% 20%, 100% 80%, 88% 100%, 75% 75%, 62% 100%, 50% 75%, 38% 100%, 25% 75%, 12% 100%, 0 80%); }
-  .L.egg { width: 102%; height: 16%; border-radius: 50%; background: radial-gradient(circle at 50% 50%, #ffb703 0 22%, #fff 25%); }
-  .L.ketchup { width: 90%; height: 7%; background: radial-gradient(circle at 50% 0, #e11d48 60%, transparent 62%) 0 0 / 20% 100%; z-index: 1; margin-bottom: -2%; }
   .burger { --w: 120px; width: var(--w); display: flex; flex-direction: column-reverse; align-items: center; }
-  .burger .L { height: auto; }
-  /* 高さは 幅に あわせる */
-  .burger .L.bun_b { height: calc(var(--w) * .16); } .burger .L.bun_t { height: calc(var(--w) * .3); }
-  .burger .L.patty { height: calc(var(--w) * .14); } .burger .L.cheese { height: calc(var(--w) * .07); margin-top: calc(var(--w) * -.02); }
-  .burger .L.lettuce { height: calc(var(--w) * .08); } .burger .L.tomato { height: calc(var(--w) * .075); }
-  .burger .L.onion { height: calc(var(--w) * .05); } .burger .L.pickle { height: calc(var(--w) * .06); }
-  .burger .L.bacon { height: calc(var(--w) * .065); } .burger .L.egg { height: calc(var(--w) * .09); } .burger .L.ketchup { height: calc(var(--w) * .045); }
-  .stack .L + .L { margin-bottom: -1px; }
-  /* サイドの 絵 */
-  .fries { width: 34px; height: 40px; position: relative; }
-  .fries::before { content: ''; position: absolute; left: 4px; right: 4px; top: 0; height: 22px; background: repeating-linear-gradient(90deg, #ffd23f 0 4px, #f5b700 4px 5px); border-radius: 2px; clip-path: polygon(0 30%, 15% 0, 30% 25%, 45% 5%, 60% 22%, 75% 0, 90% 28%, 100% 10%, 100% 100%, 0 100%); }
-  .fries::after { content: 'M'; content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 24px; background: linear-gradient(#ff4d3d, #d62828); clip-path: polygon(0 0, 100% 0, 88% 100%, 12% 100%); border-radius: 3px; }
-  .fries.burnt::before { background: repeating-linear-gradient(90deg, #4a3020 0 4px, #2a1a10 4px 5px); }
-  .cup { width: 28px; height: 40px; position: relative; clip-path: polygon(0 0, 100% 0, 86% 100%, 14% 100%); background: rgba(255,255,255,.7); overflow: hidden; border-radius: 2px; }
-  .cup i { position: absolute; left: 0; right: 0; bottom: 0; background: var(--dc); }
-  .cup::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 6px; background: #e8553f; }
-  .ice { width: 30px; height: 44px; position: relative; display: flex; flex-direction: column-reverse; align-items: center; }
-  .ice .cone { width: 18px; height: 20px; background: repeating-linear-gradient(45deg, #e0a050 0 3px, #c98034 3px 5px); clip-path: polygon(0 0, 100% 0, 50% 100%); flex: none; }
-  .ice .sw { border-radius: 50%; background: var(--ic); flex: none; margin-bottom: -4px; box-shadow: inset 0 -2px 0 rgba(0,0,0,.08); }
+  .burger .L { display: block; height: auto; flex: none; filter: drop-shadow(0 1px 0 rgba(0,0,0,.12)); }
+  .stack .L { filter: drop-shadow(0 2px 1px rgba(0,0,0,.18)); }
+  .L.drop { animation: drop .32s cubic-bezier(.3,1.5,.6,1); transform-origin: 50% 100%; }
+  @keyframes drop { 0% { transform: translateY(-50px); opacity: .3; } 70% { transform: translateY(0) scale(1.06, .86); opacity: 1; } }
+  .stack.shake { animation: shake .3s; }
   /* ドリンク・ソフトの シート */
-  .sheet { position: absolute; left: 0; right: 0; bottom: 0; margin: 0 auto; max-width: 560px; z-index: 8; background: #fffaf2; border-radius: 24px 24px 0 0; box-shadow: 0 -10px 40px rgba(0,0,0,.3); padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); transform: translateY(105%); transition: transform .3s cubic-bezier(.3,1.2,.5,1); display: grid; gap: 10px; }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; margin: 0 auto; max-width: 560px; z-index: 8; background: linear-gradient(#fffaf2, #ffeedd); border-radius: 26px 26px 0 0; box-shadow: 0 -10px 40px rgba(0,0,0,.35); padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); transform: translateY(105%); transition: transform .3s cubic-bezier(.3,1.2,.5,1); display: grid; gap: 10px; }
   .sheet.on { transform: none; }
+  .sheet::before { content: ''; justify-self: center; width: 44px; height: 5px; border-radius: 3px; background: #e2c4a4; margin-top: -4px; }
   .sheet h3 { font-family: 'Zen Maru Gothic', sans-serif; margin: 0; text-align: center; font-weight: 900; }
-  .sheet .why { text-align: center; font-size: .9rem; font-weight: 700; color: #9a6a46; margin-top: -6px; }
+  .sheet .why { text-align: center; font-size: .9rem; font-weight: 900; color: #c2410c; margin-top: -6px; }
   .flv { display: flex; gap: 8px; justify-content: center; }
-  .flv button { appearance: none; border: 3px solid transparent; border-radius: 99px; padding: 6px 12px; font: 900 .95rem 'Zen Maru Gothic', sans-serif; color: #fff; cursor: pointer; box-shadow: 0 3px 0 rgba(0,0,0,.2); }
-  .flv button.on { border-color: #3a2416; transform: scale(1.06); }
-  .pour { display: flex; align-items: flex-end; justify-content: center; gap: 18px; height: 210px; }
+  .flv button { appearance: none; border: 3px solid transparent; border-radius: 99px; padding: 6px 14px; font: 900 .95rem 'Zen Maru Gothic', sans-serif; color: #fff; cursor: pointer; box-shadow: 0 3px 0 rgba(0,0,0,.2); }
+  .flv button.on { border-color: #3a2416; transform: scale(1.08); }
+  .pour { display: flex; align-items: flex-end; justify-content: center; gap: 26px; height: 220px; }
   .bigcup { position: relative; width: 120px; height: 190px; }
-  .bigcup .glass { position: absolute; inset: 0; clip-path: polygon(0 0, 100% 0, 86% 100%, 14% 100%); background: rgba(160,200,230,.25); overflow: hidden; }
-  .bigcup .liq { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: var(--dc, #ffb703); }
-  .bigcup .liq::before { content: ''; position: absolute; left: 0; right: 0; top: -4px; height: 8px; background: rgba(255,255,255,.4); border-radius: 50%; }
+  .bigcup .glass { position: absolute; inset: 0; clip-path: polygon(0 0, 100% 0, 86% 100%, 14% 100%); background: linear-gradient(90deg, rgba(255,255,255,.75), rgba(230,240,248,.6) 40%, rgba(255,255,255,.85)); overflow: hidden; box-shadow: inset 0 0 0 3px rgba(0,0,0,.05); }
+  .bigcup .liq { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: linear-gradient(90deg, rgba(255,255,255,.18), transparent 30%, rgba(0,0,0,.12)), var(--dc, #ffb703); }
+  .bigcup .liq::before { content: ''; position: absolute; left: 0; right: 0; top: -4px; height: 8px; background: rgba(255,255,255,.5); border-radius: 50%; }
+  .bigcup .liq b { position: absolute; width: 18px; height: 16px; border-radius: 4px; background: rgba(255,255,255,.55); top: 4px; }
+  .bigcup .stripe { position: absolute; left: 0; right: 0; bottom: 18px; height: 34px; background: repeating-linear-gradient(90deg, rgba(239,90,68,.85) 0 12px, transparent 12px 24px); pointer-events: none; mix-blend-mode: multiply; }
+  .bigcup .noz { position: absolute; left: 50%; top: -30px; width: 22px; height: 22px; margin-left: -11px; border-radius: 4px 4px 10px 10px; background: linear-gradient(#5b6475, #2b2f3a); }
+  .bigcup .stream { position: absolute; left: 50%; top: -8px; width: 6px; margin-left: -3px; bottom: 0; background: var(--dc); border-radius: 3px; opacity: 0; }
+  .bigcup.pouring .stream { opacity: .9; }
   .zones { position: absolute; inset: 0; pointer-events: none; }
-  .zone { position: absolute; left: -6px; right: -6px; border-top: 2px dashed rgba(58,36,22,.5); border-bottom: 2px dashed rgba(58,36,22,.5); background: rgba(255,200,80,.18); }
-  .zone b { position: absolute; right: -30px; top: 50%; transform: translateY(-50%); font-size: .9rem; font-weight: 900; color: #3a2416; }
+  .zone { position: absolute; left: -8px; right: -8px; border-top: 2px dashed rgba(58,36,22,.45); border-bottom: 2px dashed rgba(58,36,22,.45); background: rgba(255,200,80,.14); }
+  .zone b { position: absolute; right: -28px; top: 50%; transform: translateY(-50%); font-size: .95rem; font-weight: 900; color: #3a2416; }
   .zone.want { background: rgba(34,197,94,.25); border-color: #16a34a; }
   .zone.want b { color: #16a34a; }
+  .zone.want b::after { content: ' ←'; }
   .bigice { position: relative; width: 120px; height: 190px; display: flex; flex-direction: column-reverse; align-items: center; }
-  .bigice .cone { width: 64px; height: 70px; background: repeating-linear-gradient(45deg, #e0a050 0 7px, #c98034 7px 11px); clip-path: polygon(0 0, 100% 0, 50% 100%); flex: none; }
+  .bigice .cone { width: 64px; height: 70px; background: linear-gradient(90deg, rgba(255,255,255,.2), transparent 40%, rgba(0,0,0,.15)), repeating-linear-gradient(45deg, #e5a656 0 7px, #c9822f 7px 9px), repeating-linear-gradient(-45deg, #e5a656 0 7px, #c9822f 7px 9px); background-blend-mode: normal, multiply, normal; clip-path: polygon(0 0, 100% 0, 50% 100%); flex: none; }
   .bigice .cream { position: absolute; left: 0; right: 0; bottom: 64px; top: 0; }
-  .bigice .cream i { position: absolute; left: 50%; display: block; border-radius: 50%; background: var(--ic); box-shadow: inset 0 -4px 0 rgba(0,0,0,.08); }
-  .pourBtn { width: 110px; height: 110px; border-radius: 50%; border: none; font: 900 1.15rem 'Zen Maru Gothic', sans-serif; color: #fff; background: radial-gradient(circle at 35% 30%, #ff9a6a, #ff3d6e); box-shadow: 0 6px 0 #b0213f; cursor: pointer; touch-action: none; }
+  .bigice .cream i { position: absolute; left: 50%; display: block; border-radius: 50%; background: radial-gradient(ellipse at 35% 30%, rgba(255,255,255,.55), transparent 50%), var(--ic); box-shadow: inset 0 -4px 0 rgba(0,0,0,.08), 0 2px 2px rgba(0,0,0,.08); }
+  .pourBtn { width: 108px; height: 108px; border-radius: 50%; border: none; font: 900 1.2rem 'Zen Maru Gothic', sans-serif; color: #fff; background: radial-gradient(circle at 35% 30%, #ffb07a, #ff4d6d); box-shadow: 0 7px 0 #b0213f, 0 10px 20px rgba(176,33,63,.35); cursor: pointer; touch-action: none; }
   .pourBtn:disabled { filter: grayscale(.8); opacity: .6; }
-  .pourBtn.on { transform: translateY(4px); box-shadow: 0 2px 0 #b0213f; }
+  .pourBtn.on { transform: translateY(5px); box-shadow: 0 2px 0 #b0213f; }
   .srow { display: flex; gap: 8px; }
   .srow .btn { flex: 1; }
-  .btn.ok { background: #22c55e; color: #fff; }
+  .btn.ok { background: linear-gradient(135deg, #34d36a, #16a34a); color: #fff; box-shadow: 0 4px 0 #11803a; }
   .spill { position: absolute; left: 50%; top: -6px; width: 130%; transform: translateX(-50%); height: 20px; border-radius: 50%; background: var(--dc); opacity: 0; }
   .spill.on { animation: spill .6s; }
   @keyframes spill { 30% { opacity: .9; } to { opacity: 0; transform: translateX(-50%) scaleX(1.6) translateY(30px); } }
-  /* ふきだし・コイン */
-  .fly { position: absolute; z-index: 9; font-weight: 900; font-family: 'Dela Gothic One', sans-serif; color: #f59e0b; text-shadow: 0 2px 0 #fff, 0 0 8px #fff; pointer-events: none; animation: fly 1s forwards; font-size: 1.3rem; }
-  @keyframes fly { from { transform: translateY(0) scale(.6); opacity: 0; } 20% { opacity: 1; transform: translateY(-6px) scale(1.2); } to { transform: translateY(-50px) scale(1); opacity: 0; } }
-  .banner { font-family: 'Zen Maru Gothic', sans-serif; position: absolute; left: 0; right: 0; top: 36%; z-index: 9; text-align: center; pointer-events: none; font-weight: 900; font-size: clamp(1.6rem, 8vw, 2.4rem); color: #fff; text-shadow: 0 4px 0 #e8553f, 0 0 20px rgba(255,120,60,.6); opacity: 0; transform: scale(.8); transition: opacity .3s, transform .3s; }
+  /* こうか */
+  .fly { position: absolute; z-index: 9; font-weight: 400; font-family: 'Dela Gothic One', sans-serif; color: #ffb000; text-shadow: 0 2px 0 #fff, 0 0 10px #fff; pointer-events: none; animation: fly 1s forwards; font-size: 1.4rem; }
+  @keyframes fly { from { transform: translateY(0) scale(.6); opacity: 0; } 20% { opacity: 1; transform: translateY(-6px) scale(1.25); } to { transform: translateY(-50px) scale(1); opacity: 0; } }
+  .spark { position: absolute; z-index: 9; pointer-events: none; width: 12px; height: 12px; background: var(--c); clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); animation: spark .8s ease-out forwards; }
+  @keyframes spark { from { transform: translate(0, 0) scale(.4) rotate(0); opacity: 1; } to { transform: translate(var(--dx), var(--dy)) scale(1.1) rotate(180deg); opacity: 0; } }
+  .coinf { position: absolute; z-index: 9; pointer-events: none; width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff6c4, #ffcf3c 45%, #c88a00); box-shadow: 0 0 6px rgba(255,200,60,.8); transition: transform .6s cubic-bezier(.5,-0.3,.6,1), opacity .6s; }
+  .banner { font-family: 'Zen Maru Gothic', sans-serif; position: absolute; left: 0; right: 0; top: 34%; z-index: 9; text-align: center; pointer-events: none; font-weight: 900; font-size: clamp(1.8rem, 9vw, 2.6rem); color: #fff; text-shadow: 0 4px 0 #e8553f, 0 0 24px rgba(255,120,60,.7); opacity: 0; transform: scale(.8); transition: opacity .3s, transform .3s; }
   .banner.on { opacity: 1; transform: scale(1); }
   .banner small { display: block; font-size: .5em; letter-spacing: 3px; }
   /* メニュー・けっか */
-  .over { position: absolute; inset: 0; z-index: 10; display: grid; place-items: center; padding: 14px; overflow: auto; background: rgba(60,30,20,.45); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
-  .card { width: min(460px, 100%); background: #fffaf2; border-radius: 24px; padding: 18px 16px; display: grid; gap: 10px; box-shadow: 0 20px 50px rgba(0,0,0,.35); color: #3a2416; }
-  .card h2 { margin: 0; text-align: center; font-weight: 900; font-family: 'Zen Maru Gothic', sans-serif; font-size: 1.7rem; color: #e8553f; letter-spacing: 1px; }
+  .over { position: absolute; inset: 0; z-index: 10; display: grid; place-items: center; padding: 14px; overflow: auto; background: radial-gradient(circle at 50% 30%, rgba(255,170,90,.55), rgba(60,25,30,.75)); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
+  .card { width: min(460px, 100%); background: #fffaf2; border-radius: 26px; padding: 18px 16px; display: grid; gap: 10px; box-shadow: 0 24px 60px rgba(0,0,0,.4); color: #3a2416; }
+  .card h2 { margin: 0; text-align: center; font-weight: 900; font-family: 'Zen Maru Gothic', sans-serif; font-size: 1.6rem; color: #e8553f; letter-spacing: 1px; }
+  .card h2.logoT { font-family: 'Dela Gothic One', sans-serif; font-weight: 400; font-size: 1.9rem; background: linear-gradient(180deg, #ffb13d, #ef4a2c); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 3px 0 #7a2a10); }
   .card p { margin: 0; line-height: 1.7; }
-  .logo { text-align: center; font-size: 3rem; line-height: 1; }
+  .hero { display: flex; justify-content: center; margin-top: -6px; animation: bob 2s ease-in-out infinite; }
   .days { display: grid; gap: 8px; }
   .dayb { appearance: none; border: none; border-radius: 16px; background: #fff; box-shadow: 0 4px 0 #e2c4a4; padding: 10px 12px; display: grid; grid-template-columns: auto 1fr auto; gap: 2px 10px; align-items: center; text-align: left; font: inherit; color: inherit; cursor: pointer; }
   .dayb:disabled { opacity: .5; cursor: default; }
-  .dayb .n { grid-row: 1 / span 2; width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; font-family: 'Dela Gothic One', sans-serif; color: #fff; background: linear-gradient(135deg, #ff7a45, #ff3d6e); }
+  .dayb .n { grid-row: 1 / span 2; width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; font-family: 'Dela Gothic One', sans-serif; color: #fff; background: linear-gradient(135deg, #ffb13d, #ff5a2c); }
   .dayb b { font-weight: 900; }
   .dayb small { color: #9a6a46; font-weight: 700; font-size: .78rem; }
   .dayb .stars { grid-row: 1 / span 2; grid-column: 3; font-size: 1.05rem; letter-spacing: 1px; color: #f59e0b; }
   .res { display: grid; gap: 0; }
   .res div { display: flex; justify-content: space-between; padding: 7px 2px; border-bottom: 1px dashed #e2c4a4; font-weight: 700; }
-  .bigstars { text-align: center; font-size: 2.4rem; letter-spacing: 6px; color: #f59e0b; text-shadow: 0 3px 0 #c2410c; }
+  .bigstars { text-align: center; font-size: 2.6rem; letter-spacing: 6px; color: #f59e0b; text-shadow: 0 3px 0 #c2410c; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
   .row .btn { flex: 1; min-width: 130px; }
   .how { margin: 0; padding-left: 1.2em; line-height: 1.8; font-size: .92rem; }
   details summary { cursor: pointer; font-weight: 900; color: #c2410c; }
   .pauseBtn { width: 40px; height: 40px; }
-  @media (max-height: 700px) { .counter { height: 112px; } .cust .face { width: 54px; height: 54px; font-size: 36px; } .tslot { height: 44px; } .bin { min-height: 46px; } .stn .ic { font-size: 1.4rem; } }
-  @media (max-height: 620px) { .counter { height: 100px; } .bins { grid-template-columns: repeat(10, 1fr); } .bin span { display: none; } }
+  @media (max-height: 720px) { .counter { height: 130px; } .cust .head { font-size: 40px; } .cust .shirt { width: 66px; height: 28px; } .tslot { height: 46px; } .tslot svg { height: 40px; } .bin .well { height: 28px; } .stn .ic { height: 40px; } .stn .ic svg { height: 38px; } }
+  @media (max-height: 620px) { .counter { height: 112px; } .bins { grid-template-columns: repeat(10, 1fr); } .bin span { display: none; } .sign { display: none; } }
 </style>
 </head>
 <body>
 <div class="wrap" id="wrap">
   <div class="shop" id="shop">
     <div class="top"><span class="day" id="dayL">1日目</span><span class="pill combo" id="comboL" hidden></span><span class="pill">🪙 <b id="coinL">0</b></span><span class="pill">🙂 <b id="leftL">0</b></span></div>
-    <div class="counter"><div class="custs" id="custs"></div><div class="desk"></div></div>
+    <div class="counter"><div class="wall"></div><i class="lamp" style="left:18%"></i><i class="lamp" style="left:82%"></i><div class="win w1"></div><div class="win w2"></div><div class="awn"></div><div class="custs" id="custs"></div><div class="desk"></div></div>
     <div class="work">
+      <div class="rail"></div>
       <div class="ticket" id="ticket"></div>
       <div class="side">
-        <div class="plate" id="plate"><div class="stack burger" id="stack" style="--w:136px"></div></div>
+        <div class="trayBox"><div class="paper">
+        <div class="plate" id="plate"><div class="stack burger" id="stack" style="--w:132px"></div></div>
         <div class="tray" id="tray">
           <div class="tslot" id="tsF"><span class="lab">ポテト</span></div>
           <div class="tslot" id="tsD"><span class="lab">ドリンク</span></div>
           <div class="tslot" id="tsI"><span class="lab">ソフト</span></div>
         </div>
+        </div></div>
         <div class="acts"><button class="btn trash" id="trash" aria-label="すてる">🗑️</button><button class="btn serve" id="serve">わたす</button></div>
       </div>
     </div>
     <div class="stations">
       <div class="stn grill" id="grill"><div class="gslots" id="gslots"></div><span class="nm">てっぱん</span></div>
-      <div class="stn" id="fryer"><span class="ic">🍟</span><div class="fbar"><i id="fryBar"></i></div><span class="st" id="fryS">タップで あげる</span></div>
-      <div class="stn" id="drinkS"><span class="ic">🥤</span><span class="st">ドリンク</span></div>
-      <div class="stn" id="iceS"><span class="ic">🍦</span><span class="st">ソフト</span></div>
+      <div class="stn" id="fryer"><span class="ic"></span><div class="fbar"><i id="fryBar"></i></div><span class="st" id="fryS">タップで あげる</span></div>
+      <div class="stn" id="drinkS"><span class="ic"></span><span class="st">ドリンク</span></div>
+      <div class="stn" id="iceS"><span class="ic"></span><span class="st">ソフト</span></div>
     </div>
     <div class="bins" id="bins"></div>
   </div>
@@ -228,8 +259,8 @@
   </div>
   <div class="over" id="menuOv">
     <div class="card">
-      <div class="logo">🍔</div>
-      <h2 style="font-family:'Dela Gothic One',sans-serif;font-weight:400">もぐもぐバーガー</h2>
+      <div class="hero" id="hero"></div>
+      <h2 class="logoT">もぐもぐバーガー</h2>
       <p>ハンバーガーやさんの てんいんさんに なって、おきゃくさんの ちゅうもんどおりに つくろう！</p>
       <div class="days" id="days"></div>
       <details><summary>あそびかた</summary>
@@ -294,12 +325,72 @@ const COOK = 4.2, BURN = 9;          // お肉が やける / こげる 秒
 const FRY = 4.5, FBURN = 10;
 const save = () => Kit.store.get('burger:days', {});
 
-/* ---------- 絵の 部品 ---------- */
-const layer = (k, cls = '') => `<div class="L ${k} ${cls}"></div>`;
+/* ---------- イラスト（SVG） ---------- */
+const DEFS = `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <radialGradient id="gBunTop" cx="40%" cy="20%" r="85%"><stop offset="0" stop-color="#ffe2a8"/><stop offset=".45" stop-color="#f0a64c"/><stop offset="1" stop-color="#b4601c"/></radialGradient>
+  <linearGradient id="gBunCut" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff3d6"/><stop offset="1" stop-color="#f1cf8e"/></linearGradient>
+  <linearGradient id="gBunBot" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f3b866"/><stop offset="1" stop-color="#b8661f"/></linearGradient>
+  <linearGradient id="gPatty" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9a5530"/><stop offset=".5" stop-color="#6e3518"/><stop offset="1" stop-color="#3e1c0a"/></linearGradient>
+  <linearGradient id="gRaw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb4b4"/><stop offset="1" stop-color="#d0646c"/></linearGradient>
+  <linearGradient id="gCheese" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe885"/><stop offset="1" stop-color="#ffae00"/></linearGradient>
+  <linearGradient id="gLettuce" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c8f58a"/><stop offset=".6" stop-color="#6cc644"/><stop offset="1" stop-color="#3d8f2f"/></linearGradient>
+  <radialGradient id="gTomato" cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="#ff8b74"/><stop offset="1" stop-color="#d42a2a"/></radialGradient>
+  <radialGradient id="gYolk" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#ffe066"/><stop offset="1" stop-color="#ff9500"/></radialGradient>
+  <linearGradient id="gBacon" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8644a"/><stop offset="1" stop-color="#9c2a1a"/></linearGradient>
+  <radialGradient id="gPickle" cx="50%" cy="45%" r="60%"><stop offset="0" stop-color="#c3e58a"/><stop offset=".7" stop-color="#7aaa3c"/><stop offset="1" stop-color="#4c7a22"/></radialGradient>
+  <linearGradient id="gSteel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4f6f8"/><stop offset=".5" stop-color="#c9d0d8"/><stop offset="1" stop-color="#9aa4b0"/></linearGradient>
+  <linearGradient id="gOil" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd76a"/><stop offset="1" stop-color="#c98a10"/></linearGradient>
+  <linearGradient id="gRed" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6a5a"/><stop offset="1" stop-color="#c8302a"/></linearGradient>
+</defs></svg>`;
+document.body.insertAdjacentHTML('afterbegin', DEFS);
+const R = (seed => () => (seed = (seed * 16807) % 2147483647) / 2147483647)(7);
+const f1 = n => n.toFixed(1);
+function wave(x0, x1, y, amp, n, down) { // なみなみの ふち
+  let d = ''; const step = (x1 - x0) / n;
+  for (let i = 0; i < n; i++) { const a = x0 + i * step, b = a + step; d += ` Q${f1(a + step / 2)} ${f1(y + (down ? amp : -amp))} ${f1(b)} ${f1(y)}`; }
+  return d;
+}
+const LAYERS = {
+  bun_b: { w: 120, h: 30, mb: -2, s: () => `<path d="M3 7 Q3 2 10 2 H110 Q117 2 117 7 L115 17 Q112 29 94 29 H26 Q8 29 5 17 Z" fill="url(#gBunBot)"/><path d="M3 7 Q3 2 10 2 H110 Q117 2 117 7 L117 10 Q60 13 3 10 Z" fill="url(#gBunCut)"/><path d="M16 22 Q60 27 104 22" stroke="rgba(255,255,255,.28)" stroke-width="2.4" fill="none" stroke-linecap="round"/>` },
+  bun_t: { w: 126, h: 54, mb: -3, s: () => {
+    let seeds = ''; const pts = [[38, 16, -20], [56, 11, 8], [74, 13, -8], [92, 19, 25], [28, 28, 30], [48, 24, -15], [66, 24, 12], [84, 27, -25], [102, 31, 10], [40, 36, 5], [60, 35, -30], [80, 37, 18]];
+    pts.forEach(([x, y, r]) => { seeds += `<ellipse cx="${x}" cy="${y}" rx="3.6" ry="1.9" transform="rotate(${r} ${x} ${y})" fill="#fff8e6" stroke="#dcb072" stroke-width=".6"/>`; });
+    return `<path d="M4 46 Q2 8 63 4 Q124 8 122 46 Q122 51 115 51 H11 Q4 51 4 46 Z" fill="url(#gBunTop)"/><path d="M5 43 Q63 48 121 43 L121 46 Q122 51 115 51 H11 Q4 51 4 46 Z" fill="url(#gBunCut)"/><ellipse cx="42" cy="15" rx="22" ry="6" transform="rotate(-14 42 15)" fill="rgba(255,255,255,.38)"/>${seeds}`;
+  } },
+  patty: { w: 126, h: 24, mb: -3, s: () => {
+    let t = ''; for (let i = 0; i < 26; i++) { const x = 8 + R() * 110, y = 5 + R() * 14; t += `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(1 + R() * 1.8)}" fill="${R() < .5 ? 'rgba(40,15,5,.55)' : 'rgba(255,180,120,.22)'}"/>`; }
+    return `<path d="M2 12 Q2 2 14 3 Q63 0 112 3 Q124 2 124 12 Q124 22 112 21 Q63 24 14 21 Q2 22 2 12 Z" fill="url(#gPatty)"/>${t}<path d="M12 6 Q63 2 114 6" stroke="rgba(255,215,170,.4)" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+  } },
+  cheese: { w: 130, h: 22, mb: -7, s: () => `<path d="M2 3 H128 L126 8 Q119 8 117 15 Q115 21 112 14 L108 9 H68 Q63 9 61 17 Q59 22 56 16 L52 9 H22 Q16 9 13 14 Q11 18 8 13 L4 8 Z" fill="url(#gCheese)"/><path d="M5 4.5 H125" stroke="rgba(255,255,255,.6)" stroke-width="1.6" stroke-linecap="round"/><circle cx="90" cy="6" r="1.6" fill="rgba(200,120,0,.35)"/><circle cx="36" cy="6.5" r="1.2" fill="rgba(200,120,0,.35)"/>` },
+  lettuce: { w: 136, h: 20, mb: -6, s: () => `<path d="M2 10 ${wave(2, 134, 10, 5, 12, false).trim()} L134 12 ${wave(134, 2, 12, 6, 13, true).trim()} Z" fill="url(#gLettuce)"/><path d="M10 10 Q40 7 68 10 T126 10" stroke="rgba(230,255,200,.75)" stroke-width="1.4" fill="none"/><path d="M30 10 L26 14 M60 10 L57 15 M92 10 L95 15 M116 10 L120 14" stroke="rgba(230,255,200,.5)" stroke-width="1"/>` },
+  tomato: { w: 120, h: 14, mb: -4, s: () => [22, 60, 98].map(x => `<ellipse cx="${x}" cy="7" rx="21" ry="6.2" fill="url(#gTomato)"/><ellipse cx="${x}" cy="6.6" rx="15" ry="3.8" fill="#ff9e8a"/><g fill="#ffe7a8">${[-7, -2, 3, 8].map(d => `<ellipse cx="${x + d}" cy="${6.6 + (d % 2 ? .8 : -.6)}" rx="1.4" ry=".8"/>`).join('')}</g>`).join('') },
+  onion: { w: 118, h: 11, mb: -3, s: () => [20, 46, 72, 98].map(x => `<ellipse cx="${x}" cy="5.5" rx="15" ry="4.5" fill="none" stroke="#c9a3e8" stroke-width="2.4"/><ellipse cx="${x}" cy="5.5" rx="10" ry="3" fill="none" stroke="#f6eefe" stroke-width="2"/>`).join('') },
+  pickle: { w: 116, h: 12, mb: -3, s: () => [16, 44, 72, 100].map(x => `<ellipse cx="${x}" cy="6" rx="13" ry="5.4" fill="url(#gPickle)" stroke="#4c7a22" stroke-width="1"/><g fill="rgba(240,255,210,.8)"><circle cx="${x - 4}" cy="5.5" r="1"/><circle cx="${x + 3}" cy="6.5" r="1"/><circle cx="${x}" cy="4.3" r=".9"/></g>`).join('') },
+  bacon: { w: 132, h: 15, mb: -4, s: () => `<path d="M2 4 ${wave(2, 130, 4, 3, 8, false).trim()} L130 11 ${wave(130, 2, 11, 3, 8, true).trim()} Z" fill="url(#gBacon)"/><path d="M4 7.5 ${wave(4, 128, 7.5, 3, 8, false).trim()}" stroke="#ffc2b0" stroke-width="2.2" fill="none"/>` },
+  egg: { w: 126, h: 22, mb: -6, s: () => `<path d="M4 12 Q2 4 20 5 Q34 0 52 4 Q70 1 86 4 Q104 1 118 6 Q126 11 120 16 Q110 21 90 19 Q70 22 50 19 Q28 22 12 19 Q2 17 4 12 Z" fill="#fffdf5" stroke="#efe6d2" stroke-width="1"/><ellipse cx="62" cy="10" rx="17" ry="7" fill="url(#gYolk)"/><ellipse cx="57" cy="7.5" rx="6" ry="2.2" fill="rgba(255,255,255,.6)"/>` },
+  ketchup: { w: 112, h: 12, mb: -4, s: () => `<path d="M6 5 Q18 1 30 5 T54 5 T78 5 T104 5" stroke="#d81e3a" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M30 6 Q31 10 29 11 Q27 10 28 6 Z M78 6 Q79 11 77 12 Q75 11 76 6 Z" fill="#d81e3a"/><path d="M10 3.6 Q18 1.6 26 3.6" stroke="rgba(255,255,255,.5)" stroke-width="1.2" fill="none"/>` },
+  raw: { w: 126, h: 24, mb: 0, s: () => `<path d="M2 12 Q2 2 14 3 Q63 0 112 3 Q124 2 124 12 Q124 22 112 21 Q63 24 14 21 Q2 22 2 12 Z" fill="url(#gRaw)"/><g fill="rgba(255,240,240,.75)"><circle cx="30" cy="9" r="2.2"/><circle cx="58" cy="14" r="1.8"/><circle cx="84" cy="8" r="2"/><circle cx="102" cy="14" r="1.6"/><circle cx="44" cy="16" r="1.4"/></g>` },
+};
+const SVGC = {}; Object.keys(LAYERS).forEach(k => { const L = LAYERS[k]; SVGC[k] = L.s(); });
+const layer = (k, cls = '') => { const L = LAYERS[k]; return `<svg class="L ${k} ${cls}" viewBox="0 0 ${L.w} ${L.h}" style="width:${f1(L.w / 120 * 100)}%;margin-bottom:${f1(L.mb / 120 * 100)}%">${SVGC[k]}</svg>`; };
 const burgerHtml = (st, w) => `<div class="burger" style="--w:${w}px">${st.map(k => layer(k)).join('')}</div>`;
-const friesHtml = burnt => `<div class="fries ${burnt ? 'burnt' : ''}"></div>`;
-const cupHtml = (f, size, h) => `<div class="cup" style="--dc:${DRINKS[f].c};${size ? `transform:scale(${{ S: .8, M: .92, L: 1.05 }[size]})` : ''}"><i style="height:${h}%"></i></div>`;
-function iceHtml(f, size) { const n = { S: 1, M: 2, L: 3 }[size] || 1; let s = ''; for (let i = 0; i < n; i++) { const w = 26 - i * 5; s += `<i class="sw" style="width:${w}px;height:${w * .55}px"></i>`; } return `<div class="ice" style="--ic:${ICES[f].c}"><div class="cone"></div>${s}</div>`; }
+// てっぱんの 上の お肉（上から 見た）
+const PATTY_TOP = `<svg viewBox="0 0 40 40" class="pt"><circle cx="20" cy="20" r="18" class="pc"/><g class="tex">${Array.from({ length: 14 }, () => `<circle cx="${f1(7 + R() * 26)}" cy="${f1(7 + R() * 26)}" r="${f1(.8 + R() * 1.4)}" fill="rgba(60,20,8,.35)"/>`).join('')}</g><g class="marks" stroke="rgba(40,15,5,.55)" stroke-width="2.6" stroke-linecap="round"><path d="M10 14 L30 10 M9 22 L31 18 M11 30 L29 26"/></g><ellipse cx="14" cy="12" rx="6" ry="3" fill="rgba(255,255,255,.22)" transform="rotate(-25 14 12)"/></svg>`;
+const ICON = {
+  fryer: `<svg viewBox="0 0 64 48"><rect x="4" y="12" width="56" height="34" rx="6" fill="url(#gSteel)"/><rect x="9" y="16" width="46" height="14" rx="4" fill="url(#gOil)"/><g class="bub" fill="rgba(255,250,220,.9)"><circle cx="18" cy="22" r="1.6"/><circle cx="30" cy="25" r="1.2"/><circle cx="42" cy="21" r="1.8"/><circle cx="48" cy="26" r="1.1"/></g><g class="bask"><rect x="16" y="6" width="32" height="14" rx="2" fill="none" stroke="#5b6475" stroke-width="2"/><path d="M16 10 H48 M16 14 H48 M24 6 V20 M32 6 V20 M40 6 V20" stroke="#5b6475" stroke-width="1"/><path d="M48 9 H60" stroke="#2a2238" stroke-width="3.4" stroke-linecap="round"/><g class="fr" fill="#ffcf3c" stroke="#e0a000" stroke-width=".6"><rect x="20" y="1" width="3" height="12" rx="1"/><rect x="25" y="-1" width="3" height="14" rx="1"/><rect x="30" y="2" width="3" height="11" rx="1"/><rect x="35" y="0" width="3" height="13" rx="1"/><rect x="40" y="2" width="3" height="11" rx="1"/></g></g><rect x="10" y="34" width="44" height="6" rx="3" fill="rgba(0,0,0,.15)"/></svg>`,
+  drink: `<svg viewBox="0 0 64 52"><rect x="6" y="2" width="52" height="48" rx="7" fill="url(#gRed)"/><rect x="10" y="6" width="44" height="16" rx="4" fill="rgba(255,255,255,.9)"/><circle cx="20" cy="14" r="5" fill="#ff9f1c"/><circle cx="32" cy="14" r="5" fill="#6b3a1e"/><circle cx="44" cy="14" r="5" fill="#5ccf3c"/><path d="M20 22 V28 M32 22 V28 M44 22 V28" stroke="#3a3f4c" stroke-width="3" stroke-linecap="round"/><rect x="10" y="38" width="44" height="6" rx="2" fill="#3a3f4c"/><path d="M28 30 L30 38 H34 L36 30 Z" fill="rgba(255,255,255,.85)"/></svg>`,
+  ice: `<svg viewBox="0 0 64 52"><rect x="10" y="10" width="44" height="40" rx="7" fill="url(#gSteel)"/><path d="M14 10 Q32 -6 50 10 Z" fill="#e8eef4"/><rect x="16" y="16" width="32" height="8" rx="3" fill="#ffa6c1"/><path d="M28 24 h8 v6 h-8z" fill="#5b6475"/><path d="M44 14 L54 6" stroke="#2a2238" stroke-width="3" stroke-linecap="round"/><path d="M27 34 Q32 28 37 34 Q38 38 32 38 Q26 38 27 34 Z" fill="#fff6e0" stroke="#e7d7b8" stroke-width=".8"/><path d="M28 38 L32 47 L36 38 Z" fill="#d9953f"/></svg>`,
+};
+
+const friesHtml = burnt => `<svg viewBox="0 0 40 48"><g fill="${burnt ? '#4a3020' : '#ffcf3c'}" stroke="${burnt ? '#2a1a10' : '#e0a000'}" stroke-width=".8">${[7, 12, 17, 22, 27, 31].map((x, i) => `<rect x="${x}" y="${2 + (i % 3) * 3}" width="4.4" height="24" rx="1.4" transform="rotate(${(i - 2.5) * 5} ${x} 26)"/>`).join('')}</g><path d="M4 18 H36 L32 46 H8 Z" fill="url(#gRed)"/><path d="M4 18 Q20 25 36 18" fill="#ff8a7a"/><circle cx="20" cy="33" r="6" fill="#ffd23f"/><circle cx="18" cy="32" r=".9" fill="#7a2a10"/><circle cx="22" cy="32" r=".9" fill="#7a2a10"/><path d="M17.4 34.4 Q20 37 22.6 34.4" stroke="#7a2a10" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>`;
+const cupHtml = (f, size) => { const sc = { S: .8, M: .9, L: 1 }[size] || 1; return `<svg viewBox="0 0 40 56" style="height:${(46 * sc).toFixed(0)}px"><path d="M25 1 L21 15" stroke="#ef5a44" stroke-width="3" stroke-linecap="round"/><path d="M6 14 H34 L30 54 H10 Z" fill="#fff"/><path d="M7.2 24 H32.8 L31.8 34 H8.2 Z" fill="${DRINKS[f].c}"/><path d="M8.6 38 H31.4 L31 42 H9 Z" fill="#ef5a44"/><rect x="4" y="11" width="32" height="5" rx="2.5" fill="#f4f6f8" stroke="#c9d0d8"/><path d="M11 17 L13.4 52" stroke="rgba(0,0,0,.06)" stroke-width="3"/></svg>`; };
+function iceHtml(f, size) {
+  const n = { S: 1, M: 2, L: 3 }[size] || 1, c = ICES[f].c; let s = '';
+  for (let i = 0; i < n; i++) { const w = 28 - i * 7, y = 31 - i * 7.5; s += `<ellipse cx="20" cy="${y}" rx="${w / 2}" ry="5.6" fill="${c}" stroke="rgba(0,0,0,.1)" stroke-width=".8"/>`; }
+  const ty = 31 - (n - 1) * 7.5 - 6;
+  return `<svg viewBox="0 0 40 56"><path d="M7 32 L20 55 L33 32 Z" fill="#dc9a48"/><path d="M10 35 L28 35 M12.5 40 L26 40 M15 45 L24 45 M12 33 L22 52 M28 33 L18 52" stroke="#b5712a" stroke-width=".9"/>${s}<circle cx="20" cy="${ty}" r="3.2" fill="${c}" stroke="rgba(0,0,0,.1)" stroke-width=".8"/><ellipse cx="14.5" cy="${ty + 6}" rx="3" ry="1.4" fill="rgba(255,255,255,.65)"/></svg>`;
+}
+const SHIRTS = ['#4f9dff', '#ff7aa8', '#3ecf8e', '#ffb13d', '#a78bfa', '#2dd4bf', '#f87171', '#60a5fa'];
 
 /* ---------- じょうたい ---------- */
 let G = null;
@@ -340,8 +431,9 @@ const BGM = { bpm: 124, type: 'triangle', vol: .028, lead: [523, 0, 659, 0, 784,
 function buildBins() {
   $('bins').innerHTML = '';
   BINS.forEach(b => {
-    const k = { bun: 'bun_t', meat: 'patty raw' }[b.id] || b.id;
-    const el = Kit.el(`<button class="bin ${b.d > G.day + 1 ? 'locked' : ''}" data-id="${b.id}"><div class="burger" style="--w:46px">${layer(k)}</div><span>${b.n}</span></button>`);
+    const k = { bun: 'bun_t', meat: 'raw' }[b.id] || b.id;
+    const pile = k === 'bun_t' ? layer('bun_t') : k === 'ketchup' ? layer(k) : layer(k) + layer(k);
+    const el = Kit.el(`<button class="bin ${b.d > G.day + 1 ? 'locked' : ''}" data-id="${b.id}"><div class="well"><div class="burger" style="--w:${k === 'bun_t' ? 46 : 52}px;bottom:${k === 'bun_t' ? 4 : 7}px">${pile}</div></div><span>${b.n}</span></button>`);
     el.onpointerdown = e => { e.preventDefault(); tapBin(b.id, el); };
     $('bins').appendChild(el);
   });
@@ -355,9 +447,11 @@ function buildGrill() {
   });
 }
 $('grill').onpointerdown = e => { e.preventDefault(); if (!G) return; const i = G.grill.findIndex(g => g && g.t >= COOK); if (i >= 0) tapGrill(i); else tapBin('meat'); };
+$('fryer').querySelector('.ic').innerHTML = ICON.fryer; $('drinkS').querySelector('.ic').innerHTML = ICON.drink; $('iceS').querySelector('.ic').innerHTML = ICON.ice;
 function drawStack(dropLast) {
   $('stack').innerHTML = G.stack.map((k, i) => layer(k, dropLast && i === G.stack.length - 1 ? 'drop' : '')).join('');
 }
+let lastTray = {};
 function drawTray() {
   const t = G.tray;
   $('tsF').innerHTML = (t.fries ? friesHtml(false) : '') + '<span class="lab">ポテト</span>'; $('tsF').classList.toggle('has', !!t.fries);
@@ -368,11 +462,12 @@ function selCust() { return G.custs.find(c => c.id === G.sel && c.st === 'wait')
 function drawTicket() {
   const c = selCust(), tk = $('ticket');
   if (!c) { tk.innerHTML = `<div class="empty">${G.left > 0 || G.custs.length ? 'おきゃくさんを まってるよ…' : 'おつかれさま！'}</div>`; return; }
+  if (tk.dataset.c != c.id) { tk.dataset.c = c.id; tk.classList.remove('new'); void tk.offsetWidth; tk.classList.add('new'); }
   const o = c.o; let h = `<h3><span class="who">${c.a}</span>${o.menu || 'サイドだけ'}</h3>`;
   if (o.stack) {
     for (let i = o.stack.length - 1; i >= 0; i--) {
       const k = o.stack[i], have = G.stack[i];
-      const cls = have == null ? '' : have === k ? 'ok' : 'ng';
+      const cls = have == null ? (i === G.stack.length && !G.closed ? 'now' : '') : have === k ? 'ok' : 'ng';
       h += `<div class="trow ${cls}"><span class="mini"><div class="burger" style="--w:40px">${layer(k)}</div></span>${NAME[k]}</div>`;
     }
   }
@@ -391,7 +486,7 @@ function hud() {
 }
 function custHtml(c) {
   const o = c.o, ic = (o.stack ? '🍔' : '') + (o.fries ? '🍟' : '') + (o.drink ? '🥤' : '') + (o.ice ? '🍦' : '');
-  return `<div class="face"><span>${c.a}</span></div><div class="bub">${ic}</div>`;
+  return `<div class="bod" style="--dl:${(-Math.random() * 1.6).toFixed(2)}s"><span class="arrow">▼</span><div class="head">${c.a}</div><svg class="shirt" viewBox="0 0 76 34"><path d="M4 34 Q6 8 26 4 Q38 12 50 4 Q70 8 72 34 Z" fill="${c.col}"/><path d="M26 4 Q38 15 50 4 L46 3 Q38 9 30 3 Z" fill="#fff"/><path d="M12 32 Q13 18 21 11" stroke="rgba(255,255,255,.35)" stroke-width="3" fill="none" stroke-linecap="round"/></svg></div><div class="bub"><span>${ic}</span><div class="pbar"><i></i></div></div>`;
 }
 
 /* ---------- そうさ ---------- */
@@ -465,7 +560,7 @@ $('serve').onclick = () => {
   else if (o.ice && !sameD(t.ice, o.ice)) bad = `ソフトは ${ICES[o.ice.f].n}の ${o.ice.size}だよ`;
   if (bad) {
     c.pat = Math.max(1, c.pat - 6); react(c, '💢'); c.el.classList.remove('mad'); void c.el.offsetWidth; c.el.classList.add('mad');
-    Kit.toast(bad, 1800); Kit.sfx('bad'); Kit.vibrate(40); G.combo = 0; hud(); drawTicket(); return;
+    Kit.toast(bad, 1800); Kit.sfx('bad'); Kit.vibrate(40); G.combo = 0; hud(); drawTicket(); const sk = $('stack'); sk.classList.remove('shake'); void sk.offsetWidth; sk.classList.add('shake'); return;
   }
   // せいかい！
   const spd = c.pat / c.max, perfP = G.pq.every(q => q === 2);
@@ -476,12 +571,30 @@ $('serve').onclick = () => {
   G.maxCombo = Math.max(G.maxCombo, G.combo);
   const cb = G.combo >= 2 ? G.combo * 5 : 0;
   G.coins += pay + tip + cb; G.served++;
-  flyText(c.el, `+${pay + tip + cb}`);
+  flyText(c.el, `+${pay + tip + cb}`); burst(c.el, perfect); coinFly(c.el, 3 + (perfect ? 3 : 0));
   react(c, perfect ? '😍' : '😋'); Kit.sfx('coin'); setTimeout(() => Kit.sfx('good'), 120); Kit.vibrate([15, 30, 15]);
   leave(c, true);
   G.stack = []; G.pq = []; G.closed = false; G.tray = { fries: null, drink: null, ice: null };
   drawStack(); drawTray(); hud();
 };
+function burst(el, big) {
+  const r = el.getBoundingClientRect(), w = $('wrap').getBoundingClientRect(), x = r.left - w.left + r.width / 2, y = r.top - w.top + r.height * .45;
+  const cols = ['#ffd23f', '#ff6a8a', '#7ad6ff', '#8bf07a', '#fff'];
+  for (let i = 0; i < (big ? 18 : 10); i++) {
+    const a = Math.random() * Math.PI * 2, d = 40 + Math.random() * (big ? 70 : 40);
+    const sp = Kit.el(`<i class="spark"></i>`); sp.style.cssText = `left:${x - 6}px;top:${y - 6}px;--c:${cols[i % 5]};--dx:${(Math.cos(a) * d).toFixed(0)}px;--dy:${(Math.sin(a) * d).toFixed(0)}px;width:${8 + Math.random() * 10}px;height:${8 + Math.random() * 10}px`;
+    $('wrap').appendChild(sp); setTimeout(() => sp.remove(), 800);
+  }
+}
+function coinFly(el, n) {
+  const r = el.getBoundingClientRect(), w = $('wrap').getBoundingClientRect(), t = $('coinL').getBoundingClientRect();
+  for (let i = 0; i < n; i++) setTimeout(() => {
+    const cf = Kit.el('<i class="coinf"></i>'); const x = r.left - w.left + r.width / 2 + Kit.rand(-14, 14), y = r.top - w.top + r.height * .4;
+    cf.style.left = x + 'px'; cf.style.top = y + 'px'; $('wrap').appendChild(cf);
+    requestAnimationFrame(() => requestAnimationFrame(() => { cf.style.transform = `translate(${t.left - w.left - x}px, ${t.top - w.top - y}px) scale(.7)`; cf.style.opacity = '.3'; }));
+    setTimeout(() => { cf.remove(); Kit.tone && Kit.tone(1500 + i * 60, .05, { type: 'square', vol: .04 }); const pl = $('coinL').parentNode; pl.classList.remove('pop'); void pl.offsetWidth; pl.classList.add('pop'); }, 620);
+  }, i * 70);
+}
 function react(c, e) { const r = Kit.el(`<div class="react">${e}</div>`); c.el.appendChild(r); setTimeout(() => r.remove(), 1000); }
 function flyText(el, s) {
   const r = el.getBoundingClientRect(), w = $('wrap').getBoundingClientRect();
@@ -499,7 +612,7 @@ function spawn() {
   const pool = ANIMALS.filter(a => !G.custs.some(c => c.a === a) && !G.lastAnimals.includes(a));
   const a = Kit.pick(pool.length ? pool : ANIMALS); G.lastAnimals = [a, ...G.lastAnimals].slice(0, 4);
   const o = newOrder(G.day), max = G.D.pat + (o.stack ? o.stack.length * 2 : 0) + (o.drink ? 5 : 0) + (o.ice ? 5 : 0);
-  const c = { id: G.nid++, a, o, pat: max, max, st: 'wait' };
+  const c = { id: G.nid++, a, o, pat: max, max, st: 'wait', col: Kit.pick(SHIRTS) };
   c.el = Kit.el(`<div class="cust in">${custHtml(c)}</div>`);
   $('custs').appendChild(c.el); requestAnimationFrame(() => requestAnimationFrame(() => c.el.classList.remove('in')));
   G.custs.push(c); G.left--;
@@ -528,7 +641,8 @@ function zonesHtml(off) {
 function drawPour(full) {
   const v = $('shV'); $('pourBtn').disabled = !SH.f;
   if (SH.mode === 'drink') {
-    if (full || !v.querySelector('.bigcup')) v.innerHTML = `<div class="bigcup"><div class="glass"><div class="liq" id="liq"></div></div><div class="spill" id="spill"></div>${zonesHtml(0)}</div>`;
+    if (full || !v.querySelector('.bigcup')) v.innerHTML = `<div class="bigcup"><i class="noz"></i><i class="stream"></i><div class="glass"><div class="liq" id="liq"><b style="left:30%"></b><b style="left:55%;top:10px"></b></div></div><div class="spill" id="spill"></div>${zonesHtml(0)}</div>`;
+    v.querySelector('.bigcup').classList.toggle('pouring', SH.pouring);
     const l = $('liq'); l.style.height = SH.fill + '%'; if (SH.f) v.querySelector('.bigcup').style.setProperty('--dc', DRINKS[SH.f].c);
   } else if (SH.mode === 'ice') {
     if (full || !v.querySelector('.bigice')) v.innerHTML = `<div class="bigice"><div class="cone"></div><div class="cream" id="cream"></div>${zonesHtml(64)}</div>`;
@@ -539,7 +653,7 @@ function drawPour(full) {
 }
 const pb = $('pourBtn');
 pb.addEventListener('pointerdown', e => { e.preventDefault(); if (!SH.f) return; SH.pouring = true; pb.classList.add('on'); pb.setPointerCapture?.(e.pointerId); });
-['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => pb.addEventListener(ev, () => { SH.pouring = false; pb.classList.remove('on'); }));
+['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => pb.addEventListener(ev, () => { SH.pouring = false; pb.classList.remove('on'); if (SH.mode) drawPour(); }));
 function stepPour(dt) {
   if (!SH.mode || !SH.pouring) return;
   SH.fill += dt * (SH.mode === 'drink' ? 30 : 26);
@@ -575,8 +689,8 @@ function update(dt) {
     if (c.st !== 'wait') return;
     c.pat -= dt * (SH.mode ? .6 : 1);
     const p = Math.max(0, c.pat / c.max);
-    c.el.querySelector('.face').style.cssText = `--p:${p};--pc:${p > .5 ? '#22c55e' : p > .25 ? '#f59e0b' : '#ef4444'}`;
-    if (p < .25 && !c.warned) { c.warned = true; react(c, '💦'); }
+    const bi = c.el.querySelector('.pbar i'); bi.style.width = (p * 100).toFixed(1) + '%'; bi.style.background = p > .5 ? '#22c55e' : p > .25 ? '#f59e0b' : '#ef4444';
+    if (p < .25 && !c.warned) { c.warned = true; c.el.classList.add('angry'); }
     if (c.pat <= 0) { G.missed++; G.combo = 0; react(c, '😢'); Kit.sfx('lose'); leave(c, false); hud(); }
   });
   // てっぱん
@@ -588,13 +702,13 @@ function update(dt) {
     const st = g.t >= BURN ? 'burnt' : g.t >= COOK ? 'done' : 'raw';
     if (el.dataset.s !== st) {
       el.dataset.s = st; el.className = 'gs ' + (st === 'done' ? 'done' : '');
-      el.innerHTML = `<div class="ring"></div><div class="pt"></div>${st === 'burnt' ? '<i class="smoke"></i><span class="tag">こげた</span>' : st === 'done' ? '<span class="tag">やけた！</span>' : ''}`;
+      el.innerHTML = `<div class="ring"></div>${PATTY_TOP}<i class="steam"></i><i class="steam"></i><i class="steam"></i>${st === 'burnt' ? '<span class="tag">こげた</span>' : st === 'done' ? '<span class="tag">やけた！</span>' : ''}`;
       if (st === 'done') Kit.tone && Kit.tone(1568, .15, { type: 'sine', vol: .15 });
       if (st === 'burnt') Kit.sfx('bad');
     }
     const k = Math.min(1, g.t / COOK), b = Math.max(0, Math.min(1, (g.t - COOK - 2.6) / (BURN - COOK - 2.6)));
     const col = st === 'raw' ? mix([240, 160, 160], [140, 76, 40], k) : mix([140, 76, 40], [40, 26, 20], b);
-    el.querySelector('.pt').style.background = `radial-gradient(circle at 35% 30%, rgba(255,255,255,.18), transparent 50%), rgb(${col})`;
+    el.querySelector('.pc').setAttribute('fill', `rgb(${col})`); el.querySelector('.marks').style.opacity = st === 'raw' ? Math.max(0, k - .4) : 1;
     el.querySelector('.ring').style.cssText = st === 'raw' ? `--p:${k};--rc:#fbbf24` : st === 'done' ? `--p:${1 - b};--rc:${b > 0 ? '#ef4444' : '#22c55e'}` : '--p:0';
   });
   // ポテト
@@ -604,7 +718,7 @@ function update(dt) {
   $('fryBar').style.width = (f.st === 'cook' ? f.t / FRY * 100 : f.st === 'done' ? 100 - f.t / FBURN * 100 : 0) + '%';
   $('fryBar').style.background = f.st === 'done' && f.t > FBURN * .6 ? '#ef4444' : '#fbbf24';
   const fs = { idle: 'タップで あげる', cook: 'あげてる…', done: 'できた！タップ', burnt: 'こげた…すてる' }[f.st];
-  if ($('fryS').textContent !== fs) { $('fryS').textContent = fs; fe.classList.toggle('ready', f.st === 'done'); fe.classList.toggle('burnt', f.st === 'burnt'); }
+  if ($('fryS').textContent !== fs) { $('fryS').textContent = fs; fe.classList.toggle('ready', f.st === 'done'); fe.classList.toggle('burnt', f.st === 'burnt'); fe.classList.toggle('cook', f.st === 'cook'); }
   // ヒント
   hintT -= dt; if (hintT <= 0) { hintT = .25; hints(); }
   // おしまい
@@ -667,6 +781,7 @@ function showResult() {
 function showMenu() {
   G = null; Kit.music.stop(); Kit.keepAwake(false); closeSheet(true);
   ['resultOv', 'pauseOv'].forEach(id => $(id).hidden = true);
+  $('hero').innerHTML = burgerHtml(['bun_b', 'patty', 'cheese', 'lettuce', 'tomato', 'bun_t'], 150);
   const sv = save(); $('days').innerHTML = '';
   DAYS.forEach((D, i) => {
     const s = sv[i], open = i === 0 || (sv[i - 1] && sv[i - 1].stars >= 1);
