@@ -1,0 +1,703 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>もぐもぐバーガー</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; overflow: hidden; background: #2a1d3a; }
+  .wrap { flex: 1; min-height: 0; position: relative; overflow: hidden; background: radial-gradient(circle at 50% 0%, #ffe9c7, #ffd29a 60%, #f2a96b); }
+  .shop { position: absolute; inset: 0; margin: 0 auto; max-width: 560px; display: flex; flex-direction: column; color: #3a2416; touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  /* うえの 表示 */
+  .top { display: flex; align-items: center; gap: 6px; padding: 6px 10px 4px; font-weight: 900; }
+  .top .day { font-weight: 900; font-family: 'Zen Maru Gothic', sans-serif; font-size: 1.1rem; color: #c2410c; margin-right: auto; }
+  .pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 99px; background: rgba(255,255,255,.7); box-shadow: 0 2px 0 rgba(120,60,20,.18); font-size: .95rem; }
+  .pill b { font-family: 'Dela Gothic One', sans-serif; font-weight: 400; }
+  .combo { color: #e11d48; }
+  /* カウンターと おきゃくさん */
+  .counter { position: relative; height: 128px; flex: none; overflow: hidden; background: repeating-linear-gradient(90deg, #fff7ec 0 22px, #ffeedd 22px 44px); border-top: 4px solid #e8553f; }
+  .counter::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 18px; background: repeating-linear-gradient(90deg, #e8553f 0 18px, #fff 18px 36px); clip-path: polygon(0 0, 100% 0, 100% 60%, 97% 100%, 94% 60%, 91% 100%, 88% 60%, 85% 100%, 82% 60%, 79% 100%, 76% 60%, 73% 100%, 70% 60%, 67% 100%, 64% 60%, 61% 100%, 58% 60%, 55% 100%, 52% 60%, 49% 100%, 46% 60%, 43% 100%, 40% 60%, 37% 100%, 34% 60%, 31% 100%, 28% 60%, 25% 100%, 22% 60%, 19% 100%, 16% 60%, 13% 100%, 10% 60%, 7% 100%, 4% 60%, 1% 100%, 0 60%); opacity: .9; }
+  .desk { position: absolute; left: 0; right: 0; bottom: 0; height: 30px; background: linear-gradient(#c97b4a, #9a5530); border-top: 4px solid #e8a372; box-shadow: 0 -4px 10px rgba(0,0,0,.12); z-index: 2; }
+  .custs { position: absolute; left: 0; right: 0; bottom: 24px; top: 20px; display: flex; justify-content: space-around; align-items: flex-end; padding: 0 6px; }
+  .cust { position: relative; width: 31%; display: flex; flex-direction: column; align-items: center; transition: transform .45s cubic-bezier(.3,1.4,.5,1), opacity .4s; cursor: pointer; }
+  .cust.in { transform: translateX(160%); opacity: 0; }
+  .cust.out { transform: translateY(40px); opacity: 0; }
+  .cust .face { position: relative; width: 62px; height: 62px; border-radius: 50%; display: grid; place-items: center; font-size: 42px; background: conic-gradient(var(--pc, #22c55e) calc(var(--p, 1) * 360deg), rgba(0,0,0,.08) 0); padding: 4px; }
+  .cust .face span { width: 100%; height: 100%; border-radius: 50%; background: #fff; display: grid; place-items: center; line-height: 1; }
+  .cust.sel .face { box-shadow: 0 0 0 3px #fff, 0 0 0 6px #ff7a45; }
+  .cust .bub { position: absolute; top: -4px; left: 50%; transform: translateX(8px); background: #fff; border-radius: 12px; padding: 1px 6px; font-size: .95rem; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,.15); z-index: 1; }
+  .cust .react { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); font-size: 30px; animation: up 1s forwards; pointer-events: none; }
+  @keyframes up { from { transform: translate(-50%, 10px) scale(.6); opacity: 0; } 20% { opacity: 1; transform: translate(-50%, 0) scale(1.15); } to { transform: translate(-50%, -26px) scale(1); opacity: 0; } }
+  .cust.mad .face span { animation: shake .4s; }
+  @keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+  /* しごと ばしょ */
+  .work { flex: 1; min-height: 0; display: grid; grid-template-columns: 44% 1fr; gap: 8px; padding: 8px 10px 4px; }
+  .ticket { background: #fffdf6; border-radius: 6px 6px 14px 14px; padding: 8px 8px 10px; box-shadow: 0 6px 14px rgba(120,60,20,.2); position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 3px; transform: rotate(-1deg); }
+  .ticket::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 5px; background: repeating-linear-gradient(90deg, #ffb59e 0 8px, transparent 8px 14px); }
+  .ticket h3 { font-family: 'Zen Maru Gothic', sans-serif; margin: 2px 0 2px; font-size: .95rem; font-weight: 900; display: flex; align-items: center; gap: 6px; }
+  .ticket h3 .who { font-size: 1.3rem; }
+  .ticket .empty { margin: auto; text-align: center; color: #b08a6e; font-weight: 700; font-size: .9rem; }
+  .trow { display: flex; align-items: center; gap: 6px; font-size: .78rem; font-weight: 700; line-height: 1; min-height: 15px; }
+  .trow .mini { width: 46px; display: flex; justify-content: center; flex: none; }
+  .trow.ok { color: #16a34a; } .trow.ok::after { content: '✓'; margin-left: auto; font-weight: 900; }
+  .trow.ng { color: #e11d48; } .trow.ng::after { content: '✕'; margin-left: auto; font-weight: 900; }
+  .tsides { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  .tsides span { font-size: .78rem; font-weight: 900; border-radius: 99px; padding: 2px 7px; background: #fff1de; }
+  .tsides span.ok { background: #dcfce7; color: #15803d; }
+  .side { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+  .plate { flex: 1; min-height: 96px; position: relative; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 12px; }
+  .plate::after { content: ''; position: absolute; left: 8%; right: 8%; bottom: 0; height: 22px; border-radius: 50%; background: radial-gradient(ellipse at 50% 35%, #fff 0 50%, #e9e2d6 70%, #cfc4b2); box-shadow: 0 4px 0 rgba(0,0,0,.08); }
+  .stack { position: relative; z-index: 1; display: flex; flex-direction: column-reverse; align-items: center; }
+  .tray { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .tslot { height: 50px; border-radius: 12px; border: 2.5px dashed rgba(150,90,40,.3); display: grid; place-items: center; position: relative; background: rgba(255,255,255,.3); }
+  .tslot.has { border-style: solid; border-color: rgba(150,90,40,.15); background: rgba(255,255,255,.65); cursor: pointer; }
+  .tslot .lab { position: absolute; bottom: 1px; font-size: .62rem; font-weight: 900; opacity: .6; }
+  .tslot.off { visibility: hidden; }
+  .acts { display: grid; grid-template-columns: auto 1fr; gap: 6px; }
+  .btn { appearance: none; border: none; border-radius: 14px; font: 900 1.05rem 'Zen Maru Gothic', sans-serif; padding: 10px 12px; cursor: pointer; box-shadow: 0 4px 0 rgba(0,0,0,.18); transition: transform .08s; color: #3a2416; background: #fff; }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.18); }
+  .btn.serve { background: linear-gradient(135deg, #ff7a45, #ff3d6e); color: #fff; font-size: 1.15rem; }
+  .btn.trash { width: 52px; font-size: 1.3rem; padding: 6px; }
+  /* ちょうりき */
+  .stations { display: flex; gap: 6px; padding: 4px 10px; flex: none; }
+  .stn { flex: 1; border-radius: 14px; padding: 6px 4px 4px; background: linear-gradient(#5b6475, #3c4352); box-shadow: inset 0 2px 0 rgba(255,255,255,.18), 0 4px 0 rgba(0,0,0,.2); color: #fff; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; position: relative; min-width: 0; }
+  .stn .nm { font-size: .7rem; font-weight: 900; opacity: .9; }
+  .stn.grill { flex: 2.2; background: linear-gradient(#3a3f4c, #252a34); }
+  .gslots { display: flex; gap: 4px; width: 100%; justify-content: space-around; padding: 4px 2px; border-radius: 10px; background: repeating-linear-gradient(90deg, #1b1e25 0 6px, #2c313c 6px 9px); }
+  .gs { width: 44px; height: 44px; flex: none; border: 2px dashed rgba(255,255,255,.18); box-sizing: border-box; border-radius: 50%; display: grid; place-items: center; position: relative; }
+  .gs .ring { position: absolute; inset: -3px; border-radius: 50%; background: conic-gradient(var(--rc, #fbbf24) calc(var(--p, 0) * 360deg), transparent 0); -webkit-mask: radial-gradient(circle, transparent 58%, #000 60%); mask: radial-gradient(circle, transparent 58%, #000 60%); }
+  .gs[data-s='raw'], .gs[data-s='done'], .gs[data-s='burnt'] { border-color: transparent; }
+  .gs .pt { width: 84%; height: 84%; border-radius: 50%; box-shadow: inset 0 -3px 0 rgba(0,0,0,.25), 0 2px 4px rgba(0,0,0,.4); }
+  .gs .tag { position: absolute; bottom: -4px; font-size: .58rem; font-weight: 900; background: #fff; color: #3a2416; padding: 0 4px; border-radius: 6px; white-space: nowrap; }
+  .gs.done .pt { animation: glow 1s infinite alternate; }
+  @keyframes glow { to { box-shadow: inset 0 -3px 0 rgba(0,0,0,.25), 0 0 12px 3px rgba(255,200,80,.9); } }
+  .smoke { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,.55); top: 0; left: 50%; animation: smk 1.2s infinite; pointer-events: none; }
+  @keyframes smk { from { transform: translate(-50%, 0) scale(.6); opacity: .8; } to { transform: translate(-30%, -26px) scale(1.8); opacity: 0; } }
+  .stn .ic { font-size: 1.7rem; line-height: 1.2; position: relative; }
+  .stn .st { font-size: .62rem; font-weight: 900; background: rgba(255,255,255,.18); padding: 0 6px; border-radius: 6px; white-space: nowrap; }
+  .stn.ready .st { background: #fbbf24; color: #3a2416; }
+  .stn.burnt .st { background: #111; }
+  .stn.locked { display: none; }
+  .fbar { width: 80%; height: 5px; border-radius: 3px; background: rgba(255,255,255,.15); overflow: hidden; }
+  .fbar i { display: block; height: 100%; background: #fbbf24; width: 0; }
+  /* ざいりょう */
+  .bins { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 6px 10px calc(10px + env(safe-area-inset-bottom)); flex: none; }
+  .bin { appearance: none; border: none; border-radius: 14px; background: #fffaf2; box-shadow: 0 4px 0 #d9a77a; padding: 6px 2px 4px; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; font: 900 .7rem 'Zen Maru Gothic', sans-serif; color: #3a2416; min-height: 52px; justify-content: flex-end; }
+  .bin:active { transform: translateY(3px); box-shadow: 0 1px 0 #d9a77a; }
+  .bin.locked { opacity: .25; pointer-events: none; }
+  .bin .burger { transform: scaleY(1.7); margin: 4px 0; }
+  .hint { animation: hint 0.9s infinite; }
+  @keyframes hint { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,90,60,.0), 0 4px 0 rgba(0,0,0,.18); } 50% { box-shadow: 0 0 0 5px rgba(255,90,60,.55), 0 4px 0 rgba(0,0,0,.18); } }
+  .gs.hint { animation: hint2 0.9s infinite; }
+  @keyframes hint2 { 50% { box-shadow: 0 0 0 4px rgba(255,200,80,.9); } }
+  /* ぐざい */
+  .L { position: relative; flex: none; }
+  .L.drop { animation: drop .28s cubic-bezier(.3,1.5,.6,1); }
+  @keyframes drop { from { transform: translateY(-40px); opacity: .4; } }
+  .L.bun_b { width: 100%; height: 26%; border-radius: 6px 6px 40% 40% / 6px 6px 60% 60%; background: linear-gradient(#f4c17a 0 30%, #d98c3c); }
+  .L.bun_t { width: 104%; height: 60%; border-radius: 50% 50% 10% 10% / 90% 90% 12% 12%; background: radial-gradient(ellipse at 40% 25%, #ffd79a, #e29a45 55%, #c2701e); }
+  .L.bun_t::after { content: ''; position: absolute; inset: 18% 18% 45%; background: radial-gradient(ellipse 3px 2px, #fff6e0 90%, transparent) 0 0 / 22% 50%; opacity: .9; }
+  .L.patty { width: 104%; height: 28%; border-radius: 40% / 60%; background: radial-gradient(circle at 30% 40%, #8a4a26 0 6%, transparent 7%) 0 0 / 18% 60%, linear-gradient(#7a4022, #4e2612); }
+  .L.patty.raw { background: linear-gradient(#f0a0a0, #c86a6a); }
+  .L.cheese { width: 106%; height: 12%; background: linear-gradient(#ffe066, #f5b700); clip-path: polygon(0 0, 100% 0, 100% 60%, 88% 60%, 82% 160%, 76% 60%, 40% 60%, 33% 190%, 26% 60%, 0 60%); z-index: 1; }
+  .L.lettuce { width: 112%; height: 14%; border-radius: 40%; background: radial-gradient(circle at 50% 100%, #7ed957 50%, transparent 52%) 0 0 / 12% 100%, linear-gradient(#a3e66b, #4caf50); }
+  .L.tomato { width: 98%; height: 13%; border-radius: 30%; background: radial-gradient(ellipse at 25% 50%, #ff8a7a 0 18%, transparent 20%), radial-gradient(ellipse at 75% 50%, #ff8a7a 0 18%, transparent 20%), linear-gradient(#ff5a4a, #d72f2f); }
+  .L.onion { width: 96%; height: 9%; border-radius: 40%; background: repeating-linear-gradient(90deg, #f3e8ff 0 10%, #c4a3e8 10% 13%); }
+  .L.pickle { width: 92%; height: 9%; background: radial-gradient(circle, #8bc34a 0 50%, #557a2a 55% 62%, transparent 64%) 0 0 / 25% 100%; }
+  .L.bacon { width: 108%; height: 11%; border-radius: 30%; background: repeating-linear-gradient(90deg, #c2412d 0 14%, #ffb4a2 14% 20%); clip-path: polygon(0 20%, 12% 0, 25% 25%, 38% 0, 50% 25%, 62% 0, 75% 25%, 88% 0, 100% 20%, 100% 80%, 88% 100%, 75% 75%, 62% 100%, 50% 75%, 38% 100%, 25% 75%, 12% 100%, 0 80%); }
+  .L.egg { width: 102%; height: 16%; border-radius: 50%; background: radial-gradient(circle at 50% 50%, #ffb703 0 22%, #fff 25%); }
+  .L.ketchup { width: 90%; height: 7%; background: radial-gradient(circle at 50% 0, #e11d48 60%, transparent 62%) 0 0 / 20% 100%; z-index: 1; margin-bottom: -2%; }
+  .burger { --w: 120px; width: var(--w); display: flex; flex-direction: column-reverse; align-items: center; }
+  .burger .L { height: auto; }
+  /* 高さは 幅に あわせる */
+  .burger .L.bun_b { height: calc(var(--w) * .16); } .burger .L.bun_t { height: calc(var(--w) * .3); }
+  .burger .L.patty { height: calc(var(--w) * .14); } .burger .L.cheese { height: calc(var(--w) * .07); margin-top: calc(var(--w) * -.02); }
+  .burger .L.lettuce { height: calc(var(--w) * .08); } .burger .L.tomato { height: calc(var(--w) * .075); }
+  .burger .L.onion { height: calc(var(--w) * .05); } .burger .L.pickle { height: calc(var(--w) * .06); }
+  .burger .L.bacon { height: calc(var(--w) * .065); } .burger .L.egg { height: calc(var(--w) * .09); } .burger .L.ketchup { height: calc(var(--w) * .045); }
+  .stack .L + .L { margin-bottom: -1px; }
+  /* サイドの 絵 */
+  .fries { width: 34px; height: 40px; position: relative; }
+  .fries::before { content: ''; position: absolute; left: 4px; right: 4px; top: 0; height: 22px; background: repeating-linear-gradient(90deg, #ffd23f 0 4px, #f5b700 4px 5px); border-radius: 2px; clip-path: polygon(0 30%, 15% 0, 30% 25%, 45% 5%, 60% 22%, 75% 0, 90% 28%, 100% 10%, 100% 100%, 0 100%); }
+  .fries::after { content: 'M'; content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 24px; background: linear-gradient(#ff4d3d, #d62828); clip-path: polygon(0 0, 100% 0, 88% 100%, 12% 100%); border-radius: 3px; }
+  .fries.burnt::before { background: repeating-linear-gradient(90deg, #4a3020 0 4px, #2a1a10 4px 5px); }
+  .cup { width: 28px; height: 40px; position: relative; clip-path: polygon(0 0, 100% 0, 86% 100%, 14% 100%); background: rgba(255,255,255,.7); overflow: hidden; border-radius: 2px; }
+  .cup i { position: absolute; left: 0; right: 0; bottom: 0; background: var(--dc); }
+  .cup::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 6px; background: #e8553f; }
+  .ice { width: 30px; height: 44px; position: relative; display: flex; flex-direction: column-reverse; align-items: center; }
+  .ice .cone { width: 18px; height: 20px; background: repeating-linear-gradient(45deg, #e0a050 0 3px, #c98034 3px 5px); clip-path: polygon(0 0, 100% 0, 50% 100%); flex: none; }
+  .ice .sw { border-radius: 50%; background: var(--ic); flex: none; margin-bottom: -4px; box-shadow: inset 0 -2px 0 rgba(0,0,0,.08); }
+  /* ドリンク・ソフトの シート */
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; margin: 0 auto; max-width: 560px; z-index: 8; background: #fffaf2; border-radius: 24px 24px 0 0; box-shadow: 0 -10px 40px rgba(0,0,0,.3); padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); transform: translateY(105%); transition: transform .3s cubic-bezier(.3,1.2,.5,1); display: grid; gap: 10px; }
+  .sheet.on { transform: none; }
+  .sheet h3 { font-family: 'Zen Maru Gothic', sans-serif; margin: 0; text-align: center; font-weight: 900; }
+  .sheet .why { text-align: center; font-size: .9rem; font-weight: 700; color: #9a6a46; margin-top: -6px; }
+  .flv { display: flex; gap: 8px; justify-content: center; }
+  .flv button { appearance: none; border: 3px solid transparent; border-radius: 99px; padding: 6px 12px; font: 900 .95rem 'Zen Maru Gothic', sans-serif; color: #fff; cursor: pointer; box-shadow: 0 3px 0 rgba(0,0,0,.2); }
+  .flv button.on { border-color: #3a2416; transform: scale(1.06); }
+  .pour { display: flex; align-items: flex-end; justify-content: center; gap: 18px; height: 210px; }
+  .bigcup { position: relative; width: 120px; height: 190px; }
+  .bigcup .glass { position: absolute; inset: 0; clip-path: polygon(0 0, 100% 0, 86% 100%, 14% 100%); background: rgba(160,200,230,.25); overflow: hidden; }
+  .bigcup .liq { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: var(--dc, #ffb703); }
+  .bigcup .liq::before { content: ''; position: absolute; left: 0; right: 0; top: -4px; height: 8px; background: rgba(255,255,255,.4); border-radius: 50%; }
+  .zones { position: absolute; inset: 0; pointer-events: none; }
+  .zone { position: absolute; left: -6px; right: -6px; border-top: 2px dashed rgba(58,36,22,.5); border-bottom: 2px dashed rgba(58,36,22,.5); background: rgba(255,200,80,.18); }
+  .zone b { position: absolute; right: -30px; top: 50%; transform: translateY(-50%); font-size: .9rem; font-weight: 900; color: #3a2416; }
+  .zone.want { background: rgba(34,197,94,.25); border-color: #16a34a; }
+  .zone.want b { color: #16a34a; }
+  .bigice { position: relative; width: 120px; height: 190px; display: flex; flex-direction: column-reverse; align-items: center; }
+  .bigice .cone { width: 64px; height: 70px; background: repeating-linear-gradient(45deg, #e0a050 0 7px, #c98034 7px 11px); clip-path: polygon(0 0, 100% 0, 50% 100%); flex: none; }
+  .bigice .cream { position: absolute; left: 0; right: 0; bottom: 64px; top: 0; }
+  .bigice .cream i { position: absolute; left: 50%; display: block; border-radius: 50%; background: var(--ic); box-shadow: inset 0 -4px 0 rgba(0,0,0,.08); }
+  .pourBtn { width: 110px; height: 110px; border-radius: 50%; border: none; font: 900 1.15rem 'Zen Maru Gothic', sans-serif; color: #fff; background: radial-gradient(circle at 35% 30%, #ff9a6a, #ff3d6e); box-shadow: 0 6px 0 #b0213f; cursor: pointer; touch-action: none; }
+  .pourBtn:disabled { filter: grayscale(.8); opacity: .6; }
+  .pourBtn.on { transform: translateY(4px); box-shadow: 0 2px 0 #b0213f; }
+  .srow { display: flex; gap: 8px; }
+  .srow .btn { flex: 1; }
+  .btn.ok { background: #22c55e; color: #fff; }
+  .spill { position: absolute; left: 50%; top: -6px; width: 130%; transform: translateX(-50%); height: 20px; border-radius: 50%; background: var(--dc); opacity: 0; }
+  .spill.on { animation: spill .6s; }
+  @keyframes spill { 30% { opacity: .9; } to { opacity: 0; transform: translateX(-50%) scaleX(1.6) translateY(30px); } }
+  /* ふきだし・コイン */
+  .fly { position: absolute; z-index: 9; font-weight: 900; font-family: 'Dela Gothic One', sans-serif; color: #f59e0b; text-shadow: 0 2px 0 #fff, 0 0 8px #fff; pointer-events: none; animation: fly 1s forwards; font-size: 1.3rem; }
+  @keyframes fly { from { transform: translateY(0) scale(.6); opacity: 0; } 20% { opacity: 1; transform: translateY(-6px) scale(1.2); } to { transform: translateY(-50px) scale(1); opacity: 0; } }
+  .banner { font-family: 'Zen Maru Gothic', sans-serif; position: absolute; left: 0; right: 0; top: 36%; z-index: 9; text-align: center; pointer-events: none; font-weight: 900; font-size: clamp(1.6rem, 8vw, 2.4rem); color: #fff; text-shadow: 0 4px 0 #e8553f, 0 0 20px rgba(255,120,60,.6); opacity: 0; transform: scale(.8); transition: opacity .3s, transform .3s; }
+  .banner.on { opacity: 1; transform: scale(1); }
+  .banner small { display: block; font-size: .5em; letter-spacing: 3px; }
+  /* メニュー・けっか */
+  .over { position: absolute; inset: 0; z-index: 10; display: grid; place-items: center; padding: 14px; overflow: auto; background: rgba(60,30,20,.45); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+  .card { width: min(460px, 100%); background: #fffaf2; border-radius: 24px; padding: 18px 16px; display: grid; gap: 10px; box-shadow: 0 20px 50px rgba(0,0,0,.35); color: #3a2416; }
+  .card h2 { margin: 0; text-align: center; font-weight: 900; font-family: 'Zen Maru Gothic', sans-serif; font-size: 1.7rem; color: #e8553f; letter-spacing: 1px; }
+  .card p { margin: 0; line-height: 1.7; }
+  .logo { text-align: center; font-size: 3rem; line-height: 1; }
+  .days { display: grid; gap: 8px; }
+  .dayb { appearance: none; border: none; border-radius: 16px; background: #fff; box-shadow: 0 4px 0 #e2c4a4; padding: 10px 12px; display: grid; grid-template-columns: auto 1fr auto; gap: 2px 10px; align-items: center; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+  .dayb:disabled { opacity: .5; cursor: default; }
+  .dayb .n { grid-row: 1 / span 2; width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; font-family: 'Dela Gothic One', sans-serif; color: #fff; background: linear-gradient(135deg, #ff7a45, #ff3d6e); }
+  .dayb b { font-weight: 900; }
+  .dayb small { color: #9a6a46; font-weight: 700; font-size: .78rem; }
+  .dayb .stars { grid-row: 1 / span 2; grid-column: 3; font-size: 1.05rem; letter-spacing: 1px; color: #f59e0b; }
+  .res { display: grid; gap: 0; }
+  .res div { display: flex; justify-content: space-between; padding: 7px 2px; border-bottom: 1px dashed #e2c4a4; font-weight: 700; }
+  .bigstars { text-align: center; font-size: 2.4rem; letter-spacing: 6px; color: #f59e0b; text-shadow: 0 3px 0 #c2410c; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .row .btn { flex: 1; min-width: 130px; }
+  .how { margin: 0; padding-left: 1.2em; line-height: 1.8; font-size: .92rem; }
+  details summary { cursor: pointer; font-weight: 900; color: #c2410c; }
+  .pauseBtn { width: 40px; height: 40px; }
+  @media (max-height: 700px) { .counter { height: 112px; } .cust .face { width: 54px; height: 54px; font-size: 36px; } .tslot { height: 44px; } .bin { min-height: 46px; } .stn .ic { font-size: 1.4rem; } }
+  @media (max-height: 620px) { .counter { height: 100px; } .bins { grid-template-columns: repeat(10, 1fr); } .bin span { display: none; } }
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap">
+  <div class="shop" id="shop">
+    <div class="top"><span class="day" id="dayL">1日目</span><span class="pill combo" id="comboL" hidden></span><span class="pill">🪙 <b id="coinL">0</b></span><span class="pill">🙂 <b id="leftL">0</b></span></div>
+    <div class="counter"><div class="custs" id="custs"></div><div class="desk"></div></div>
+    <div class="work">
+      <div class="ticket" id="ticket"></div>
+      <div class="side">
+        <div class="plate" id="plate"><div class="stack burger" id="stack" style="--w:136px"></div></div>
+        <div class="tray" id="tray">
+          <div class="tslot" id="tsF"><span class="lab">ポテト</span></div>
+          <div class="tslot" id="tsD"><span class="lab">ドリンク</span></div>
+          <div class="tslot" id="tsI"><span class="lab">ソフト</span></div>
+        </div>
+        <div class="acts"><button class="btn trash" id="trash" aria-label="すてる">🗑️</button><button class="btn serve" id="serve">わたす</button></div>
+      </div>
+    </div>
+    <div class="stations">
+      <div class="stn grill" id="grill"><div class="gslots" id="gslots"></div><span class="nm">てっぱん</span></div>
+      <div class="stn" id="fryer"><span class="ic">🍟</span><div class="fbar"><i id="fryBar"></i></div><span class="st" id="fryS">タップで あげる</span></div>
+      <div class="stn" id="drinkS"><span class="ic">🥤</span><span class="st">ドリンク</span></div>
+      <div class="stn" id="iceS"><span class="ic">🍦</span><span class="st">ソフト</span></div>
+    </div>
+    <div class="bins" id="bins"></div>
+  </div>
+  <div class="banner" id="banner"></div>
+  <div class="sheet" id="sheet">
+    <h3 id="shT">ドリンク</h3>
+    <div class="why" id="shW"></div>
+    <div class="flv" id="shF"></div>
+    <div class="pour"><div id="shV"></div><button class="pourBtn" id="pourBtn">おしっぱなし</button></div>
+    <div class="srow"><button class="btn" id="shCancel">やめる</button><button class="btn" id="shReset">やりなおし</button><button class="btn ok" id="shDone">できた</button></div>
+  </div>
+  <div class="over" id="menuOv">
+    <div class="card">
+      <div class="logo">🍔</div>
+      <h2 style="font-family:'Dela Gothic One',sans-serif;font-weight:400">もぐもぐバーガー</h2>
+      <p>ハンバーガーやさんの てんいんさんに なって、おきゃくさんの ちゅうもんどおりに つくろう！</p>
+      <div class="days" id="days"></div>
+      <details><summary>あそびかた</summary>
+        <ul class="how">
+          <li>左の <b>ちゅうもん票</b> を 見て、下から じゅんばんに かさねる。さいしょと さいごは <b>バンズ</b></li>
+          <li><b>お肉</b> を おすと てっぱんで やける。ちょうどいい 色に なったら お肉を タップして のせる（こげると つかえない）</li>
+          <li>ポテトは あげて、できたら タップ。ドリンクと ソフトは ボタンを おしっぱなしで、S・M・L の 線に ぴったり あわせる</li>
+          <li>ぜんぶ そろったら <b>わたす</b>。おきゃくさんを タップすると、その人の ちゅうもんに きりかわる</li>
+          <li>まちがえたら 🗑️ で すてて つくりなおし。トレーの ものは タップで すてられる</li>
+          <li>はやく・ていねいに わたすと チップが ふえるよ</li>
+        </ul>
+      </details>
+    </div>
+  </div>
+  <div class="over" id="pauseOv" hidden>
+    <div class="card" style="text-align:center"><h2>きゅうけい</h2>
+      <button class="btn serve" id="resume">つづける</button>
+      <button class="btn" id="retry">さいしょから</button>
+      <button class="btn" id="quit">日を えらぶ</button></div>
+  </div>
+  <div class="over" id="resultOv" hidden><div class="card" id="resultCard"></div></div>
+</div>
+<button class="k-btn k-icon pauseBtn" id="pauseBtn" aria-label="一時停止">⏸</button>
+
+<script src="../../common/kit.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+/* ---------- ざいりょうと メニュー ---------- */
+const NAME = { bun_b: 'バンズ', bun_t: 'バンズ', patty: 'お肉', cheese: 'チーズ', lettuce: 'レタス', tomato: 'トマト', onion: 'たまねぎ', pickle: 'ピクルス', bacon: 'ベーコン', egg: 'たまご', ketchup: 'ケチャップ' };
+const BINS = [
+  { id: 'bun', n: 'バンズ', d: 1 }, { id: 'meat', n: 'お肉', d: 1 }, { id: 'cheese', n: 'チーズ', d: 1 },
+  { id: 'ketchup', n: 'ケチャップ', d: 2 }, { id: 'lettuce', n: 'レタス', d: 2 }, { id: 'tomato', n: 'トマト', d: 2 },
+  { id: 'onion', n: 'たまねぎ', d: 4 }, { id: 'pickle', n: 'ピクルス', d: 4 }, { id: 'bacon', n: 'ベーコン', d: 5 }, { id: 'egg', n: 'たまご', d: 5 },
+];
+const MENUS = [
+  { n: 'ハンバーガー', s: ['patty'] },
+  { n: 'チーズバーガー', s: ['patty', 'cheese'] },
+  { n: 'ケチャップバーガー', s: ['patty', 'ketchup', 'cheese'] },
+  { n: 'やさいバーガー', s: ['patty', 'tomato', 'lettuce'] },
+  { n: 'チーズやさいバーガー', s: ['patty', 'cheese', 'tomato', 'lettuce'] },
+  { n: 'ダブルチーズバーガー', s: ['patty', 'cheese', 'patty', 'cheese'], d: 5 },
+  { n: 'オニオンバーガー', s: ['patty', 'ketchup', 'onion', 'pickle'] },
+  { n: 'ピクルスチーズ', s: ['patty', 'cheese', 'pickle', 'pickle'] },
+  { n: 'ベーコンバーガー', s: ['patty', 'bacon', 'cheese', 'lettuce'] },
+  { n: 'エッグバーガー', s: ['patty', 'egg', 'ketchup'] },
+  { n: 'スペシャルバーガー', s: ['patty', 'cheese', 'bacon', 'egg', 'tomato', 'lettuce'] },
+];
+const DRINKS = { orange: { n: 'オレンジ', c: '#ff9f1c' }, cola: { n: 'コーラ', c: '#5a2d1a' }, melon: { n: 'メロン', c: '#5ccf3c' } };
+const ICES = { vanilla: { n: 'バニラ', c: '#fff6e0' }, choco: { n: 'チョコ', c: '#8b5a3c' }, berry: { n: 'いちご', c: '#ffa6c1' } };
+const ZONES = { S: [32, 46], M: [56, 70], L: [80, 94] };
+const DAYS = [
+  { t: 'はじめての おみせ', n: 5, pat: 85, gap: 11, fries: 0, drink: 0, ice: 0, hint: true },
+  { t: 'やさいと ポテト', n: 6, pat: 80, gap: 10, fries: .55, drink: 0, ice: 0, hint: true },
+  { t: 'ドリンク はじめました', n: 6, pat: 80, gap: 10, fries: .45, drink: .6, ice: 0, hint: true },
+  { t: 'ソフトクリーム', n: 7, pat: 78, gap: 9, fries: .4, drink: .5, ice: .5 },
+  { t: 'ベーコンエッグ', n: 8, pat: 72, gap: 8, fries: .45, drink: .5, ice: .4 },
+  { t: '大にぎわい！', n: 10, pat: 66, gap: 6.5, fries: .5, drink: .55, ice: .45 },
+];
+const ANIMALS = ['🐻', '🐰', '🐱', '🐶', '🐼', '🦊', '🐸', '🐨', '🐯', '🐷', '🐵', '🐧', '🦁', '🐹'];
+const COOK = 4.2, BURN = 9;          // お肉が やける / こげる 秒
+const FRY = 4.5, FBURN = 10;
+const save = () => Kit.store.get('burger:days', {});
+
+/* ---------- 絵の 部品 ---------- */
+const layer = (k, cls = '') => `<div class="L ${k} ${cls}"></div>`;
+const burgerHtml = (st, w) => `<div class="burger" style="--w:${w}px">${st.map(k => layer(k)).join('')}</div>`;
+const friesHtml = burnt => `<div class="fries ${burnt ? 'burnt' : ''}"></div>`;
+const cupHtml = (f, size, h) => `<div class="cup" style="--dc:${DRINKS[f].c};${size ? `transform:scale(${{ S: .8, M: .92, L: 1.05 }[size]})` : ''}"><i style="height:${h}%"></i></div>`;
+function iceHtml(f, size) { const n = { S: 1, M: 2, L: 3 }[size] || 1; let s = ''; for (let i = 0; i < n; i++) { const w = 26 - i * 5; s += `<i class="sw" style="width:${w}px;height:${w * .55}px"></i>`; } return `<div class="ice" style="--ic:${ICES[f].c}"><div class="cone"></div>${s}</div>`; }
+
+/* ---------- じょうたい ---------- */
+let G = null;
+function newOrder(day) {
+  const D = DAYS[day], o = {};
+  const ok = new Set(['patty', ...BINS.filter(b => b.d <= day + 1).map(b => b.id)]);
+  const menus = MENUS.filter(m => m.s.every(x => ok.has(x)) && (!m.d || m.d <= day + 1));
+  const sideOnly = day >= 2 && Math.random() < .12;
+  if (!sideOnly) { const m = Kit.pick(day >= 1 ? menus.slice(1).concat(menus) : menus); o.menu = m.n; o.stack = ['bun_b', ...m.s, 'bun_t']; }
+  if (Math.random() < D.fries) o.fries = true;
+  if (Math.random() < D.drink || (sideOnly && !D.ice)) o.drink = { f: Kit.pick(Object.keys(DRINKS)), size: Kit.pick(['S', 'M', 'L']) };
+  if (Math.random() < D.ice || (sideOnly && !o.drink)) o.ice = { f: Kit.pick(Object.keys(ICES)), size: Kit.pick(['S', 'M', 'L']) };
+  if (sideOnly && !o.fries && !o.drink && !o.ice) o.fries = true;
+  return o;
+}
+function start(day) {
+  G = {
+    day, D: DAYS[day], t: 0, coins: 0, served: 0, missed: 0, perfect: 0, combo: 0, maxCombo: 0,
+    custs: [], left: DAYS[day].n, spawnT: .6, nid: 1, sel: null, state: 'play',
+    stack: [], pq: [], closed: false, grill: [null, null, null], fry: { st: 'idle', t: 0 },
+    tray: { fries: null, drink: null, ice: null }, wrong: null, maxCoins: 0, lastAnimals: [],
+  };
+  ['menuOv', 'resultOv', 'pauseOv'].forEach(id => $(id).hidden = true);
+  closeSheet(true);
+  buildBins(); buildGrill();
+  $('fryer').classList.toggle('locked', !G.D.fries); $('drinkS').classList.toggle('locked', !G.D.drink); $('iceS').classList.toggle('locked', !G.D.ice);
+  $('tsF').classList.toggle('off', !G.D.fries); $('tsD').classList.toggle('off', !G.D.drink); $('tsI').classList.toggle('off', !G.D.ice);
+  $('custs').innerHTML = '';
+  $('dayL').textContent = `${day + 1}日目`;
+  drawStack(); drawTray(); drawTicket(); hud();
+  banner(`${day + 1}日目<small>${G.D.t}</small>`, 1600);
+  Kit.audio(); Kit.keepAwake(true);
+  Kit.music.play(BGM);
+}
+const BGM = { bpm: 124, type: 'triangle', vol: .028, lead: [523, 0, 659, 0, 784, 0, 659, 0, 698, 0, 880, 0, 784, 0, 659, 0, 587, 0, 698, 0, 880, 0, 784, 659, 523, 0, 587, 0, 523, 0, 0, 0], bass: [131, 0, 196, 0, 175, 0, 220, 0, 147, 0, 196, 0, 131, 0, 196, 0] };
+
+/* ---------- 画面を つくる ---------- */
+function buildBins() {
+  $('bins').innerHTML = '';
+  BINS.forEach(b => {
+    const k = { bun: 'bun_t', meat: 'patty raw' }[b.id] || b.id;
+    const el = Kit.el(`<button class="bin ${b.d > G.day + 1 ? 'locked' : ''}" data-id="${b.id}"><div class="burger" style="--w:46px">${layer(k)}</div><span>${b.n}</span></button>`);
+    el.onpointerdown = e => { e.preventDefault(); tapBin(b.id, el); };
+    $('bins').appendChild(el);
+  });
+}
+function buildGrill() {
+  $('gslots').innerHTML = '';
+  G.grill.forEach((_, i) => {
+    const el = Kit.el(`<div class="gs" data-i="${i}"><div class="ring"></div></div>`);
+    el.onpointerdown = e => { e.preventDefault(); e.stopPropagation(); tapGrill(i); };
+    $('gslots').appendChild(el);
+  });
+}
+$('grill').onpointerdown = e => { e.preventDefault(); if (!G) return; const i = G.grill.findIndex(g => g && g.t >= COOK); if (i >= 0) tapGrill(i); else tapBin('meat'); };
+function drawStack(dropLast) {
+  $('stack').innerHTML = G.stack.map((k, i) => layer(k, dropLast && i === G.stack.length - 1 ? 'drop' : '')).join('');
+}
+function drawTray() {
+  const t = G.tray;
+  $('tsF').innerHTML = (t.fries ? friesHtml(false) : '') + '<span class="lab">ポテト</span>'; $('tsF').classList.toggle('has', !!t.fries);
+  $('tsD').innerHTML = (t.drink ? cupHtml(t.drink.f, t.drink.size, t.drink.h) : '') + `<span class="lab">${t.drink ? DRINKS[t.drink.f].n + ' ' + t.drink.size : 'ドリンク'}</span>`; $('tsD').classList.toggle('has', !!t.drink);
+  $('tsI').innerHTML = (t.ice ? iceHtml(t.ice.f, t.ice.size) : '') + `<span class="lab">${t.ice ? ICES[t.ice.f].n + ' ' + t.ice.size : 'ソフト'}</span>`; $('tsI').classList.toggle('has', !!t.ice);
+}
+function selCust() { return G.custs.find(c => c.id === G.sel && c.st === 'wait'); }
+function drawTicket() {
+  const c = selCust(), tk = $('ticket');
+  if (!c) { tk.innerHTML = `<div class="empty">${G.left > 0 || G.custs.length ? 'おきゃくさんを まってるよ…' : 'おつかれさま！'}</div>`; return; }
+  const o = c.o; let h = `<h3><span class="who">${c.a}</span>${o.menu || 'サイドだけ'}</h3>`;
+  if (o.stack) {
+    for (let i = o.stack.length - 1; i >= 0; i--) {
+      const k = o.stack[i], have = G.stack[i];
+      const cls = have == null ? '' : have === k ? 'ok' : 'ng';
+      h += `<div class="trow ${cls}"><span class="mini"><div class="burger" style="--w:40px">${layer(k)}</div></span>${NAME[k]}</div>`;
+    }
+  }
+  const sides = [];
+  if (o.fries) sides.push(`<span class="${G.tray.fries ? 'ok' : ''}">🍟 ポテト</span>`);
+  if (o.drink) sides.push(`<span class="${sameD(G.tray.drink, o.drink) ? 'ok' : ''}">🥤 ${DRINKS[o.drink.f].n} ${o.drink.size}</span>`);
+  if (o.ice) sides.push(`<span class="${sameD(G.tray.ice, o.ice) ? 'ok' : ''}">🍦 ${ICES[o.ice.f].n} ${o.ice.size}</span>`);
+  if (sides.length) h += `<div class="tsides">${sides.join('')}</div>`;
+  tk.innerHTML = h;
+}
+const sameD = (a, b) => a && b && a.f === b.f && a.size === b.size;
+function hud() {
+  $('coinL').textContent = G.coins;
+  $('leftL').textContent = `${G.served + G.missed}/${G.D.n}`;
+  const cb = $('comboL'); cb.hidden = G.combo < 2; cb.textContent = `${G.combo}れんぞく！`;
+}
+function custHtml(c) {
+  const o = c.o, ic = (o.stack ? '🍔' : '') + (o.fries ? '🍟' : '') + (o.drink ? '🥤' : '') + (o.ice ? '🍦' : '');
+  return `<div class="face"><span>${c.a}</span></div><div class="bub">${ic}</div>`;
+}
+
+/* ---------- そうさ ---------- */
+function toast(s) { Kit.toast(s, 1400); Kit.sfx('bad'); }
+function tapBin(id, el) {
+  if (!G || G.state !== 'play') return;
+  if (id === 'meat') {
+    const i = G.grill.findIndex(g => !g);
+    if (i < 0) return toast('てっぱんが いっぱい！');
+    G.grill[i] = { t: 0, sz: 0 }; Kit.sfx('drop'); Kit.noise && Kit.noise(.4, { vol: .06, freq: 3000, filter: 'highpass' });
+    return;
+  }
+  if (G.closed) return toast('もう ふたを したよ。まちがえたら 🗑️');
+  if (G.stack.length >= 10) return toast('もう のらないよ');
+  if (id === 'bun') {
+    if (!G.stack.length) G.stack.push('bun_b'); else { G.stack.push('bun_t'); G.closed = true; }
+  } else {
+    if (!G.stack.length) return toast('さいしょは バンズを おいてね');
+    G.stack.push(id);
+  }
+  Kit.sfx('pop'); Kit.vibrate(8);
+  drawStack(true); drawTicket();
+}
+function tapGrill(i) {
+  if (!G || G.state !== 'play' || i < 0) return;
+  const g = G.grill[i];
+  if (!g) { tapBin('meat'); return; }
+  if (g.t >= BURN) { G.grill[i] = null; Kit.sfx('drop'); Kit.toast('こげた お肉を すてたよ', 1200); return; }
+  if (g.t < COOK) return toast('まだ なまやけ！ もうすこし まってね');
+  if (!G.stack.length) return toast('さきに バンズを おいてね');
+  if (G.closed) return toast('もう ふたを したよ');
+  G.stack.push('patty'); G.pq.push(g.t < COOK + 2.6 ? 2 : 1); G.grill[i] = null;
+  Kit.sfx('pop'); Kit.vibrate(8); drawStack(true); drawTicket();
+}
+$('trash').onclick = () => { if (!G || !G.stack.length) return; G.stack = []; G.pq = []; G.closed = false; Kit.sfx('whoosh'); drawStack(); drawTicket(); };
+$('tsF').onclick = () => { if (G && G.tray.fries) { G.tray.fries = null; Kit.sfx('whoosh'); drawTray(); drawTicket(); } };
+$('tsD').onclick = () => { if (G && G.tray.drink) { G.tray.drink = null; Kit.sfx('whoosh'); drawTray(); drawTicket(); } };
+$('tsI').onclick = () => { if (G && G.tray.ice) { G.tray.ice = null; Kit.sfx('whoosh'); drawTray(); drawTicket(); } };
+$('fryer').onpointerdown = e => {
+  e.preventDefault(); if (!G || G.state !== 'play') return; const f = G.fry;
+  if (f.st === 'idle') { f.st = 'cook'; f.t = 0; Kit.sfx('drop'); Kit.noise && Kit.noise(.6, { vol: .08, freq: 2500, filter: 'highpass' }); }
+  else if (f.st === 'cook') toast('まだ あげてるよ');
+  else if (f.st === 'done') { if (G.tray.fries) return toast('ポテトは もう トレーに あるよ'); G.tray.fries = { q: 1 }; f.st = 'idle'; Kit.sfx('pop'); drawTray(); drawTicket(); }
+  else if (f.st === 'burnt') { f.st = 'idle'; Kit.sfx('whoosh'); Kit.toast('こげた ポテトを すてたよ', 1200); }
+};
+$('drinkS').onpointerdown = e => { e.preventDefault(); if (G && G.state === 'play') { if (G.tray.drink) return toast('ドリンクは もう トレーに あるよ'); openSheet('drink'); } };
+$('iceS').onpointerdown = e => { e.preventDefault(); if (G && G.state === 'play') { if (G.tray.ice) return toast('ソフトは もう トレーに あるよ'); openSheet('ice'); } };
+$('custs').addEventListener('pointerdown', e => {
+  const el = e.target.closest('.cust'); if (!el || !G) return;
+  const c = G.custs.find(x => x.el === el); if (c && c.st === 'wait') { G.sel = c.id; Kit.sfx('tap'); markSel(); drawTicket(); }
+});
+function markSel() { G.custs.forEach(c => c.el.classList.toggle('sel', c.id === G.sel)); }
+
+/* ---------- わたす ---------- */
+$('serve').onclick = () => {
+  if (!G || G.state !== 'play') return;
+  const c = selCust(); if (!c) return toast('おきゃくさんが いないよ');
+  const o = c.o, t = G.tray;
+  // たりない ものは まず おしえる
+  if (o.stack && !G.closed) return toast(G.stack.length ? 'バーガーの さいごに バンズを のせてね' : 'バーガーを つくってね');
+  if (o.fries && !t.fries) return toast('ポテトが まだだよ');
+  if (o.drink && !t.drink) return toast('ドリンクが まだだよ');
+  if (o.ice && !t.ice) return toast('ソフトクリームが まだだよ');
+  let bad = '';
+  if (!o.stack && G.stack.length) bad = 'バーガーは たのんでないよ';
+  else if (o.stack && (G.stack.length !== o.stack.length || G.stack.some((k, i) => k !== o.stack[i]))) bad = 'バーガーの なかみが ちがうよ〜';
+  else if (!o.fries && t.fries) bad = 'ポテトは たのんでないよ';
+  else if (!o.drink && t.drink) bad = 'ドリンクは たのんでないよ';
+  else if (o.drink && !sameD(t.drink, o.drink)) bad = `ドリンクは ${DRINKS[o.drink.f].n}の ${o.drink.size}だよ`;
+  else if (!o.ice && t.ice) bad = 'ソフトは たのんでないよ';
+  else if (o.ice && !sameD(t.ice, o.ice)) bad = `ソフトは ${ICES[o.ice.f].n}の ${o.ice.size}だよ`;
+  if (bad) {
+    c.pat = Math.max(1, c.pat - 6); react(c, '💢'); c.el.classList.remove('mad'); void c.el.offsetWidth; c.el.classList.add('mad');
+    Kit.toast(bad, 1800); Kit.sfx('bad'); Kit.vibrate(40); G.combo = 0; hud(); drawTicket(); return;
+  }
+  // せいかい！
+  const spd = c.pat / c.max, perfP = G.pq.every(q => q === 2);
+  let pay = 0; if (o.stack) pay += 30 + o.stack.length * 5; if (o.fries) pay += 15; if (o.drink) pay += 15; if (o.ice) pay += 20;
+  const tip = Math.round(spd * 30) + (perfP && G.pq.length ? 10 : 0);
+  const perfect = spd > .5 && perfP;
+  if (perfect) { G.combo++; G.perfect++; } else G.combo = 0;
+  G.maxCombo = Math.max(G.maxCombo, G.combo);
+  const cb = G.combo >= 2 ? G.combo * 5 : 0;
+  G.coins += pay + tip + cb; G.served++;
+  flyText(c.el, `+${pay + tip + cb}`);
+  react(c, perfect ? '😍' : '😋'); Kit.sfx('coin'); setTimeout(() => Kit.sfx('good'), 120); Kit.vibrate([15, 30, 15]);
+  leave(c, true);
+  G.stack = []; G.pq = []; G.closed = false; G.tray = { fries: null, drink: null, ice: null };
+  drawStack(); drawTray(); hud();
+};
+function react(c, e) { const r = Kit.el(`<div class="react">${e}</div>`); c.el.appendChild(r); setTimeout(() => r.remove(), 1000); }
+function flyText(el, s) {
+  const r = el.getBoundingClientRect(), w = $('wrap').getBoundingClientRect();
+  const f = Kit.el(`<div class="fly">${s}</div>`); f.style.left = (r.left - w.left + r.width / 2 - 20) + 'px'; f.style.top = (r.top - w.top) + 'px';
+  $('wrap').appendChild(f); setTimeout(() => f.remove(), 1000);
+}
+function leave(c, happy) {
+  c.st = happy ? 'happy' : 'sad';
+  setTimeout(() => { c.el.classList.add('out'); }, happy ? 500 : 700);
+  setTimeout(() => { c.el.remove(); G.custs = G.custs.filter(x => x !== c); }, happy ? 950 : 1150);
+  if (G.sel === c.id) { const n = G.custs.find(x => x.st === 'wait' && x !== c); G.sel = n ? n.id : null; markSel(); }
+  drawTicket();
+}
+function spawn() {
+  const pool = ANIMALS.filter(a => !G.custs.some(c => c.a === a) && !G.lastAnimals.includes(a));
+  const a = Kit.pick(pool.length ? pool : ANIMALS); G.lastAnimals = [a, ...G.lastAnimals].slice(0, 4);
+  const o = newOrder(G.day), max = G.D.pat + (o.stack ? o.stack.length * 2 : 0) + (o.drink ? 5 : 0) + (o.ice ? 5 : 0);
+  const c = { id: G.nid++, a, o, pat: max, max, st: 'wait' };
+  c.el = Kit.el(`<div class="cust in">${custHtml(c)}</div>`);
+  $('custs').appendChild(c.el); requestAnimationFrame(() => requestAnimationFrame(() => c.el.classList.remove('in')));
+  G.custs.push(c); G.left--;
+  Kit.tone && Kit.tone(1046, .12, { type: 'sine', vol: .12 }); Kit.tone && Kit.tone(784, .2, { type: 'sine', vol: .12, delay: .12 });
+  if (!selCust()) { G.sel = c.id; markSel(); drawTicket(); }
+}
+
+/* ---------- ドリンク・ソフト（おしっぱなしで ぴったり） ---------- */
+const SH = { mode: null, f: null, fill: 0, pouring: false };
+function openSheet(mode) {
+  const c = selCust(), want = c && c.o[mode];
+  Object.assign(SH, { mode, f: null, fill: 0, pouring: false, want });
+  const list = mode === 'drink' ? DRINKS : ICES;
+  $('shT').textContent = mode === 'drink' ? '🥤 ドリンクを つぐ' : '🍦 ソフトクリームを まく';
+  $('shW').textContent = want ? `ちゅうもん：${list[want.f].n} の ${want.size}` : 'あじを えらんで、ボタンを おしっぱなし';
+  $('shF').innerHTML = Object.entries(list).map(([k, v]) => `<button data-k="${k}" style="background:${v.c};${k === 'vanilla' ? 'color:#3a2416' : ''}">${v.n}</button>`).join('');
+  $('shF').querySelectorAll('button').forEach(b => b.onclick = () => { if (SH.fill > 0) return Kit.toast('まぜると へんな あじに なるよ。やりなおしてね', 1500); SH.f = b.dataset.k; $('shF').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); Kit.sfx('select'); drawPour(); });
+  $('pourBtn').textContent = mode === 'drink' ? 'つぐ' : 'まく';
+  drawPour(true);
+  $('sheet').classList.add('on');
+}
+function closeSheet(now) { $('sheet').classList.remove('on'); SH.mode = null; SH.pouring = false; $('pourBtn').classList.remove('on'); }
+function zonesHtml(off) {
+  return `<div class="zones">${Object.entries(ZONES).map(([k, [a, b]]) => `<div class="zone ${SH.want && SH.want.size === k ? 'want' : ''}" style="bottom:${off + (190 - off) * a / 100}px;height:${(190 - off) * (b - a) / 100}px"><b>${k}</b></div>`).join('')}</div>`;
+}
+function drawPour(full) {
+  const v = $('shV'); $('pourBtn').disabled = !SH.f;
+  if (SH.mode === 'drink') {
+    if (full || !v.querySelector('.bigcup')) v.innerHTML = `<div class="bigcup"><div class="glass"><div class="liq" id="liq"></div></div><div class="spill" id="spill"></div>${zonesHtml(0)}</div>`;
+    const l = $('liq'); l.style.height = SH.fill + '%'; if (SH.f) v.querySelector('.bigcup').style.setProperty('--dc', DRINKS[SH.f].c);
+  } else if (SH.mode === 'ice') {
+    if (full || !v.querySelector('.bigice')) v.innerHTML = `<div class="bigice"><div class="cone"></div><div class="cream" id="cream"></div>${zonesHtml(64)}</div>`;
+    const cr = $('cream'), hh = (190 - 64) * SH.fill / 100; let s = '', y = 0, i = 0;
+    while (y < hh - 2) { const w = Math.max(16, 70 - y * .42) + Math.sin(i * 2.1) * 4, h = Math.min(18, hh - y); s += `<i style="width:${w}px;height:${h}px;bottom:${y}px;margin-left:${-w / 2 + Math.sin(i * 1.7) * 3}px"></i>`; y += 11; i++; }
+    cr.innerHTML = s; if (SH.f) v.querySelector('.bigice').style.setProperty('--ic', ICES[SH.f].c);
+  }
+}
+const pb = $('pourBtn');
+pb.addEventListener('pointerdown', e => { e.preventDefault(); if (!SH.f) return; SH.pouring = true; pb.classList.add('on'); pb.setPointerCapture?.(e.pointerId); });
+['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => pb.addEventListener(ev, () => { SH.pouring = false; pb.classList.remove('on'); }));
+function stepPour(dt) {
+  if (!SH.mode || !SH.pouring) return;
+  SH.fill += dt * (SH.mode === 'drink' ? 30 : 26);
+  if (Math.random() < dt * 14) Kit.tone && Kit.tone(SH.mode === 'drink' ? 300 + SH.fill * 6 : 180 + SH.fill * 3, .05, { type: 'sine', vol: .05 });
+  if (SH.fill > 100) {
+    SH.fill = 0; SH.pouring = false; pb.classList.remove('on');
+    Kit.toast(SH.mode === 'drink' ? 'あふれちゃった！ もう一回' : 'たおれちゃった！ もう一回', 1500); Kit.sfx('bad');
+    const sp = $('spill'); if (sp) { sp.classList.remove('on'); void sp.offsetWidth; sp.classList.add('on'); }
+  }
+  drawPour();
+}
+$('shCancel').onclick = () => { closeSheet(); Kit.sfx('tap'); };
+$('shReset').onclick = () => { SH.fill = 0; drawPour(); Kit.sfx('whoosh'); };
+$('shDone').onclick = () => {
+  if (!SH.f || SH.fill <= 0) return toast('あじを えらんで、ボタンを おしっぱなしに してね');
+  const size = Object.keys(ZONES).find(k => SH.fill >= ZONES[k][0] - 1 && SH.fill <= ZONES[k][1] + 1);
+  if (!size) return toast(SH.fill < ZONES.S[0] ? 'すくなすぎるよ。S・M・L の 線に あわせてね' : 'S・M・L の 線の あいだに あわせてね');
+  G.tray[SH.mode] = { f: SH.f, size, h: SH.fill };
+  Kit.sfx('good'); closeSheet(); drawTray(); drawTicket();
+};
+
+/* ---------- まいフレーム ---------- */
+let hintT = 0;
+function update(dt) {
+  if (!G || G.state !== 'play') return;
+  G.t += dt;
+  stepPour(dt);
+  // おきゃくさん
+  G.spawnT -= dt;
+  const waiting = G.custs.filter(c => c.st === 'wait').length;
+  if (G.left > 0 && G.custs.length < 3 && (G.spawnT <= 0 || waiting === 0 && G.spawnT > 2)) { spawn(); G.spawnT = G.D.gap * Kit.rand(.8, 1.2); }
+  G.custs.forEach(c => {
+    if (c.st !== 'wait') return;
+    c.pat -= dt * (SH.mode ? .6 : 1);
+    const p = Math.max(0, c.pat / c.max);
+    c.el.querySelector('.face').style.cssText = `--p:${p};--pc:${p > .5 ? '#22c55e' : p > .25 ? '#f59e0b' : '#ef4444'}`;
+    if (p < .25 && !c.warned) { c.warned = true; react(c, '💦'); }
+    if (c.pat <= 0) { G.missed++; G.combo = 0; react(c, '😢'); Kit.sfx('lose'); leave(c, false); hud(); }
+  });
+  // てっぱん
+  const gsEls = $('gslots').children;
+  G.grill.forEach((g, i) => {
+    const el = gsEls[i];
+    if (!g) { if (el.dataset.s !== '') { el.dataset.s = ''; el.className = 'gs'; el.innerHTML = '<div class="ring"></div>'; } return; }
+    g.t += dt;
+    const st = g.t >= BURN ? 'burnt' : g.t >= COOK ? 'done' : 'raw';
+    if (el.dataset.s !== st) {
+      el.dataset.s = st; el.className = 'gs ' + (st === 'done' ? 'done' : '');
+      el.innerHTML = `<div class="ring"></div><div class="pt"></div>${st === 'burnt' ? '<i class="smoke"></i><span class="tag">こげた</span>' : st === 'done' ? '<span class="tag">やけた！</span>' : ''}`;
+      if (st === 'done') Kit.tone && Kit.tone(1568, .15, { type: 'sine', vol: .15 });
+      if (st === 'burnt') Kit.sfx('bad');
+    }
+    const k = Math.min(1, g.t / COOK), b = Math.max(0, Math.min(1, (g.t - COOK - 2.6) / (BURN - COOK - 2.6)));
+    const col = st === 'raw' ? mix([240, 160, 160], [140, 76, 40], k) : mix([140, 76, 40], [40, 26, 20], b);
+    el.querySelector('.pt').style.background = `radial-gradient(circle at 35% 30%, rgba(255,255,255,.18), transparent 50%), rgb(${col})`;
+    el.querySelector('.ring').style.cssText = st === 'raw' ? `--p:${k};--rc:#fbbf24` : st === 'done' ? `--p:${1 - b};--rc:${b > 0 ? '#ef4444' : '#22c55e'}` : '--p:0';
+  });
+  // ポテト
+  const f = G.fry, fe = $('fryer');
+  if (f.st === 'cook') { f.t += dt; if (f.t >= FRY) { f.st = 'done'; f.t = 0; Kit.tone && Kit.tone(1318, .2, { type: 'sine', vol: .15 }); } }
+  else if (f.st === 'done') { f.t += dt; if (f.t >= FBURN) { f.st = 'burnt'; Kit.sfx('bad'); } }
+  $('fryBar').style.width = (f.st === 'cook' ? f.t / FRY * 100 : f.st === 'done' ? 100 - f.t / FBURN * 100 : 0) + '%';
+  $('fryBar').style.background = f.st === 'done' && f.t > FBURN * .6 ? '#ef4444' : '#fbbf24';
+  const fs = { idle: 'タップで あげる', cook: 'あげてる…', done: 'できた！タップ', burnt: 'こげた…すてる' }[f.st];
+  if ($('fryS').textContent !== fs) { $('fryS').textContent = fs; fe.classList.toggle('ready', f.st === 'done'); fe.classList.toggle('burnt', f.st === 'burnt'); }
+  // ヒント
+  hintT -= dt; if (hintT <= 0) { hintT = .25; hints(); }
+  // おしまい
+  if (G.left <= 0 && !G.custs.length && G.state === 'play') { G.state = 'end'; setTimeout(showResult, 700); }
+}
+const mix = (a, b, k) => a.map((v, i) => Math.round(v + (b[i] - v) * k)).join(',');
+function hints() {
+  document.querySelectorAll('.hint').forEach(e => e.classList.remove('hint'));
+  if (!G.D.hint) return;
+  const c = selCust(); if (!c || SH.mode) return;
+  const o = c.o, t = G.tray, mark = el => el && el.classList.add('hint');
+  if (o.stack && !G.closed) {
+    const ok = G.stack.every((k, i) => k === o.stack[i]);
+    if (!ok) return mark($('trash'));
+    const need = o.stack[G.stack.length];
+    if (need === 'bun_b' || need === 'bun_t') return mark(document.querySelector('.bin[data-id="bun"]'));
+    if (need === 'patty') {
+      const i = G.grill.findIndex(g => g && g.t >= COOK && g.t < BURN);
+      if (i >= 0) return mark($('gslots').children[i]);
+      if (!G.grill.some(g => g && g.t < COOK)) mark(document.querySelector('.bin[data-id="meat"]'));
+    } else return mark(document.querySelector(`.bin[data-id="${need}"]`));
+  }
+  if (o.fries && !t.fries) { if (G.fry.st !== 'cook') return mark($('fryer')); }
+  if (o.drink && !t.drink) return mark($('drinkS'));
+  if (o.ice && !t.ice) return mark($('iceS'));
+  if ((!o.stack || G.closed) && (!o.fries || t.fries)) mark($('serve'));
+}
+
+/* ---------- けっか ---------- */
+function stars() {
+  const r = G.served / G.D.n, avg = G.served ? G.coins / G.served : 0;
+  if (r >= 1 && avg >= 55) return 3;
+  if (r >= .8) return 2;
+  if (r >= .5) return 1;
+  return 0;
+}
+function showResult() {
+  Kit.music.stop(); Kit.keepAwake(false);
+  const s = stars(), sv = save(), prev = sv[G.day] || { stars: 0, coins: 0 };
+  sv[G.day] = { stars: Math.max(prev.stars, s), coins: Math.max(prev.coins, G.coins) };
+  Kit.store.set('burger:days', sv);
+  const total = Kit.store.get('burger:total', 0) + G.coins; Kit.store.set('burger:total', total);
+  const msg = s === 3 ? 'かんぺき！ おみせは 大にんき！' : s === 2 ? 'いい しごとだったね！' : s === 1 ? 'おつかれさま！ つぎは もっと はやく' : 'おきゃくさんが かえっちゃった… もう一回！';
+  $('resultCard').innerHTML = `<h2>${G.day + 1}日目 おしまい</h2>
+    <div class="bigstars">${'★'.repeat(s)}<span style="opacity:.2">${'★'.repeat(3 - s)}</span></div>
+    <p style="text-align:center;font-weight:900">${msg}</p>
+    <div class="res"><div><span>うりあげ</span><b>🪙 ${G.coins}${G.coins > prev.coins ? '　ベスト！' : ''}</b></div>
+    <div><span>わたせた おきゃくさん</span><b>${G.served} / ${G.D.n}</b></div>
+    <div><span>かんぺき（はやくて ジューシー）</span><b>${G.perfect}</b></div>
+    <div><span>さいだい れんぞく</span><b>${G.maxCombo}</b></div>
+    <div><span>これまでの うりあげ</span><b>🪙 ${total}</b></div></div>
+    <div class="row">${s >= 1 && G.day < DAYS.length - 1 ? '<button class="btn serve" id="rNext">つぎの日へ</button>' : ''}<button class="btn" id="rAgain">もう一回</button><button class="btn" id="rMenu">日を えらぶ</button></div>`;
+  $('resultOv').hidden = false;
+  if (s >= 2) { Kit.sfx('win'); if (s === 3) Kit.confetti(); } else Kit.sfx(s ? 'good' : 'lose');
+  const d = G.day;
+  if ($('rNext')) $('rNext').onclick = () => { Kit.sfx('tap'); start(d + 1); };
+  $('rAgain').onclick = () => { Kit.sfx('tap'); start(d); };
+  $('rMenu').onclick = () => { Kit.sfx('tap'); showMenu(); };
+}
+function showMenu() {
+  G = null; Kit.music.stop(); Kit.keepAwake(false); closeSheet(true);
+  ['resultOv', 'pauseOv'].forEach(id => $(id).hidden = true);
+  const sv = save(); $('days').innerHTML = '';
+  DAYS.forEach((D, i) => {
+    const s = sv[i], open = i === 0 || (sv[i - 1] && sv[i - 1].stars >= 1);
+    const b = Kit.el(`<button class="dayb" ${open ? '' : 'disabled'}><span class="n">${i + 1}</span><b>${i + 1}日目　${D.t}</b><small>${open ? (s ? `ベスト 🪙${s.coins}` : `おきゃくさん ${D.n}人`) : 'まえの 日で ★1つ とると あそべる'}</small><span class="stars">${s ? '★'.repeat(s.stars) + '<span style="opacity:.2">' + '★'.repeat(3 - s.stars) + '</span>' : open ? '' : '🔒'}</span></button>`);
+    if (open) b.onclick = () => { Kit.sfx('tap'); start(i); };
+    $('days').appendChild(b);
+  });
+  $('menuOv').hidden = false;
+}
+let bT = 0;
+function banner(h, ms) { const b = $('banner'); b.innerHTML = h; b.classList.add('on'); clearTimeout(bT); bT = setTimeout(() => b.classList.remove('on'), ms); }
+function pause() { if (!G || G.state !== 'play') return; G.state = 'pause'; Kit.music.stop(); $('pauseOv').hidden = false; SH.pouring = false; }
+function resume() { if (!G || G.state !== 'pause') return; G.state = 'play'; $('pauseOv').hidden = true; Kit.music.play(BGM); }
+$('pauseBtn').onclick = () => { Kit.sfx('tap'); if (G && G.state === 'pause') resume(); else pause(); };
+$('resume').onclick = () => { Kit.sfx('tap'); resume(); };
+$('retry').onclick = () => { Kit.sfx('tap'); start(G.day); };
+$('quit').onclick = () => { Kit.sfx('tap'); showMenu(); };
+document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+
+Kit.bar({ id: 'burger', extra: $('pauseBtn'), guard: { active: () => G && (G.state === 'play' || G.state === 'pause'), pause, resume }, title: '🍔 もぐもぐバーガー', help: `
+  <p>ハンバーガーやさんの てんいんさんに なって、ちゅうもんどおりに つくって わたそう。</p>
+  <ul>
+    <li>ちゅうもん票を 見て、下から じゅんばんに かさねる。さいしょと さいごは バンズ</li>
+    <li>お肉は てっぱんで やく。ちょうどいい ときに タップ（こげると すてるしか ない）</li>
+    <li>ドリンク・ソフトは おしっぱなしで S・M・L の 線に あわせる</li>
+    <li>おきゃくさんを タップすると ちゅうもん票が きりかわる</li>
+    <li>はやく わたすと チップ。まちすぎると おきゃくさんが かえっちゃう</li>
+  </ul>` });
+showMenu();
+Kit.loop(update).start();
+if (location.hash === '#debug') window.__b = { get G() { return G; }, start, SH, spawn, DAYS };
+</script>
+</body>
+</html>
