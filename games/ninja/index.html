@@ -36,7 +36,10 @@
   .pb.big { width: 84px; height: 84px; }
   .pb svg { width: 28px; height: 28px; }
   .dpad { display: flex; gap: 8px; }
-  @media (max-height: 460px) { .pb { width: 60px; height: 60px; } .pb.big { width: 72px; height: 72px; } }
+  .pcol { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .pb.sm { width: 58px; height: 58px; }
+  .pb.sm svg { width: 24px; height: 24px; }
+  @media (max-height: 460px) { .pb { width: 56px; height: 56px; } .pb.big { width: 66px; height: 66px; } .pb.sm { width: 48px; height: 48px; } .pcol { gap: 6px; } }
   @media (hover: hover) and (pointer: fine) { .pad { display: none; } }
   .msg { position: absolute; left: 8px; right: 8px; top: 28%; text-align: center; font-family: 'Dela Gothic One', sans-serif; font-size: clamp(1.6rem, 7vw, 2.6rem); color: #fff; text-shadow: 0 0 18px rgba(255,120,80,.9), 0 3px 0 rgba(0,0,0,.35); z-index: 4; pointer-events: none; opacity: 0; transform: scale(.9); transition: opacity .3s, transform .3s; letter-spacing: 2px; }
   .msg.on { opacity: 1; transform: scale(1); }
@@ -77,8 +80,10 @@
   </div>
   <div class="pad l" id="padL"><div class="dpad"><div class="pb glass" id="bL"><svg viewBox="0 0 24 24"><path d="M15 4 L7 12 L15 20" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="pb glass" id="bR"><svg viewBox="0 0 24 24"><path d="M9 4 L17 12 L9 20" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div></div>
   <div class="pad r" id="padR">
-    <div class="pb glass" id="bB"><div><svg viewBox="0 0 24 24"><path d="M3 12 H15 M11 6 L17 12 L11 18 M19 5 V19" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg><small>ダッシュ</small></div></div>
-    <div class="pb glass big" id="bA"><div><svg viewBox="0 0 24 24"><path d="M5 15 L12 8 L19 15" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg><small>ジャンプ</small></div></div>
+    <div class="pcol"><div class="pb glass sm" id="bK"><div><svg viewBox="0 0 24 24"><path d="M6 4 L10 11 L18 15 M10 11 L8 20" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="3.5" r="2" fill="#fff"/></svg><small>キック</small></div></div>
+    <div class="pb glass" id="bB"><div><svg viewBox="0 0 24 24"><path d="M3 12 H15 M11 6 L17 12 L11 18 M19 5 V19" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg><small>ダッシュ</small></div></div></div>
+    <div class="pcol"><div class="pb glass sm" id="bT"><div><svg viewBox="0 0 24 24"><path d="M4 20 L14 10 M14 10 L21 3 L17 12 Z" fill="#fff" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/><circle cx="5" cy="19" r="2.2" fill="none" stroke="#fff" stroke-width="1.8"/></svg><small>クナイ</small></div></div>
+    <div class="pb glass big" id="bA"><div><svg viewBox="0 0 24 24"><path d="M5 15 L12 8 L19 15" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg><small>ジャンプ</small></div></div></div>
   </div>
   <div class="msg" id="msg"></div>
   <div class="over" id="menuOv">
@@ -90,10 +95,11 @@
         <ul class="how">
           <li>◀ ▶ で いどう、<b>ジャンプ</b>（空中で もう一回 おすと 二だんジャンプ）</li>
           <li><b>ダッシュ</b>：かぜの ように まっすぐ ひとっとび。ダッシュで てきに ぶつかると たおせる</li>
+          <li><b>クナイ</b>：まえに なげて とおくの てきや ひのたまを たおす ／ <b>キック</b>：じめんでは まえげり、空中では ななめ下へ <b>とびげり</b>。木の はこも こわせる</li>
           <li>てきは 上から ふんでも たおせる。トゲの ある おには ふめないので ダッシュで</li>
           <li>かべに くっついて ジャンプで かべキック</li>
           <li>「忍」の はこは 下から たたく。おまもり（1回 まもる）・おにぎり（ハート＋1）・まねきねこ（こばんを すいよせる）</li>
-          <li>ちょうちんで 中間ポイント。パソコン：←→ / A D、スペース・↑・Z で ジャンプ、シフト・X で ダッシュ</li>
+          <li>ちょうちんで 中間ポイント。パソコン：←→ / A D、スペース・↑・Z で ジャンプ、シフト・X で ダッシュ、C で キック、V で クナイ</li>
         </ul>
       </details>
     </div>
@@ -120,9 +126,10 @@ const P = {
   wallSlide: 120, wallJumpX: 300, wallJumpY: 580, wallLock: .16,
   dashV: 640, dashT: .17, dashCD: .32,
   stomp: 440, stompHold: 610, spring: 1100,
+  kickT: .22, diveVX: 360, diveVY: 620, kunaiV: 720, kunaiCD: .3,
   w: 18, h: 28,
 };
-const SOLID = new Set(['#', '=', '?', 'K', 'R', 'M', 'u', 'c']);
+const SOLID = new Set(['#', '=', '?', 'K', 'R', 'M', 'u', 'c', 'b']);
 const BOXES = new Set(['?', 'K', 'R', 'M']);
 
 /* ---------- ステージを くみたてる 道具（y は 下から） ---------- */
@@ -187,8 +194,8 @@ function stage1() {
   L.set(102, G + 12, 'F').set(103, G + 12, 'o');   // まきもの 2：たてあなの 上
   L.ent('karakuri', 108, G);
   // 113〜127：くずれる はし（下は トゲ）
-  L.row(115, 126, G - 1, 'c');
-  L.row(115, 126, 0, '^');
+  L.row(113, 126, G - 1, 'c');
+  L.row(113, 126, 0, '^');
   L.coins(116, 125, G + 1);
   L.ent('crow', 121, G + 4, { amp: 1.2 });
   L.ground(127, 152, G);
@@ -209,6 +216,14 @@ function stage1() {
   L.ent('oni', 180, G);
   for (let i = 0; i < 7; i++) L.fill(186 + i, G, 186 + i, G + i, '=');
   L.fill(193, G, 193, G + 6, '=');
+  // こわせる はこ・ちょうちんおばけ
+  L.set(13, G, 'b').set(26, G, 'b').set(27, G, 'b').set(27, G + 1, 'b');
+  L.ent('lantern', 88, G + 5);
+  L.ent('lantern', 112, G + 5);
+  L.ent('lantern', 131, G + 6);
+  L.fill(165, G, 165, G + 2, 'b');
+  L.ent('lantern', 182, G + 5);
+  L.set(197, G, 'b');
   L.ent('goal', 200, G);
   L.coins(195, 198, G + 1);
   return { name: 'たけやぶ', sub: 'ステージ 1', L };
@@ -288,14 +303,14 @@ function buildLayers() {
 }
 
 /* ---------- 入力 ---------- */
-const IN = { l: false, r: false, jump: false, jp: false, dp: false };
-const keyMap = { ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r', Space: 'jump', ArrowUp: 'jump', KeyW: 'jump', KeyZ: 'jump', ShiftLeft: 'dash', ShiftRight: 'dash', KeyX: 'dash', KeyJ: 'dash' };
+const IN = { l: false, r: false, jump: false, jp: false, dp: false, kp: false, tp: false };
+const keyMap = { ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r', Space: 'jump', ArrowUp: 'jump', KeyW: 'jump', KeyZ: 'jump', ShiftLeft: 'dash', ShiftRight: 'dash', KeyX: 'dash', KeyJ: 'dash', KeyC: 'kick', KeyK: 'kick', KeyV: 'throw', KeyL: 'throw' };
 addEventListener('keydown', e => {
   const k = keyMap[e.code];
   if (!k) { if (e.code === 'Escape' || e.code === 'KeyP') togglePause(); return; }
   if (G && G.state === 'play') e.preventDefault();
   if (e.repeat) return;
-  if (k === 'jump') { IN.jp = true; IN.jump = true; } else if (k === 'dash') IN.dp = true; else IN[k] = true;
+  if (k === 'jump') { IN.jp = true; IN.jump = true; } else if (k === 'dash') IN.dp = true; else if (k === 'kick') IN.kp = true; else if (k === 'throw') IN.tp = true; else IN[k] = true;
 });
 addEventListener('keyup', e => { const k = keyMap[e.code]; if (k === 'jump') IN.jump = false; else if (k === 'l' || k === 'r') IN[k] = false; });
 function bindBtn(el, on, off) {
@@ -314,6 +329,8 @@ function bindBtn(el, on, off) {
 })();
 bindBtn($('bA'), () => { IN.jp = true; IN.jump = true; }, () => { IN.jump = false; });
 bindBtn($('bB'), () => { IN.dp = true; }, () => {});
+bindBtn($('bK'), () => { IN.kp = true; }, () => {});
+bindBtn($('bT'), () => { IN.tp = true; }, () => {});
 document.addEventListener('contextmenu', e => { if (e.target.closest('.stage')) e.preventDefault(); });
 
 /* ---------- ゲームの 状態 ---------- */
@@ -325,7 +342,7 @@ function load(si) {
   let start = { x: 3 * T, y: 2 * T }, sN = 0, coinTotal = 0;
   for (let r = 0; r < H; r++) for (let x = 0; x < W; x++) {
     const c = grid[r][x];
-    if (c === 'o' || c === '?') coinTotal++;
+    if (c === 'o' || c === '?' || c === 'b') coinTotal++;
     if (c === 'F') { ents.push({ k: 'scroll', x: x * T + T / 2, y: (r + 1) * T - 4, w: 26, h: 22, i: sN++, alive: true }); grid[r][x] = ' '; }
   }
   L.ents.forEach(e => {
@@ -334,6 +351,7 @@ function load(si) {
     else if (e.type === 'karakuri') ents.push({ k: 'karakuri', x: px + T / 2, y: py, w: 24, h: 26, vx: 55 * (e.dir || -1), vy: 0, alive: true, foe: true });
     else if (e.type === 'oni') ents.push({ k: 'oni', x: px + T / 2, y: py, w: 26, h: 26, vx: 42 * (e.dir || -1), vy: 0, alive: true, foe: true, spiky: true });
     else if (e.type === 'crow') ents.push({ k: 'crow', x: px + T / 2, y: py - T / 2, y0: py - T / 2, w: 26, h: 20, amp: (e.amp || 1.5) * T, ph: Math.random() * 6, alive: true, foe: true, fly: true });
+    else if (e.type === 'lantern') ents.push({ k: 'lantern', x: px + T / 2, y: py - T / 2, y0: py - T / 2, w: 26, h: 30, ph: Math.random() * 6, cool: 1.5, alive: true, foe: true, fly: true });
     else if (e.type === 'mplat') ents.push({ k: 'mplat', x0: px, y0: py - T, x: px, y: py - T, w: (e.len || 3) * T, h: 12, dx: (e.dx || 0) * T, dy: (e.dy || 0) * T, speed: e.speed || 1, t: 0, vx: 0, vy: 0 });
     else if (e.type === 'check') ents.push({ k: 'check', x: px + T / 2, y: py, on: false });
     else if (e.type === 'goal') ents.push({ k: 'goal', x: px + T / 2, y: py });
@@ -347,7 +365,7 @@ function start(si) {
     si, lv, state: 'intro', t: 0, introT: 1.5, time: 0, coin: 0, scr: [false, false, false], miss: 0,
     hearts: 3, maxHearts: 3, shield: false, magnet: 0,
     check: { x: lv.start.x, y: lv.start.y }, safe: { x: lv.start.x, y: lv.start.y },
-    p: null, cam: { x: 0, y: 0 }, parts: [], pops: [], crumble: new Map(), items: [], shake: 0, ghosts: [],
+    p: null, cam: { x: 0, y: 0 }, parts: [], pops: [], crumble: new Map(), items: [], shake: 0, ghosts: [], shots: [], fires: [],
   };
   spawnPlayer(lv.start.x, lv.start.y); G.camRef = null;
   G.cam.x = Kit.clamp(G.p.x - VW / SC * .35, 0, 1e9); G.cam.y = camTargetY();
@@ -361,7 +379,7 @@ function start(si) {
 const BGM = { bpm: 140, type: 'triangle', vol: .03, lead: [587, 0, 659, 0, 784, 880, 784, 0, 659, 0, 587, 494, 587, 0, 0, 0, 659, 0, 784, 0, 880, 988, 880, 0, 784, 659, 587, 0, 494, 0, 587, 0], bass: [147, 0, 0, 220, 147, 0, 196, 0, 165, 0, 0, 247, 165, 0, 220, 0] };
 function playBgm() { Kit.music.play(BGM); }
 function spawnPlayer(x, y) {
-  G.p = { x, y, vx: 0, vy: 0, w: P.w, h: P.h, face: 1, ground: false, coyote: 0, buf: 0, wall: 0, wallC: 0, wallLock: 0, holdJ: false, sq: 1, anim: 0, onPlat: null, dead: 0, inv: 0, jumps: 1, airDash: true, dash: 0, dashCD: 0, scarf: null };
+  G.p = { x, y, vx: 0, vy: 0, w: P.w, h: P.h, face: 1, ground: false, coyote: 0, buf: 0, wall: 0, wallC: 0, wallLock: 0, holdJ: false, sq: 1, anim: 0, onPlat: null, dead: 0, inv: 0, jumps: 1, airDash: true, dash: 0, dashCD: 0, scarf: null, kick: 0, kickHit: null, dive: false, throwT: 0, kunaiCD: 0 };
   G.p.scarf = Array.from({ length: 9 }, (_, i) => ({ x: x - i * 4, y: y - 20, px: x - i * 4, py: y - 20 }));
 }
 function padShow(v) { ['padL', 'padR'].forEach(id => $(id).hidden = !v); }
@@ -431,7 +449,31 @@ function stepWorld(dt, control) {
     for (let i = 0; i < 8; i++) part(p.x, p.y - 14, { c: 'rgba(160,230,255,.9)', vx: -p.face * Kit.rand(60, 200), vy: Kit.rand(-60, 60), life: .35, s: Kit.rand(2, 5) });
   }
   IN.dp = false;
-  if (p.dash > 0) {
+  // クナイ
+  if (p.kunaiCD > 0) p.kunaiCD -= dt;
+  if (p.throwT > 0) p.throwT -= dt;
+  if (IN.tp && control && p.kunaiCD <= 0) {
+    if (dir) p.face = dir;
+    p.kunaiCD = P.kunaiCD; p.throwT = .18;
+    G.shots.push({ x: p.x + p.face * 10, y: p.y - 18, vx: p.face * P.kunaiV, life: .55, trail: [] });
+    Kit.tone && Kit.tone(900, .07, { type: 'triangle', slide: -400, vol: .1 }); Kit.sfx('whoosh');
+  }
+  IN.tp = false;
+  // キック（地上：まえげり／空中：きゅうこうかの とびげり）
+  if (p.kick > 0) p.kick -= dt;
+  if (IN.kp && control && p.kick <= 0 && !p.dive) {
+    if (dir) p.face = dir;
+    if (p.ground) { p.kick = P.kickT; p.kickHit = new Set(); p.vx = p.face * 120; Kit.tone && Kit.tone(240, .08, { type: 'square', slide: 200, vol: .08 }); }
+    else { p.dive = true; p.dash = 0; p.holdJ = false; p.kickHit = new Set(); Kit.sfx('whoosh'); }
+  }
+  IN.kp = false;
+  if (p.dive) {
+    p.vx = p.face * P.diveVX; p.vy = P.diveVY;
+    if (Math.floor(G.t * 60) % 3 === 0) G.ghosts.push({ x: p.x, y: p.y, face: p.face, t: .2, pose: 'dive' });
+  }
+  if (p.dive) {
+    // とびげりは 下の 判定で 地面に ついたら おわり
+  } else if (p.dash > 0) {
     p.dash -= dt; p.vy = 0; if (p.dash <= 0) p.vx = p.face * P.speed;
     if (Math.floor(G.t * 60) % 2 === 0) G.ghosts.push({ x: p.x, y: p.y, face: p.face, t: .25, pose: 'dash' });
   } else if (p.wallLock <= 0) {
@@ -456,7 +498,8 @@ function stepWorld(dt, control) {
     for (let i = 0; i < 10; i++) { const a = i / 10 * 6.28; part(p.x, p.y - 4, { c: 'rgba(255,255,255,.85)', vx: Math.cos(a) * 110, vy: Math.sin(a) * 40 + 30, life: .3, s: 3 }); }
   }
   if (!IN.jump || !control) { if (p.holdJ && p.vy < 0) p.vy *= P.cut; p.holdJ = false; }
-  if (p.dash <= 0) p.vy = Math.min(P.maxFall, p.vy + (p.holdJ && p.vy < 0 ? P.gravHold : P.grav) * dt);
+  if (p.vy < 0) p.dive = false;
+  if (p.dash <= 0 && !p.dive) p.vy = Math.min(P.maxFall, p.vy + (p.holdJ && p.vy < 0 ? P.gravHold : P.grav) * dt);
   if (p.flip > 0) p.flip -= dt;
   // かべ
   p.wall = 0; p.wallC = 0;
@@ -467,12 +510,13 @@ function stepWorld(dt, control) {
     if (p.wall && p.vy > P.wallSlide) { p.vy = P.wallSlide; if (Math.random() < .3) part(p.x + p.wall * P.w / 2, p.y - 8, { c: '#fff', vx: 0, vy: -20, life: .3, s: 3 }); }
   }
   if (p.onPlat) { moveX(p, p.onPlat.vx * dt); p.y = p.onPlat.y; }
-  if (moveX(p, p.vx * dt)) { if (p.dash > 0) { p.dash = 0; G.shake = .08; } p.vx = 0; }
+  if (moveX(p, p.vx * dt)) { if (p.dash > 0) { p.dash = 0; G.shake = .08; } if (p.dive) { p.dive = false; p.vy = -200; } p.vx = 0; }
   const wasGround = p.ground, vyB = p.vy;
   p.ground = false;
   const hy = moveY(p, p.vy * dt, true);
   if (hy && hy.hit === 1) {
     p.ground = true; p.jumps = 1; p.airDash = true;
+    if (p.dive) { p.dive = false; p.vx *= .3; G.shake = .12; Kit.tone && Kit.tone(110, .15, { type: 'sine', vol: .25, slide: -40 }); dust(p.x, p.y, 10); shock(p.x, p.y); }
     if (!wasGround && vyB > 300) { p.sq = .72; dust(p.x, p.y, 5); }
     p.vy = 0;
     if (hy.c === 'c' && !G.crumble.has(hy.cx + ',' + hy.cy)) G.crumble.set(hy.cx + ',' + hy.cy, { cx: hy.cx, cy: hy.cy, st: 'shake', t: .45 });
@@ -541,13 +585,47 @@ function stepOthers(dt) {
       if (e.y > G.lv.H * T + 100) e.alive = false;
       e.anim = (e.anim || 0) + dt * 8;
     } else if (e.k === 'crow') { e.ph += dt * 2.2; e.y = e.y0 + Math.sin(e.ph) * e.amp; e.x += Math.sin(e.ph * .5) * 30 * dt; e.anim = (e.anim || 0) + dt * 14; e.face = p.x < e.x ? -1 : 1; }
+    else if (e.k === 'lantern') {
+      e.ph += dt * 1.6; e.y = e.y0 + Math.sin(e.ph) * 6; e.face = p.x < e.x ? -1 : 1; e.cool -= dt;
+      const dx = p.x - e.x, dy = (p.y - 16) - (e.y - 14), d = Math.hypot(dx, dy);
+      if (e.cool <= 0 && d < 9 * T && G.state === 'play' && !p.dead) { e.cool = 2.4; e.open = .35; G.fires.push({ x: e.x + e.face * 8, y: e.y - 12, vx: dx / d * 150, vy: dy / d * 150, life: 4 }); Kit.tone && Kit.tone(300, .15, { type: 'sawtooth', vol: .06, slide: -120 }); }
+      if (e.open > 0) e.open -= dt;
+    }
     if (p.dead > 0 || G.state !== 'play') return;
+    if (p.kick > .03 && p.kick < P.kickT - .03 && !p.kickHit.has(e) && overlap(kickBox(), e)) { p.kickHit.add(e); defeat(e, p.face); return; }
     if (!overlap(p, e)) return;
+    if (p.dive) { defeat(e, p.face); p.dive = false; p.vy = -520; p.vx = p.face * 120; p.jumps = 1; p.airDash = true; p.sq = 1.25; return; }
     if (p.dash > 0) { defeat(e, p.face); return; }        // ダッシュで きる
     const fromTop = p.vy > 0 && p.y - p.vy * STEP * 2 <= e.y - e.h + 10;
     if (fromTop && !e.spiky) { defeat(e, 0); p.vy = -(IN.jump ? P.stompHold : P.stomp); p.holdJ = IN.jump; p.sq = 1.25; p.jumps = 1; p.airDash = true; }
     else hurt(e);
   });
+  // クナイ
+  G.shots.forEach(k => {
+    k.life -= dt; const n = 3;
+    for (let i = 0; i < n && k.life > 0; i++) {
+      k.x += k.vx * dt / n;
+      const cx = Math.floor(k.x / T), cy = Math.floor(k.y / T), c = tileAt(cx, cy);
+      if (c === 'b') { breakBox(cx, cy); k.life = 0; break; }
+      if (isSolid(c)) { k.life = 0; k.stuck = true; Kit.tone && Kit.tone(1400, .04, { type: 'square', vol: .05 }); for (let j = 0; j < 4; j++) part(k.x, k.y, { c: '#ffe6b0', vx: -Math.sign(k.vx) * Kit.rand(40, 160), vy: Kit.rand(-120, 60), life: .25, s: 2, glow: true }); break; }
+      const hit = G.lv.ents.find(e => e.foe && e.alive && !e.dying && overlap({ x: k.x, y: k.y + 3, w: 14, h: 6 }, e));
+      if (hit) { defeat(hit, Math.sign(k.vx)); k.life = 0; break; }
+      const f = G.fires.find(f => Math.hypot(f.x - k.x, f.y - k.y) < 12); if (f) { f.life = 0; k.life = 0; popFire(f); break; }
+    }
+    k.trail.push({ x: k.x, y: k.y }); if (k.trail.length > 6) k.trail.shift();
+  });
+  G.shots = G.shots.filter(k => k.life > 0);
+  // ひのたま
+  G.fires.forEach(f => {
+    f.life -= dt; f.x += f.vx * dt; f.y += f.vy * dt; f.t = (f.t || 0) + dt;
+    if (isSolid(tileAt(Math.floor(f.x / T), Math.floor(f.y / T)))) { f.life = 0; popFire(f); }
+    if (p.kick > 0 && overlap(kickBox(), { x: f.x, y: f.y + 6, w: 12, h: 12 })) { f.life = 0; popFire(f); return; }
+    if (G.state === 'play' && !p.dead && overlap(p, { x: f.x, y: f.y + 6, w: 12, h: 12 })) { f.life = 0; popFire(f); if (p.dash > 0) return; hurt({ x: f.x }); }
+  });
+  G.fires = G.fires.filter(f => f.life > 0);
+  // キックで こわせる はこ
+  if (p.kick > .03 && p.kick < P.kickT - .03) { const kb = kickBox(); const cx = Math.floor((kb.x + p.face * 8) / T), cy = Math.floor((kb.y - 8) / T); if (tileAt(cx, cy) === 'b') breakBox(cx, cy); }
+  if (p.dive || p.dash > 0) { const cx = Math.floor((p.x + p.face * (P.w / 2 + 4)) / T), cy = Math.floor((p.y - 10) / T); if (tileAt(cx, cy) === 'b') breakBox(cx, cy); const cy2 = Math.floor((p.y + 2) / T); if (p.dive && tileAt(Math.floor(p.x / T), cy2) === 'b') breakBox(Math.floor(p.x / T), cy2); }
   G.items.forEach(it => {
     it.t += dt;
     if (it.k === 'coinFly') { it.x += (p.x - it.x) * Math.min(1, dt * 10); it.y += (p.y - 14 - it.y) * Math.min(1, dt * 10); if (Math.abs(p.x - it.x) < 10 && Math.abs(p.y - 14 - it.y) < 10) { it.done = true; addCoin(it.x, it.y); } return; }
@@ -563,6 +641,14 @@ function stepOthers(dt) {
   G.ghosts.forEach(g => g.t -= dt); G.ghosts = G.ghosts.filter(g => g.t > 0);
   if (G.shake > 0) G.shake -= dt;
 }
+function kickBox() { const p = G.p; return { x: p.x + p.face * 17, y: p.y - 4, w: 26, h: 22 }; }
+function shock(x, y) { G.pops.push({ k: 'ring', x, y, t: .3 }); G.lv.ents.forEach(e => { if (e.foe && e.alive && !e.dying && !e.fly && Math.abs(e.x - x) < 48 && Math.abs(e.y - y) < 10) defeat(e, Math.sign(e.x - x)); }); }
+function breakBox(cx, cy) {
+  setTile(cx, cy, ' '); Kit.sfx('hit'); Kit.vibrate(12); G.shake = .1;
+  for (let i = 0; i < 10; i++) part(cx * T + Kit.rand(4, 28), cy * T + Kit.rand(4, 28), { c: i % 2 ? '#a8704e' : '#7a4f3a', vx: Kit.rand(-180, 180), vy: Kit.rand(-280, -40), g: 1000, life: .7, s: Kit.rand(4, 8), sq: true });
+  G.items.push({ k: 'coinPop', x: cx * T + T / 2, y: cy * T, vy: -420, t: 0 }); addCoin(cx * T + T / 2, cy * T);
+}
+function popFire(f) { for (let i = 0; i < 8; i++) part(f.x, f.y, { c: i % 2 ? '#ffd27a' : '#ff6a3a', vx: Kit.rand(-120, 120), vy: Kit.rand(-120, 60), life: .35, s: 3, glow: true }); }
 function defeat(e, dirx) {
   e.dying = .9; e.vy = -360; e.dvx = dirx * 140;
   Kit.sfx('hit'); Kit.vibrate(18); G.shake = .12; G.hitstop = .05;
@@ -603,7 +689,7 @@ function hurt(e) {
   if (G.hearts <= 0) { die(); return; }
   p.inv = 1.6; knock(e); hud();
 }
-function knock(e) { const p = G.p; const d = e ? Math.sign(p.x - e.x) || -p.face : -p.face; p.vx = d * 260; p.vy = -400; p.wallLock = .25; p.holdJ = false; p.dash = 0; }
+function knock(e) { const p = G.p; p.dive = false; p.kick = 0; const d = e ? Math.sign(p.x - e.x) || -p.face : -p.face; p.vx = d * 260; p.vy = -400; p.wallLock = .25; p.holdJ = false; p.dash = 0; }
 function fall() {
   if (G.state !== 'play') return;
   G.hearts--; Kit.sfx('drop'); Kit.vibrate(40);
@@ -691,6 +777,17 @@ function render(dt) {
   G.lv.ents.forEach(e => { if (e.k === 'check' || e.k === 'goal' || e.k === 'mplat') drawEnt(e); });
   G.lv.ents.forEach(e => { if (!(e.k === 'check' || e.k === 'goal' || e.k === 'mplat')) drawEnt(e); });
   G.items.forEach(drawItem);
+  G.fires.forEach(f => { ctx.globalCompositeOperation = 'lighter'; const r = 9 + Math.sin(f.t * 20) * 1.5; const fg = ctx.createRadialGradient(f.x, f.y, 1, f.x, f.y, r * 1.8); fg.addColorStop(0, 'rgba(255,250,200,1)'); fg.addColorStop(.35, 'rgba(255,150,60,.9)'); fg.addColorStop(1, 'rgba(255,60,40,0)'); ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(f.x, f.y, r * 1.8, 0, 7); ctx.fill(); ctx.globalCompositeOperation = 'source-over'; });
+  G.shots.forEach(k => {
+    const d = Math.sign(k.vx);
+    ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = 'rgba(180,230,255,.5)'; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.beginPath(); k.trail.forEach((q, i) => i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)); ctx.stroke(); ctx.globalCompositeOperation = 'source-over';
+    ctx.save(); ctx.translate(k.x, k.y); ctx.scale(d, 1);
+    ctx.fillStyle = '#d8dcef'; ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(0, -3.5); ctx.lineTo(-2, 0); ctx.lineTo(0, 3.5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.fillRect(1, -1, 8, 1);
+    ctx.fillStyle = '#2a1f40'; ctx.fillRect(-9, -1.5, 8, 3);
+    ctx.strokeStyle = '#2a1f40'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(-11, 0, 2.5, 0, 7); ctx.stroke();
+    ctx.restore();
+  });
   G.ghosts.forEach(g => drawNinja(g, true));
   if (!(p.inv > 0 && Math.floor(G.t * 20) % 2) || p.dead > 0) drawNinja(p, false);
   // つぶ（光る ものは 加算で）
@@ -703,6 +800,7 @@ function render(dt) {
   ctx.globalAlpha = 1;
   G.pops.forEach(q => {
     if (q.k === 'text') { ctx.globalAlpha = Math.min(1, q.t * 3); ctx.font = '900 15px "Zen Maru Gothic",sans-serif'; ctx.textAlign = 'center'; const yy = q.y - (.8 - q.t) * 40; ctx.shadowColor = 'rgba(255,120,80,.9)'; ctx.shadowBlur = 10; ctx.fillStyle = '#fff'; ctx.fillText(q.s, q.x, yy); ctx.shadowBlur = 0; }
+    if (q.k === 'ring') { const k = 1 - q.t / .3; ctx.strokeStyle = `rgba(255,230,200,${1 - k})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(q.x, q.y - 2, 10 + k * 46, 4 + k * 8, 0, 0, 7); ctx.stroke(); }
     if (q.k === 'slash') { const k = 1 - q.t / .22; ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.a); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 1 - k; ctx.strokeStyle = '#ffe6c8'; ctx.lineWidth = 4 * (1 - k) + 1; ctx.beginPath(); ctx.moveTo(-30 * k - 6, 0); ctx.lineTo(30 * k + 6, 0); ctx.stroke(); ctx.restore(); ctx.globalCompositeOperation = 'source-over'; }
   });
   ctx.globalAlpha = 1;
@@ -792,6 +890,12 @@ function drawTiles(cx, cy, vw) {
       const top = y + T - 20 * k;
       ctx.strokeStyle = '#9a8fb8'; ctx.lineWidth = 2.5; ctx.beginPath(); for (let i = 0; i <= 4; i++) ctx.lineTo(x + (i % 2 ? 9 : T - 9), top + 4 + (y + T - 2 - top - 4) * i / 4); ctx.stroke();
       ctx.shadowColor = 'rgba(255,80,110,.9)'; ctx.shadowBlur = 10; rr(x + 3, top - 2, T - 6, 7, 3.5); ctx.fillStyle = '#ff4d6d'; ctx.fill(); ctx.shadowBlur = 0;
+    } else if (c === 'b') { // こわせる はこ
+      const g = ctx.createLinearGradient(0, y, 0, y + T); g.addColorStop(0, '#c48a5a'); g.addColorStop(1, '#8a5a36');
+      rr(x + 1, y + 1, T - 2, T - 2, 3); ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = '#5a3628'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x + 4, y + 4); ctx.lineTo(x + T - 4, y + T - 4); ctx.moveTo(x + T - 4, y + 4); ctx.lineTo(x + 4, y + T - 4); ctx.stroke();
+      ctx.strokeStyle = 'rgba(30,15,10,.6)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(x + 8, y + 2); ctx.lineTo(x + 12, y + 9); ctx.lineTo(x + 9, y + 14); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,220,170,.3)'; ctx.fillRect(x + 3, y + 2, T - 6, 2);
     } else if (c === 'o') drawCoin(x + T / 2, y + T / 2 + Math.sin(G.t * 3 + tx * .7) * 2, tx);
   }
 }
@@ -881,6 +985,16 @@ function drawEnt(e) {
     ctx.strokeStyle = '#1a1028'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(f * 3 - 6, -18 - b); ctx.lineTo(f * 3 - 1, -16.5 - b); ctx.moveTo(f * 3 + 7, -18 - b); ctx.lineTo(f * 3 + 2, -16.5 - b); ctx.stroke();
     ctx.fillStyle = '#fff'; ctx.fillRect(f * 3 - 3, -8 - b, 2, 2.5); ctx.fillRect(f * 3 + 2, -8 - b, 2, 2.5);
     ctx.fillStyle = '#5a1a2a'; ctx.fillRect(-9, -2, 5, 2); ctx.fillRect(4, -2, 5, 2);
+  } else if (e.k === 'lantern') { // ちょうちんおばけ
+    ctx.scale(e.face || 1, 1);
+    ctx.globalCompositeOperation = 'lighter'; const gl = ctx.createRadialGradient(0, -14, 2, 0, -14, 34); gl.addColorStop(0, 'rgba(255,160,80,.55)'); gl.addColorStop(1, 'rgba(255,100,60,0)'); ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(0, -14, 34, 0, 7); ctx.fill(); ctx.globalCompositeOperation = 'source-over';
+    const g = ctx.createLinearGradient(-12, -30, 12, 0); g.addColorStop(0, '#ffb07a'); g.addColorStop(1, '#e0503a');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, -14, 12, 15, 0, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(120,30,20,.45)'; ctx.lineWidth = 1; for (let yy = -24; yy <= -4; yy += 5) { ctx.beginPath(); ctx.moveTo(-11, yy); ctx.lineTo(11, yy); ctx.stroke(); }
+    ctx.fillStyle = '#2a1f40'; ctx.fillRect(-7, -31, 14, 4); ctx.fillRect(-7, -1, 14, 3);
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(3, -17, 5, 0, 7); ctx.fill(); ctx.fillStyle = '#1a1028'; ctx.beginPath(); ctx.arc(4.5, -17, 2.4, 0, 7); ctx.fill();
+    const o = e.open > 0 ? 5 : 2; ctx.fillStyle = '#5a1020'; ctx.beginPath(); ctx.ellipse(3, -8, 6, o, 0, 0, 7); ctx.fill();
+    if (e.open > 0) { ctx.fillStyle = '#ff6a8a'; ctx.beginPath(); ctx.ellipse(5, -5, 3, 4, .3, 0, 7); ctx.fill(); }
   } else if (e.k === 'crow') { // からす天狗
     ctx.scale(f, 1);
     const wf = Math.sin(e.anim);
@@ -920,9 +1034,17 @@ function drawNinja(p, ghost) {
   const bob = run ? Math.abs(Math.sin(t * 2.4)) * 2 : p.ground ? Math.sin((G ? G.t : 0) * 3) * .6 : 0;
   const body = ghost ? '#7fd8ff' : '#1d1a3a', body2 = ghost ? '#7fd8ff' : '#2e2a58', skin = ghost ? '#7fd8ff' : '#ffdcc0';
   // あし
+  const kicking = !ghost && p.kick > 0, diving = ghost ? p.pose === 'dive' : p.dive;
+  if (diving) { ctx.rotate(.5); }
   const lg = run ? [Math.sin(t * 2.4) * 6, -Math.sin(t * 2.4) * 6] : air ? [-5, 4] : [-1, 2];
   ctx.fillStyle = body;
-  [[-4 + lg[0]], [4 + lg[1]]].forEach(([lx], i) => { rr(lx - 3, -9, 6, 9, 2.5); ctx.fill(); });
+  if (kicking || diving) {
+    // けりあし
+    const ext = kicking ? Math.sin(Math.min(1, (P.kickT - p.kick) / (P.kickT * .5)) * Math.PI / 2) : 1;
+    rr(-7, -9, 6, 9, 2.5); ctx.fill();
+    ctx.strokeStyle = body; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(2, -9); ctx.lineTo(2 + 14 * ext, -8 + (diving ? 6 : -2) * ext); ctx.stroke();
+    if (!ghost) { ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = `rgba(255,220,180,${.5 * ext})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(4, -8, 16, -.6, .5); ctx.stroke(); ctx.globalCompositeOperation = 'source-over'; }
+  } else [[-4 + lg[0]], [4 + lg[1]]].forEach(([lx], i) => { rr(lx - 3, -9, 6, 9, 2.5); ctx.fill(); });
   // からだ
   const g = ctx.createLinearGradient(0, -24, 0, -6); g.addColorStop(0, body2); g.addColorStop(1, body);
   ctx.fillStyle = ghost ? body : g; rr(-8, -22 - bob, 16, 15, 6); ctx.fill();
@@ -930,7 +1052,8 @@ function drawNinja(p, ghost) {
   // うで
   const arm = run ? Math.sin(t * 2.4) * 7 : air ? -6 : 0;
   ctx.strokeStyle = body; ctx.lineWidth = 4; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(2, -18 - bob); ctx.lineTo(8 - arm * .3, -11 - bob + (dash ? -6 : 0)); ctx.stroke();
+  if (!ghost && p.throwT > 0) { ctx.beginPath(); ctx.moveTo(2, -18 - bob); ctx.lineTo(14, -19 - bob); ctx.stroke(); }
+  else { ctx.beginPath(); ctx.moveTo(2, -18 - bob); ctx.lineTo(8 - arm * .3, -11 - bob + (dash ? -6 : 0)); ctx.stroke(); }
   // あたま
   const hy = -30 - bob;
   ctx.fillStyle = ghost ? body : body2; ctx.beginPath(); ctx.arc(1, hy, 10.5, 0, 7); ctx.fill();
@@ -1002,7 +1125,8 @@ Kit.bar({ id: 'ninja', extra: $('pauseBtn'), guard: { active: () => G && (G.stat
   <p>にんじゃの <b>かげまる</b> が ゆうやけの 里を かけぬける 横スクロールアクション。ゴールの のろしを めざそう。</p>
   <ul>
     <li>◀ ▶：いどう ／ ジャンプ（空中で もう一回 で 二だんジャンプ）／ ダッシュ（まっすぐ ひとっとび。空中でも 1回）</li>
-    <li>パソコン：←→ / A D、スペース・↑・Z で ジャンプ、シフト・X で ダッシュ、Esc で ひとやすみ</li>
+    <li>クナイ：まえに なげる（ひのたまも けせる）／ キック：じめんで まえげり、空中で とびげり（木の はこも こわせる）</li>
+    <li>パソコン：←→ / A D、スペース・↑・Z で ジャンプ、シフト・X で ダッシュ、C で キック、V で クナイ、Esc で ひとやすみ</li>
     <li>てきは 上から ふむか、ダッシュで ぶつかると たおせる。トゲの ある あかおには ダッシュで</li>
     <li>かべに くっついて ジャンプで かべキック。かべに ふれると 二だんジャンプと ダッシュが もどる</li>
     <li>「忍」の はこは 下から たたく。おまもり（1回 まもる）、おにぎり（ハート＋1）、まねきねこ（こばんを すいよせる）</li>
