@@ -30,6 +30,15 @@
   .tip.off { opacity: 0; }
   .bal { position: absolute; left: 50%; bottom: calc(62px + env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(260px, 70vw); z-index: 3; pointer-events: none; text-align: center; transition: opacity .25s; }
   .bal.off { opacity: 0; }
+  .mash { position: absolute; right: 14px; bottom: calc(96px + env(safe-area-inset-bottom)); z-index: 4; width: 116px; height: 116px; border-radius: 50%; border: 5px solid #fff; background: radial-gradient(circle at 35% 30%, #ffd23f, #ff7a1a 70%); color: #fff; font: 400 1.35rem 'Dela Gothic One', sans-serif; -webkit-text-stroke: 1px #7a2a00; box-shadow: 0 6px 0 #a8400a, 0 0 0 6px rgba(255,210,63,.35); touch-action: manipulation; cursor: pointer; animation: mpulse .5s ease-in-out infinite alternate; line-height: 1.1; }
+  .mash small { display: block; font: 900 .8rem 'Zen Maru Gothic', sans-serif; -webkit-text-stroke: 0; }
+  .mash[hidden] { display: none; }
+  .mash:active { transform: translateY(4px) scale(.95); box-shadow: 0 2px 0 #a8400a; }
+  @keyframes mpulse { to { box-shadow: 0 6px 0 #a8400a, 0 0 0 16px rgba(255,210,63,.15); } }
+  .say { position: absolute; left: 50%; top: 30%; transform: translate(-50%, 0) scale(.6); z-index: 3; pointer-events: none; background: #fff; color: #12324f; font: 900 1.25rem 'Zen Maru Gothic', sans-serif; padding: 8px 16px; border-radius: 18px; border: 3px solid #12324f; white-space: nowrap; opacity: 0; transition: opacity .15s, transform .2s cubic-bezier(.3,1.6,.5,1); }
+  .say::after { content: ''; position: absolute; left: 50%; bottom: -12px; margin-left: -8px; border: 8px solid transparent; border-top-color: #12324f; border-bottom: 0; }
+  .say.on { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  .say.laugh { top: 18%; left: 26%; background: #ffe066; font-size: 1.05rem; }
   .bal .bar { position: relative; height: 16px; border-radius: 99px; background: linear-gradient(90deg, #ff3d3d, #ffb13d 28%, #4ade80 42%, #4ade80 58%, #ffb13d 72%, #ff3d3d); box-shadow: 0 2px 0 rgba(0,0,0,.3), inset 0 0 0 2px rgba(255,255,255,.5); }
   .bal .mk { position: absolute; top: -5px; width: 8px; height: 26px; margin-left: -4px; border-radius: 4px; background: #fff; box-shadow: 0 0 0 2px #12324f; left: 50%; }
   .bal b { display: inline-block; margin-bottom: 5px; font: 900 1rem 'Zen Maru Gothic', sans-serif; color: #fff; text-shadow: 0 1px 3px #000; }
@@ -55,11 +64,13 @@
 <body>
 <div class="stage" id="stage">
   <canvas id="cv"></canvas>
-  <div class="hud" id="hud" hidden><span class="pill" id="hLife"></span><span class="pill" id="hScore"></span></div>
+  <div class="hud" id="hud" hidden><span class="pill" id="hLife">🎥 REC</span><span class="pill" id="hScore"></span></div>
   <div class="cmts" id="cmts"></div>
   <div class="banner" id="banner"><b id="bnA"></b><span id="bnB"></span></div>
   <div class="tip off" id="tip"></div>
-  <div class="bal off" id="bal"><b id="balT">ぐらぐら！ おしつづけて ふんばれ</b><div class="bar"><div class="mk" id="balM"></div></div></div>
+  <div class="say" id="say"></div><div class="say laugh" id="laugh"></div>
+  <button class="mash" id="mash" hidden>ふんばる<small>れんだ！</small></button>
+  <div class="bal off" id="bal"><b id="balT">ぐらぐら！ 連打で ふんばれ</b><div class="bar"><div class="mk" id="balM"></div></div></div>
   <div class="over" id="menuOv">
     <div class="card">
       <h2>とびいし ジャンプ</h2>
@@ -69,7 +80,8 @@
         <li>とおい いしは、空中で <b>もう一回 タップ</b>（くるっと 大ジャンプ）</li>
         <li>のっている いしは だんだん しずむ。リズムよく すすもう</li>
         <li>よこに うごく はっぱや 丸太、もぐる カメに 気をつけて</li>
-        <li>まん中に ピタッと のると ボーナス！ ドボンは 3かいまで</li>
+        <li>はしに おりて ぐらぐら したら、<b>ふんばる ボタンを 連打</b>！</li>
+        <li>まん中に ピタッと のると ボーナス！ 1かい おちたら おしまい</li>
       </ul>
       <div class="best" id="mBest"></div>
       <div class="nogl" id="noGL" hidden>この きかいでは 3Dが うごきません</div>
@@ -255,6 +267,57 @@ function splash(x, z, n, sp = 1, col) {
 }
 function ring(x, z, big = 1, y = .04) { const r = rings.find(r => r.t >= r.max) || rings[0]; r.t = 0; r.max = .9; r.big = big; r.m.position.set(x, y, z); r.m.visible = true; }
 
+/* ---------- こえ・わらいごえ・ドボンの 音 ---------- */
+const snd = () => Kit.settings.sound;
+const TTS = window.speechSynthesis;
+let jaVoices = [];
+function loadVoices() { if (!TTS) return; jaVoices = TTS.getVoices().filter(v => /^ja/i.test(v.lang)); }
+if (TTS) { loadVoices(); TTS.onvoiceschanged = loadVoices; }
+let sayT = 0, lastTalk = 0, laughT = 0;
+function bubble(id, text, ms) { const e = $(id); e.textContent = text; e.classList.add('on'); clearTimeout(e._t); e._t = setTimeout(() => e.classList.remove('on'), ms); }
+function speak(text, pitch, rate, voiceIdx, vol = 1) {
+  if (!TTS || !snd()) return;
+  const u = new SpeechSynthesisUtterance(text); u.lang = 'ja-JP'; u.pitch = pitch; u.rate = rate; u.volume = vol;
+  if (jaVoices.length) u.voice = jaVoices[Math.min(voiceIdx, jaVoices.length - 1)];
+  TTS.speak(u);
+}
+// pri: 0 ふつう 1 だいじ 2 さいゆうせん
+function talk(text, pri = 0) {
+  const now = performance.now();
+  if (pri < 2 && now - lastTalk < (pri ? 700 : 1400)) return;
+  lastTalk = now; bubble('say', text, 1300);
+  if (TTS && snd()) { if (pri) TTS.cancel(); speak(text, 1.7, 1.25, 0); }
+}
+const LAUGHS = ['あはははは！', 'ぎゃははは！', 'うひゃひゃひゃ！', 'わはははは！', 'あっはっはっは！'];
+function laugh(level = 1, big) {
+  const now = performance.now(); if (!big && now - laughT < 2500) return; laughT = now;
+  const t = Kit.pick(LAUGHS);
+  setTimeout(() => { bubble('laugh', '📱 ' + t, 1600); speak(t, 1.15 + Math.random() * .3, 1.35, 1, .9); cmt(big ? Kit.pick(['www', 'わらった', '神回', 'ドボン きたー！']) : 'www'); if (big) setTimeout(() => speak(Kit.pick(LAUGHS), .9, 1.3, 2, .8), 900); }, big ? 650 : 250);
+}
+function splashSound() {
+  if (!snd()) return; const a = Kit.audio(); if (!a) return;
+  const t0 = a.currentTime, out = a.createGain(); out.gain.value = .9; out.connect(a.destination);
+  const nbuf = (dur) => { const len = Math.floor(a.sampleRate * dur), b = a.createBuffer(1, len, a.sampleRate), d = b.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1; return b; };
+  // ばしゃーん（ひろい ノイズ、フィルタが 下がっていく）
+  { const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(); s.buffer = nbuf(1.4); f.type = 'lowpass'; f.Q.value = .7;
+    f.frequency.setValueAtTime(6000, t0); f.frequency.exponentialRampToValueAtTime(500, t0 + 1.2);
+    g.gain.setValueAtTime(.0001, t0); g.gain.exponentialRampToValueAtTime(.9, t0 + .015); g.gain.exponentialRampToValueAtTime(.25, t0 + .25); g.gain.exponentialRampToValueAtTime(.0001, t0 + 1.35);
+    s.connect(f); f.connect(g); g.connect(out); s.start(t0); }
+  // ぱしゃっ（たかい ところの アタック）
+  { const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(); s.buffer = nbuf(.15); f.type = 'highpass'; f.frequency.value = 2500;
+    g.gain.setValueAtTime(.7, t0); g.gain.exponentialRampToValueAtTime(.0001, t0 + .14); s.connect(f); f.connect(g); g.connect(out); s.start(t0); }
+  // どぼん（ひくい 音）
+  { const o = a.createOscillator(), g = a.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(150, t0); o.frequency.exponentialRampToValueAtTime(45, t0 + .35);
+    g.gain.setValueAtTime(.0001, t0); g.gain.exponentialRampToValueAtTime(.7, t0 + .02); g.gain.exponentialRampToValueAtTime(.0001, t0 + .45); o.connect(g); g.connect(out); o.start(t0); o.stop(t0 + .5); }
+  // ぴちゃぴちゃ（おちてくる しぶき）
+  for (let i = 0; i < 14; i++) { const t = t0 + .25 + Math.random() * 1.1, s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(); s.buffer = nbuf(.05); f.type = 'bandpass'; f.frequency.value = 1500 + Math.random() * 3500; f.Q.value = 4;
+    g.gain.setValueAtTime(.35 * Math.random() + .1, t); g.gain.exponentialRampToValueAtTime(.0001, t + .05); s.connect(f); f.connect(g); g.connect(out); s.start(t); }
+  // ぶくぶく（あわ）
+  for (let i = 0; i < 9; i++) { const t = t0 + .45 + i * .11 + Math.random() * .06, o = a.createOscillator(), g = a.createGain(), fr = 260 + Math.random() * 380; o.type = 'sine'; o.frequency.setValueAtTime(fr, t); o.frequency.exponentialRampToValueAtTime(fr * 2.2, t + .06);
+    g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.22, t + .01); g.gain.exponentialRampToValueAtTime(.0001, t + .07); o.connect(g); g.connect(out); o.start(t); o.stop(t + .08); }
+  setTimeout(() => out.disconnect(), 2500);
+}
+
 /* ---------- じょうたい ---------- */
 let G = null;
 function newGame() {
@@ -262,7 +325,7 @@ function newGame() {
   G = {
     t: 0, st: 'ready', stones: [],
     p: { x: 0, y: TOP, z: 0, vz: 0, vy: 0, on: null, off: 0, bal: 0, dj: false, flip: 0, squash: 0, fallT: 0, run: 0 },
-    life: 3, score: 0, count: 0, maxIdx: 0, perf: 0, balls: 0, falls: 0, combo: 0, maxCombo: 0,
+    life: 1, score: 0, count: 0, maxIdx: 0, perf: 0, balls: 0, falls: 0, combo: 0, maxCombo: 0,
     area: 0, lastZ: 0, idx: 0, shake: 0, camZ: 0,
   };
   // スタートの 岸（大きな 岩の だい）
@@ -275,7 +338,7 @@ function newGame() {
   banner('エリア 1', AREAS[0].name);
   Kit.audio(); Kit.music.play(BGM);
 }
-function hud() { $('hLife').textContent = '❤️'.repeat(G.life) + '🤍'.repeat(3 - G.life); $('hScore').innerHTML = `🪨 <b>${G.count}</b>　${G.score} てん`; }
+function hud() { $('hScore').innerHTML = `🪨 <b>${G.count}</b>　${G.score} てん`; }
 let tipT = 0;
 function tip(s, ms = 3000) { const e = $('tip'); e.textContent = s; e.classList.toggle('off', !s); clearTimeout(tipT); if (s) tipT = setTimeout(() => e.classList.add('off'), ms); }
 let bnT = 0;
@@ -326,24 +389,29 @@ const turtleWarn = s => { const c = tPhase(s); return c > s.up - .6 && c < s.up;
 function press(e) {
   if (e) e.preventDefault(); if (!G) return; Kit.audio();
   const p = G.p;
-  if (G.st === 'ready' || G.st === 'stand') { G.hold = true; if (Math.abs(p.bal) > .05) Kit.tone(330, .05, { type: 'triangle', vol: .08 }); }
+  if (G.st === 'ready' || G.st === 'stand') jump();
   else if (G.st === 'air' && !p.dj) { p.dj = true; p.vy = VY * .95; p.flip = 0; Kit.sfx('jump'); Kit.tone(880, .07, { type: 'triangle', vol: .12 }); ring(p.x, p.z, .6, p.y); }
 }
-function release(e) {
-  if (!G) return; const was = G.hold; G.hold = false;
-  if (was && (G.st === 'ready' || G.st === 'stand')) jump();
+// ふんばる（連打で バランスを もどす）
+function mash(e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  if (!G || G.st !== 'stand' || !G.p.bal) return;
+  const p = G.p, sg = Math.sign(p.bal), m = Math.max(0, Math.abs(p.bal) - .2);
+  p.bal = sg * m; p.squash = .12; Kit.vibrate(8);
+  Kit.tone(440 + (1 - m) * 400, .05, { type: 'square', vol: .07 });
+  if (m === 0) { snd() && Kit.sfx('select'); pop('ピシッ！'); talk(G.balMax > .5 ? 'あっぶねー' : 'よしっ', 1); }
+  balUI();
 }
+$('mash').addEventListener('pointerdown', mash);
 cv.addEventListener('pointerdown', press);
-cv.addEventListener('pointerup', release); cv.addEventListener('pointercancel', () => { if (G) G.hold = false; });
-addEventListener('keydown', e => { if ((e.code === 'Space' || e.code === 'ArrowUp') && !e.repeat && G && $('resOv').hidden && $('menuOv').hidden) press(e); });
-addEventListener('keyup', e => { if (e.code === 'Space' || e.code === 'ArrowUp') release(e); });
+addEventListener('keydown', e => { if (!G || !$('resOv').hidden || !$('menuOv').hidden) return; if ((e.code === 'Space' || e.code === 'ArrowUp') && !e.repeat) press(e); if (e.code === 'ArrowDown' || e.code === 'KeyF') mash(e); });
 function jump() {
   const p = G.p; if (p.on) p.on.left = true;
   // バランスが わるいと 小さくしか とべない
   const f = 1 - Math.min(1, Math.abs(p.bal)) * .62;
   p.vy = VY * (.72 + .28 * f); p.vz = D * f / (2 * p.vy / GR);
   p.on = null; p.dj = false; p.flip = 0; p.squash = -.25; G.st = 'air';
-  if (f < .9) { pop('よろっ…'); Kit.tone(220, .12, { type: 'triangle', vol: .12, slide: -60 }); }
+  if (f < .9) { pop('よろっ…'); Kit.tone(220, .12, { type: 'triangle', vol: .12, slide: -60 }); talk('ちょっと待って！', 1); laugh(.3); }
   p.bal = 0; balUI();
   Kit.sfx('jump');
 }
@@ -391,12 +459,14 @@ function step(dt) {
       s.load += dt; const L = limitFor(s);
       s.sink = s.type === 'turtle' ? 0 : Math.max(0, (s.load - L * .55) / (L * .45)) * .3;
       if (s.type === 'turtle' && !turtleUp(s)) return fall('もぐった〜！');
+      if (s.type === 'turtle' && turtleWarn(s) && !s.said) { s.said = 1; talk('意味わかんない！'); }
+      if (s.sink > .05 && !s.said2 && s.type !== 'turtle') { s.said2 = 1; if (Math.random() < .6) talk('どうなってんの！？'); }
       if (s.load >= L) { s.sinkDown = true; return fall('しずんだ〜！'); }
       // バランス：おしていると もどる、はなしていると だんだん かたむく
       if (p.bal) {
         const sg = Math.sign(p.bal), m = Math.abs(p.bal);
-        if (G.hold) { const nm = Math.max(0, m - 1.5 * dt); p.bal = sg * nm; if (nm === 0) { Kit.sfx('select'); pop('ピシッ！'); } }
-        else { p.bal = sg * (m + (.3 + m * .9) * dt); if (m >= 1) { p.bal = 0; balUI(); return fall('バランスを くずした〜！'); } }
+        p.bal = sg * (m + (.22 + m * .75) * dt); G.balMax = Math.max(G.balMax || 0, m);
+        if (m >= 1) { p.bal = 0; balUI(); return fall('バランスを くずした〜！'); }
         balUI();
       }
     }
@@ -422,7 +492,8 @@ function step(dt) {
 function balUI() {
   const p = G.p, m = Math.abs(p.bal), on = m > .04 && (G.st === 'stand' || G.st === 'ready');
   $('bal').classList.toggle('off', !on);
-  if (on) { $('balM').style.left = (50 + Kit.clamp(p.bal, -1, 1) * 48) + '%'; $('balT').textContent = G.hold ? 'ふんばり中…' : 'ぐらぐら！ おしつづけて ふんばれ'; }
+  if (on) { $('balM').style.left = (50 + Kit.clamp(p.bal, -1, 1) * 48) + '%'; $('balT').textContent = 'ぐらぐら！ 連打で ふんばれ'; }
+  $('mash').hidden = !on;
 }
 function land(s) {
   const p = G.p; G.st = 'stand'; p.on = s; p.vy = 0; p.off = p.x - s.x; p.squash = .3; p.flip = 0;
@@ -432,7 +503,7 @@ function land(s) {
   const lim = s.type === 'log' ? .75 : s.r + .22, q = s.type === 'log' ? dz / lim : Math.hypot(dx, dz) / lim;
   let m = s.type === 'start' ? 0 : Kit.clamp((q - .42) / .5, 0, 1) * .85;
   if (m > 0 && (s.type === 'pad' || s.type === 'log')) m = Math.min(.95, m + .12);
-  if (m > .04) { const sg = Math.abs(p.x - s.x) > .05 ? Math.sign(p.x - s.x) : (Math.random() < .5 ? -1 : 1); p.bal = sg * m; Kit.tone(260, .1, { type: 'square', vol: .08 }); pop('ぐらぐら！'); if (!G.balTold) { G.balTold = true; tip('ぐらぐら したら 画面を おしつづけて ふんばる → はなして ジャンプ', 4000); } }
+  if (m > .04) { const sg = Math.abs(p.x - s.x) > .05 ? Math.sign(p.x - s.x) : (Math.random() < .5 ? -1 : 1); p.bal = sg * m; Kit.tone(260, .1, { type: 'square', vol: .08 }); pop('ぐらぐら！'); G.balMax = m; talk(s.type === 'pad' || s.type === 'log' ? Kit.pick(['何これ！', 'ちょっと待って！']) : Kit.pick(['ちょっと待って！', 'ちょっと待って！', 'どうなってんの！？']), 1); if (m > .35) laugh(.5); if (!G.balTold) { G.balTold = true; tip('ぐらぐら したら ふんばる ボタンを 連打！', 4000); } }
   else p.bal = 0;
   balUI();
   p.z = s.z; ring(p.x, s.z, .7); splash(p.x, s.z, 6, .35);
@@ -441,8 +512,8 @@ function land(s) {
     const gained = s.idx - G.maxIdx; G.maxIdx = s.idx; G.count = s.idx;
     let pts = gained; const perfect = s.type !== 'start' && s.type !== 'log' && Math.hypot(dz, dx) < .12;
     G.combo++; G.maxCombo = Math.max(G.maxCombo, G.combo);
-    if (perfect) { G.perf++; pts += 2; pop('ピタッ！ +2', true); Kit.sfx('good'); if (Math.random() < .35) cmt('perf'); splash(p.x, s.z, 12, .5, true); }
-    else { Kit.tone(523 + Math.min(12, G.combo) * 30, .07, { type: 'triangle', vol: .14 }); if (G.combo % 10 === 0) cmt('good'); }
+    if (perfect) { G.perf++; pts += 2; pop('ピタッ！ +2', true); talk(Kit.pick(['いいじゃん！', 'よしっ'])); Kit.sfx('good'); if (Math.random() < .35) cmt('perf'); splash(p.x, s.z, 12, .5, true); }
+    else { Kit.tone(523 + Math.min(12, G.combo) * 30, .07, { type: 'triangle', vol: .14 }); if (G.combo % 10 === 0) { cmt('good'); talk('いいじゃん！'); } }
     if (gained >= 2 || (p.dj && Math.random() < .35)) cmt('big');
     if (s.ball) { s.ball = false; G.balls++; pts += 3; Kit.sfx('coin'); pop('⚽ +3'); if (s.ballMesh) { s.ballMesh.visible = false; splash(p.x, s.z, 10, .6, true); } }
     G.score += pts;
@@ -455,9 +526,10 @@ function land(s) {
   if (nx && s.z - nx.z > 4.5 && G.count < 14) tip('とおい ときは 空中で もう一回 タップ！', 2600);
 }
 function fall(msg) {
-  const p = G.p; G.st = 'fall'; p.fallT = 1.4; p.bal = 0; G.hold = false; balUI(); G.life--; G.falls++; G.combo = 0;
+  const p = G.p; G.st = 'fall'; p.fallT = 2.4; p.bal = 0; balUI(); G.life--; G.falls++; G.combo = 0;
+  splashSound(); talk('なんでだよ！', 2); laugh(1.1, true);
   splash(p.x, p.z, 50, 1.1); ring(p.x, p.z, 2.2); ring(p.x, p.z, 1.3);
-  Kit.noise(.5, { vol: .4, freq: 900 }); Kit.tone(110, .3, { type: 'sine', vol: .3, slide: -40 }); Kit.vibrate(70); G.shake = .35;
+  Kit.vibrate([60, 40, 90]); G.shake = .45;
   pop(msg || 'ドボン！'); cmt('fall'); hud();
 }
 function respawn() {
@@ -483,11 +555,10 @@ function poseKid(dt) {
     ll = -.9 - (p.dj ? .8 : 0); rl = .4 + (p.dj ? -1.2 : 0);
     if (p.dj) { flip = -p.flip * Math.PI * 2; bodyY = .6 * Math.sin(p.flip * Math.PI); }
   } else if (fallen) { la = -2.8 + Math.sin(G.t * 18) * .4; ra = -2.8 - Math.sin(G.t * 18) * .4; armZ = .9; }
-  else if (Math.abs(p.bal) > .04 && !G.hold) { const w = Math.sin(G.t * 16); la = -1.4 + w * 1.2; ra = -1.4 - w * 1.2; armZ = 1.1; }
-  else if (G.hold && (G.st === 'stand' || G.st === 'ready')) { la = ra = -.2; armZ = 1.35; ll = -.35; rl = -.35; k.body.position.y = -.12; }
+  else if (Math.abs(p.bal) > .04) { const w = Math.sin(G.t * 16); la = -1.4 + w * 1.2; ra = -1.4 - w * 1.2; armZ = 1.1; }
   else { const b = Math.sin(G.t * 5) * .06; la = .15 + b; ra = -.15 - b; armZ = .12; k.body.position.y = Math.abs(Math.sin(G.t * 5)) * .02; }
   const wob = (G.st === 'stand' || G.st === 'ready') ? p.bal : 0;
-  k.body.rotation.z = -wob * .75 + (Math.abs(wob) > .04 && !G.hold ? Math.sin(G.t * 11) * .06 : 0);
+  k.body.rotation.z = -wob * .75 + (Math.abs(wob) > .04 ? Math.sin(G.t * 11) * .06 : 0);
   k.arms[0].rotation.set(la, 0, armZ); k.arms[1].rotation.set(ra, 0, -armZ);
   k.legs[0].rotation.x = ll; k.legs[1].rotation.x = rl;
   // 宙がえり：こしを 中心に まわす
@@ -591,7 +662,7 @@ Kit.bar({ id: 'tobiishi', title: '🪨 とびいし ジャンプ', help: `
   </ul>` });
 showMenu();
 requestAnimationFrame(frame);
-if (location.hash === '#debug') window.__t = { get G() { return G; }, newGame, step, press, release, setArea };
+if (location.hash === '#debug') window.__t = { get G() { return G; }, newGame, step, press, mash, setArea, talk, laugh, splashSound };
 </script>
 </body>
 </html>
