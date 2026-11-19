@@ -28,6 +28,11 @@
   @keyframes popa { 0% { transform: translate(-50%, -30%) scale(.6); opacity: 0; } 20% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; } 100% { transform: translate(-50%, -110%) scale(1); opacity: 0; } }
   .tip { position: absolute; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 3; pointer-events: none; background: rgba(5,20,40,.6); color: #fff; font: 900 .95rem 'Zen Maru Gothic', sans-serif; border-radius: 99px; padding: 7px 16px; white-space: nowrap; transition: opacity .4s; }
   .tip.off { opacity: 0; }
+  .bal { position: absolute; left: 50%; bottom: calc(62px + env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(260px, 70vw); z-index: 3; pointer-events: none; text-align: center; transition: opacity .25s; }
+  .bal.off { opacity: 0; }
+  .bal .bar { position: relative; height: 16px; border-radius: 99px; background: linear-gradient(90deg, #ff3d3d, #ffb13d 28%, #4ade80 42%, #4ade80 58%, #ffb13d 72%, #ff3d3d); box-shadow: 0 2px 0 rgba(0,0,0,.3), inset 0 0 0 2px rgba(255,255,255,.5); }
+  .bal .mk { position: absolute; top: -5px; width: 8px; height: 26px; margin-left: -4px; border-radius: 4px; background: #fff; box-shadow: 0 0 0 2px #12324f; left: 50%; }
+  .bal b { display: inline-block; margin-bottom: 5px; font: 900 1rem 'Zen Maru Gothic', sans-serif; color: #fff; text-shadow: 0 1px 3px #000; }
   .over { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; padding: 14px; overflow: auto; background: radial-gradient(circle at 50% 30%, rgba(80,200,255,.25), rgba(5,15,30,.75)); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
   .card { width: min(440px, 100%); background: rgba(246,251,255,.97); color: #12324f; border-radius: 26px; padding: 18px 16px; display: grid; gap: 10px; box-shadow: 0 24px 60px rgba(0,0,0,.5); }
   .card h2 { margin: 0; text-align: center; font-family: 'Dela Gothic One', sans-serif; font-weight: 400; font-size: 2.1rem; background: linear-gradient(180deg, #5fe0ff, #0a74d1); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 3px 0 #06305a); }
@@ -54,6 +59,7 @@
   <div class="cmts" id="cmts"></div>
   <div class="banner" id="banner"><b id="bnA"></b><span id="bnB"></span></div>
   <div class="tip off" id="tip"></div>
+  <div class="bal off" id="bal"><b id="balT">ぐらぐら！ おしつづけて ふんばれ</b><div class="bar"><div class="mk" id="balM"></div></div></div>
   <div class="over" id="menuOv">
     <div class="card">
       <h2>とびいし ジャンプ</h2>
@@ -255,7 +261,7 @@ function newGame() {
   if (G) G.stones.forEach(s => scene.remove(s.mesh));
   G = {
     t: 0, st: 'ready', stones: [],
-    p: { x: 0, y: TOP, z: 0, vz: 0, vy: 0, on: null, off: 0, dj: false, flip: 0, squash: 0, fallT: 0, run: 0 },
+    p: { x: 0, y: TOP, z: 0, vz: 0, vy: 0, on: null, off: 0, bal: 0, dj: false, flip: 0, squash: 0, fallT: 0, run: 0 },
     life: 3, score: 0, count: 0, maxIdx: 0, perf: 0, balls: 0, falls: 0, combo: 0, maxCombo: 0,
     area: 0, lastZ: 0, idx: 0, shake: 0, camZ: 0,
   };
@@ -320,14 +326,25 @@ const turtleWarn = s => { const c = tPhase(s); return c > s.up - .6 && c < s.up;
 function press(e) {
   if (e) e.preventDefault(); if (!G) return; Kit.audio();
   const p = G.p;
-  if (G.st === 'ready' || G.st === 'stand') jump();
+  if (G.st === 'ready' || G.st === 'stand') { G.hold = true; if (Math.abs(p.bal) > .05) Kit.tone(330, .05, { type: 'triangle', vol: .08 }); }
   else if (G.st === 'air' && !p.dj) { p.dj = true; p.vy = VY * .95; p.flip = 0; Kit.sfx('jump'); Kit.tone(880, .07, { type: 'triangle', vol: .12 }); ring(p.x, p.z, .6, p.y); }
 }
+function release(e) {
+  if (!G) return; const was = G.hold; G.hold = false;
+  if (was && (G.st === 'ready' || G.st === 'stand')) jump();
+}
 cv.addEventListener('pointerdown', press);
+cv.addEventListener('pointerup', release); cv.addEventListener('pointercancel', () => { if (G) G.hold = false; });
 addEventListener('keydown', e => { if ((e.code === 'Space' || e.code === 'ArrowUp') && !e.repeat && G && $('resOv').hidden && $('menuOv').hidden) press(e); });
+addEventListener('keyup', e => { if (e.code === 'Space' || e.code === 'ArrowUp') release(e); });
 function jump() {
   const p = G.p; if (p.on) p.on.left = true;
-  p.on = null; p.vz = VZ; p.vy = VY; p.dj = false; p.flip = 0; p.squash = -.25; G.st = 'air';
+  // バランスが わるいと 小さくしか とべない
+  const f = 1 - Math.min(1, Math.abs(p.bal)) * .62;
+  p.vy = VY * (.72 + .28 * f); p.vz = D * f / (2 * p.vy / GR);
+  p.on = null; p.dj = false; p.flip = 0; p.squash = -.25; G.st = 'air';
+  if (f < .9) { pop('よろっ…'); Kit.tone(220, .12, { type: 'triangle', vol: .12, slide: -60 }); }
+  p.bal = 0; balUI();
   Kit.sfx('jump');
 }
 
@@ -375,6 +392,13 @@ function step(dt) {
       s.sink = s.type === 'turtle' ? 0 : Math.max(0, (s.load - L * .55) / (L * .45)) * .3;
       if (s.type === 'turtle' && !turtleUp(s)) return fall('もぐった〜！');
       if (s.load >= L) { s.sinkDown = true; return fall('しずんだ〜！'); }
+      // バランス：おしていると もどる、はなしていると だんだん かたむく
+      if (p.bal) {
+        const sg = Math.sign(p.bal), m = Math.abs(p.bal);
+        if (G.hold) { const nm = Math.max(0, m - 1.5 * dt); p.bal = sg * nm; if (nm === 0) { Kit.sfx('select'); pop('ピシッ！'); } }
+        else { p.bal = sg * (m + (.3 + m * .9) * dt); if (m >= 1) { p.bal = 0; balUI(); return fall('バランスを くずした〜！'); } }
+        balUI();
+      }
     }
     p.y = TOP + s.mesh.position.y;
   } else if (G.st === 'air') {
@@ -395,10 +419,22 @@ function step(dt) {
   poseKid(dt);
   camFollow(dt);
 }
+function balUI() {
+  const p = G.p, m = Math.abs(p.bal), on = m > .04 && (G.st === 'stand' || G.st === 'ready');
+  $('bal').classList.toggle('off', !on);
+  if (on) { $('balM').style.left = (50 + Kit.clamp(p.bal, -1, 1) * 48) + '%'; $('balT').textContent = G.hold ? 'ふんばり中…' : 'ぐらぐら！ おしつづけて ふんばれ'; }
+}
 function land(s) {
   const p = G.p; G.st = 'stand'; p.on = s; p.vy = 0; p.off = p.x - s.x; p.squash = .3; p.flip = 0;
   if (!s.left) s.load = 0;
   const dz = Math.abs(p.z - s.z), dx = Math.abs(p.x - s.x);
+  // はしっこに おりると ぐらぐら
+  const lim = s.type === 'log' ? .75 : s.r + .22, q = s.type === 'log' ? dz / lim : Math.hypot(dx, dz) / lim;
+  let m = s.type === 'start' ? 0 : Kit.clamp((q - .42) / .5, 0, 1) * .85;
+  if (m > 0 && (s.type === 'pad' || s.type === 'log')) m = Math.min(.95, m + .12);
+  if (m > .04) { const sg = Math.abs(p.x - s.x) > .05 ? Math.sign(p.x - s.x) : (Math.random() < .5 ? -1 : 1); p.bal = sg * m; Kit.tone(260, .1, { type: 'square', vol: .08 }); pop('ぐらぐら！'); if (!G.balTold) { G.balTold = true; tip('ぐらぐら したら 画面を おしつづけて ふんばる → はなして ジャンプ', 4000); } }
+  else p.bal = 0;
+  balUI();
   p.z = s.z; ring(p.x, s.z, .7); splash(p.x, s.z, 6, .35);
   Kit.sfx('tap');
   if (s.idx > G.maxIdx) {
@@ -419,7 +455,7 @@ function land(s) {
   if (nx && s.z - nx.z > 4.5 && G.count < 14) tip('とおい ときは 空中で もう一回 タップ！', 2600);
 }
 function fall(msg) {
-  const p = G.p; G.st = 'fall'; p.fallT = 1.4; G.life--; G.falls++; G.combo = 0;
+  const p = G.p; G.st = 'fall'; p.fallT = 1.4; p.bal = 0; G.hold = false; balUI(); G.life--; G.falls++; G.combo = 0;
   splash(p.x, p.z, 50, 1.1); ring(p.x, p.z, 2.2); ring(p.x, p.z, 1.3);
   Kit.noise(.5, { vol: .4, freq: 900 }); Kit.tone(110, .3, { type: 'sine', vol: .3, slide: -40 }); Kit.vibrate(70); G.shake = .35;
   pop(msg || 'ドボン！'); cmt('fall'); hud();
@@ -429,7 +465,7 @@ function respawn() {
   if (G.life <= 0) { G.st = 'over'; Kit.music.stop(); setTimeout(showResult, 500); return; }
   const s = G.stones.filter(o => (o.type === 'start' || o.type === 'rock' || o.type === 'small') && o.z >= p.z - .5).pop() || G.stones[0];
   G.stones.forEach(o => { if (o.z <= s.z) { o.sinkDown = false; o.sink = 0; o.load = 0; o.left = false; } });
-  p.on = s; p.x = s.x; p.off = 0; p.z = s.z; p.y = TOP; G.st = 'stand'; p.squash = .3; s.load = -.6;
+  p.on = s; p.x = s.x; p.off = 0; p.bal = 0; balUI(); p.z = s.z; p.y = TOP; G.st = 'stand'; p.squash = .3; s.load = -.6;
   ring(p.x, p.z, .8); Kit.sfx('pop');
 }
 const BGM = { bpm: 132, type: 'square', vol: .02, lead: [659, 0, 784, 659, 880, 0, 784, 0, 659, 0, 587, 0, 523, 0, 587, 659, 784, 0, 880, 784, 988, 0, 880, 0, 784, 0, 659, 0, 587, 0, 0, 0], bass: [110, 0, 165, 0, 131, 0, 196, 0, 147, 0, 220, 0, 165, 0, 247, 0] };
@@ -447,7 +483,11 @@ function poseKid(dt) {
     ll = -.9 - (p.dj ? .8 : 0); rl = .4 + (p.dj ? -1.2 : 0);
     if (p.dj) { flip = -p.flip * Math.PI * 2; bodyY = .6 * Math.sin(p.flip * Math.PI); }
   } else if (fallen) { la = -2.8 + Math.sin(G.t * 18) * .4; ra = -2.8 - Math.sin(G.t * 18) * .4; armZ = .9; }
+  else if (Math.abs(p.bal) > .04 && !G.hold) { const w = Math.sin(G.t * 16); la = -1.4 + w * 1.2; ra = -1.4 - w * 1.2; armZ = 1.1; }
+  else if (G.hold && (G.st === 'stand' || G.st === 'ready')) { la = ra = -.2; armZ = 1.35; ll = -.35; rl = -.35; k.body.position.y = -.12; }
   else { const b = Math.sin(G.t * 5) * .06; la = .15 + b; ra = -.15 - b; armZ = .12; k.body.position.y = Math.abs(Math.sin(G.t * 5)) * .02; }
+  const wob = (G.st === 'stand' || G.st === 'ready') ? p.bal : 0;
+  k.body.rotation.z = -wob * .75 + (Math.abs(wob) > .04 && !G.hold ? Math.sin(G.t * 11) * .06 : 0);
   k.arms[0].rotation.set(la, 0, armZ); k.arms[1].rotation.set(ra, 0, -armZ);
   k.legs[0].rotation.x = ll; k.legs[1].rotation.x = rl;
   // 宙がえり：こしを 中心に まわす
@@ -551,7 +591,7 @@ Kit.bar({ id: 'tobiishi', title: '🪨 とびいし ジャンプ', help: `
   </ul>` });
 showMenu();
 requestAnimationFrame(frame);
-if (location.hash === '#debug') window.__t = { get G() { return G; }, newGame, step, press, setArea };
+if (location.hash === '#debug') window.__t = { get G() { return G; }, newGame, step, press, release, setArea };
 </script>
 </body>
 </html>
