@@ -59,6 +59,13 @@
   .how { margin: 0; padding-left: 1.2em; line-height: 1.8; font-size: .92rem; font-weight: 700; }
   .best { text-align: center; font-weight: 900; color: #5b7a96; }
   .nogl { color: #c0392b; font-weight: 900; text-align: center; }
+  .recs { display: grid; gap: 6px; max-height: 50vh; overflow: auto; }
+  .rc { display: grid; grid-template-columns: 1fr auto auto auto; gap: 6px; align-items: center; background: #fff; border-radius: 12px; padding: 6px 8px; box-shadow: 0 2px 0 #c4dcef; }
+  .rc b { font: 900 1rem 'Zen Maru Gothic', sans-serif; }
+  .rc button { appearance: none; border: none; border-radius: 10px; width: 42px; height: 38px; font-size: 1.1rem; background: #eef6fd; cursor: pointer; }
+  .rc button.on { background: #ff3d3d; color: #fff; animation: mpulse .5s infinite alternate; }
+  .rc button:disabled { opacity: .3; }
+  .rc .ok { color: #16a34a; font-weight: 900; font-size: .8rem; }
 </style>
 </head>
 <body>
@@ -80,14 +87,21 @@
         <li>とおい いしは、空中で <b>もう一回 タップ</b>（くるっと 大ジャンプ）</li>
         <li>のっている いしは だんだん しずむ。リズムよく すすもう</li>
         <li>よこに うごく はっぱや 丸太、もぐる カメに 気をつけて</li>
-        <li>はしに おりて ぐらぐら したら、<b>ふんばる ボタンを 連打</b>！</li>
+        <li>はしに おりて ぐらぐら したら、<b>画面を 連打</b> して ふんばる！（その あいだ いしは しずまない）</li>
         <li>まん中に ピタッと のると ボーナス！ 1かい おちたら おしまい</li>
       </ul>
       <div class="best" id="mBest"></div>
       <div class="nogl" id="noGL" hidden>この きかいでは 3Dが うごきません</div>
       <button class="btn main" id="mStart">スタート！</button>
+      <div class="row"><button class="btn" id="mRec">🎤 ろくおん</button><button class="btn" id="mTts"></button></div>
     </div>
   </div>
+  <div class="over" id="recOv" hidden><div class="card">
+    <h2 style="font-size:1.5rem">こえを ろくおん</h2>
+    <p>じぶんの こえで セリフや わらいごえを とっておくと、ゲームの 中で その こえが ながれるよ。●を おして しゃべって、もう一回 おすと とまるよ（3びょうで じどうで とまる）。</p>
+    <div class="recs" id="recs"></div>
+    <button class="btn main" id="recClose">できた</button>
+  </div></div>
   <div class="over" id="resOv" hidden><div class="card" id="resCard"></div></div>
 </div>
 
@@ -282,17 +296,30 @@ function speak(text, pitch, rate, voiceIdx, vol = 1) {
   TTS.speak(u);
 }
 // pri: 0 ふつう 1 だいじ 2 さいゆうせん
+const LINES = [['matte', 'ちょっと待って！'], ['nani', '何これ！'], ['imi', '意味わかんない！'], ['abune', 'あっぶねー'], ['nande', 'なんでだよ！'], ['dou', 'どうなってんの！？'], ['yoshi', 'よしっ'], ['iijan', 'いいじゃん！'], ['w1', '（わらいごえ 1）'], ['w2', '（わらいごえ 2）'], ['w3', '（わらいごえ 3）']];
+const LINE_ID = Object.fromEntries(LINES.map(([id, t]) => [t, id]));
+let useTTS = Kit.store.get('tobiishi:tts', false);
+// ろくおんした こえ（IndexedDB）
+const VDB = { db: null, urls: {} };
+function vdb() { return new Promise(res => { if (VDB.db) return res(VDB.db); try { const r = indexedDB.open('tobiishi-voice', 1); r.onupgradeneeded = () => r.result.createObjectStore('v'); r.onsuccess = () => { VDB.db = r.result; res(VDB.db); }; r.onerror = () => res(null); } catch (e) { res(null); } }); }
+async function vGet(id) { const db = await vdb(); if (!db) return null; return new Promise(res => { const q = db.transaction('v').objectStore('v').get(id); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); }); }
+async function vSet(id, blob) { const db = await vdb(); if (!db) return; return new Promise(res => { const tx = db.transaction('v', 'readwrite'); if (blob) tx.objectStore('v').put(blob, id); else tx.objectStore('v').delete(id); tx.oncomplete = res; tx.onerror = res; }); }
+async function loadVoicesRec() { for (const [id] of LINES) { const b = await vGet(id); if (VDB.urls[id]) URL.revokeObjectURL(VDB.urls[id]); VDB.urls[id] = b ? URL.createObjectURL(b) : null; } }
+loadVoicesRec();
+let curAudio = null;
+function playRec(id, vol = 1) { const u = VDB.urls[id]; if (!u || !snd()) return false; if (curAudio && id.startsWith('w') === false) { curAudio.pause(); } const a = new Audio(u); a.volume = vol; a.play().catch(() => {}); if (!id.startsWith('w')) curAudio = a; return true; }
 function talk(text, pri = 0) {
   const now = performance.now();
   if (pri < 2 && now - lastTalk < (pri ? 700 : 1400)) return;
   lastTalk = now; bubble('say', text, 1300);
-  if (TTS && snd()) { if (pri) TTS.cancel(); speak(text, 1.7, 1.25, 0); }
+  if (playRec(LINE_ID[text])) return;
+  if (useTTS && TTS && snd()) { if (pri) TTS.cancel(); speak(text, 1.05, 1.05, 0); }
 }
 const LAUGHS = ['あはははは！', 'ぎゃははは！', 'うひゃひゃひゃ！', 'わはははは！', 'あっはっはっは！'];
 function laugh(level = 1, big) {
   const now = performance.now(); if (!big && now - laughT < 2500) return; laughT = now;
   const t = Kit.pick(LAUGHS);
-  setTimeout(() => { bubble('laugh', '📱 ' + t, 1600); speak(t, 1.15 + Math.random() * .3, 1.35, 1, .9); cmt(big ? Kit.pick(['www', 'わらった', '神回', 'ドボン きたー！']) : 'www'); if (big) setTimeout(() => speak(Kit.pick(LAUGHS), .9, 1.3, 2, .8), 900); }, big ? 650 : 250);
+  setTimeout(() => { bubble('laugh', '📱 ' + t, 1600); const ws = ['w1', 'w2', 'w3'].filter(k => VDB.urls[k]); if (ws.length) playRec(Kit.pick(ws), .9); cmt(big ? Kit.pick(['www', 'わらった', '神回', 'ドボン きたー！']) : 'www'); }, big ? 650 : 250);
 }
 function splashSound() {
   if (!snd()) return; const a = Kit.audio(); if (!a) return;
@@ -389,6 +416,7 @@ const turtleWarn = s => { const c = tPhase(s); return c > s.up - .6 && c < s.up;
 function press(e) {
   if (e) e.preventDefault(); if (!G) return; Kit.audio();
   const p = G.p;
+  if (G.st === 'stand' && (p.bal || G.t < (G.lock || 0))) { if (p.bal) mash(); return; }
   if (G.st === 'ready' || G.st === 'stand') jump();
   else if (G.st === 'air' && !p.dj) { p.dj = true; p.vy = VY * .95; p.flip = 0; Kit.sfx('jump'); Kit.tone(880, .07, { type: 'triangle', vol: .12 }); ring(p.x, p.z, .6, p.y); }
 }
@@ -396,10 +424,10 @@ function press(e) {
 function mash(e) {
   if (e) { e.preventDefault(); e.stopPropagation(); }
   if (!G || G.st !== 'stand' || !G.p.bal) return;
-  const p = G.p, sg = Math.sign(p.bal), m = Math.max(0, Math.abs(p.bal) - .2);
+  const p = G.p, sg = Math.sign(p.bal), m = Math.max(0, Math.abs(p.bal) - .13);
   p.bal = sg * m; p.squash = .12; Kit.vibrate(8);
   Kit.tone(440 + (1 - m) * 400, .05, { type: 'square', vol: .07 });
-  if (m === 0) { snd() && Kit.sfx('select'); pop('ピシッ！'); talk(G.balMax > .5 ? 'あっぶねー' : 'よしっ', 1); }
+  if (m === 0) { G.lock = G.t + .4; snd() && Kit.sfx('select'); pop('ピシッ！'); talk(G.balMax > .5 ? 'あっぶねー' : 'よしっ', 1); }
   balUI();
 }
 $('mash').addEventListener('pointerdown', mash);
@@ -411,7 +439,7 @@ function jump() {
   const f = 1 - Math.min(1, Math.abs(p.bal)) * .62;
   p.vy = VY * (.72 + .28 * f); p.vz = D * f / (2 * p.vy / GR);
   p.on = null; p.dj = false; p.flip = 0; p.squash = -.25; G.st = 'air';
-  if (f < .9) { pop('よろっ…'); Kit.tone(220, .12, { type: 'triangle', vol: .12, slide: -60 }); talk('ちょっと待って！', 1); laugh(.3); }
+  if (f < .9) { pop('よろっ…'); Kit.tone(220, .12, { type: 'triangle', vol: .12, slide: -60 }); }
   p.bal = 0; balUI();
   Kit.sfx('jump');
 }
@@ -456,7 +484,8 @@ function step(dt) {
     const s = p.on; if (s.type === 'rock' || s.type === 'small' || s.type === 'turtle') p.off += (0 - p.off) * Math.min(1, dt * 5);
     p.x = s.x + p.off; p.z = s.z;
     if (G.st === 'stand') {
-      s.load += dt; const L = limitFor(s);
+      if (p.bal) { if (s.type === 'turtle') s.ph -= dt; } else s.load += dt;
+      const L = limitFor(s);
       s.sink = s.type === 'turtle' ? 0 : Math.max(0, (s.load - L * .55) / (L * .45)) * .3;
       if (s.type === 'turtle' && !turtleUp(s)) return fall('もぐった〜！');
       if (s.type === 'turtle' && turtleWarn(s) && !s.said) { s.said = 1; talk('意味わかんない！'); }
@@ -465,7 +494,7 @@ function step(dt) {
       // バランス：おしていると もどる、はなしていると だんだん かたむく
       if (p.bal) {
         const sg = Math.sign(p.bal), m = Math.abs(p.bal);
-        p.bal = sg * (m + (.22 + m * .75) * dt); G.balMax = Math.max(G.balMax || 0, m);
+        p.bal = sg * (m + (.05 + m * .15) * dt); G.balMax = Math.max(G.balMax || 0, m);
         if (m >= 1) { p.bal = 0; balUI(); return fall('バランスを くずした〜！'); }
         balUI();
       }
@@ -492,7 +521,7 @@ function step(dt) {
 function balUI() {
   const p = G.p, m = Math.abs(p.bal), on = m > .04 && (G.st === 'stand' || G.st === 'ready');
   $('bal').classList.toggle('off', !on);
-  if (on) { $('balM').style.left = (50 + Kit.clamp(p.bal, -1, 1) * 48) + '%'; $('balT').textContent = 'ぐらぐら！ 連打で ふんばれ'; }
+  if (on) { $('balM').style.left = (50 + Kit.clamp(p.bal, -1, 1) * 48) + '%'; $('balT').textContent = 'ぐらぐら！ 連打で ふんばれ（どこを タップしても OK）'; }
   $('mash').hidden = !on;
 }
 function land(s) {
@@ -501,9 +530,9 @@ function land(s) {
   const dz = Math.abs(p.z - s.z), dx = Math.abs(p.x - s.x);
   // はしっこに おりると ぐらぐら
   const lim = s.type === 'log' ? .75 : s.r + .22, q = s.type === 'log' ? dz / lim : Math.hypot(dx, dz) / lim;
-  let m = s.type === 'start' ? 0 : Kit.clamp((q - .42) / .5, 0, 1) * .85;
-  if (m > 0 && (s.type === 'pad' || s.type === 'log')) m = Math.min(.95, m + .12);
-  if (m > .04) { const sg = Math.abs(p.x - s.x) > .05 ? Math.sign(p.x - s.x) : (Math.random() < .5 ? -1 : 1); p.bal = sg * m; Kit.tone(260, .1, { type: 'square', vol: .08 }); pop('ぐらぐら！'); G.balMax = m; talk(s.type === 'pad' || s.type === 'log' ? Kit.pick(['何これ！', 'ちょっと待って！']) : Kit.pick(['ちょっと待って！', 'ちょっと待って！', 'どうなってんの！？']), 1); if (m > .35) laugh(.5); if (!G.balTold) { G.balTold = true; tip('ぐらぐら したら ふんばる ボタンを 連打！', 4000); } }
+  let m = s.type === 'start' ? 0 : Kit.clamp((q - .42) / .5, 0, 1) * .7;
+  if (m > 0 && (s.type === 'pad' || s.type === 'log')) m = Math.min(.8, m + .1);
+  if (m > .04) { const sg = Math.abs(p.x - s.x) > .05 ? Math.sign(p.x - s.x) : (Math.random() < .5 ? -1 : 1); p.bal = sg * m; Kit.tone(260, .1, { type: 'square', vol: .08 }); pop('ぐらぐら！ 連打！'); G.balMax = m; talk(s.type === 'pad' || s.type === 'log' ? Kit.pick(['何これ！', 'ちょっと待って！']) : Kit.pick(['ちょっと待って！', 'ちょっと待って！', 'どうなってんの！？']), 1); if (m > .35) laugh(.5); if (!G.balTold) { G.balTold = true; tip('ぐらぐら 中は ジャンプ できない！ 画面を 連打して ふんばろう', 4000); } }
   else p.bal = 0;
   balUI();
   p.z = s.z; ring(p.x, s.z, .7); splash(p.x, s.z, 6, .35);
@@ -650,6 +679,35 @@ function showMenu() {
   $('menuOv').hidden = false; setArea(0, true);
 }
 $('mStart').onclick = () => { Kit.sfx('tap'); newGame(); };
+
+/* ---------- ろくおん がめん ---------- */
+let mrec = null;
+function ttsLabel() { $('mTts').textContent = useTTS ? '🔈 よみあげ オン' : '🔇 よみあげ オフ'; }
+ttsLabel();
+$('mTts').onclick = () => { useTTS = !useTTS; Kit.store.set('tobiishi:tts', useTTS); ttsLabel(); Kit.sfx('tap'); if (useTTS) speak('よしっ', 1.05, 1.05, 0); };
+function renderRecs() {
+  $('recs').innerHTML = '';
+  LINES.forEach(([id, t]) => {
+    const has = !!VDB.urls[id];
+    const row = Kit.el(`<div class="rc"><b>${t} ${has ? '<span class="ok">✔</span>' : ''}</b><button class="r">●</button><button class="p" ${has ? '' : 'disabled'}>▶</button><button class="d" ${has ? '' : 'disabled'}>🗑</button></div>`);
+    const rb = row.querySelector('.r');
+    rb.onclick = async () => {
+      if (mrec && mrec.state === 'recording') { mrec.stop(); return; }
+      try {
+        const st = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const ch = []; mrec = new MediaRecorder(st); rb.classList.add('on'); rb.textContent = '■';
+        mrec.ondataavailable = e => ch.push(e.data);
+        mrec.onstop = async () => { st.getTracks().forEach(k => k.stop()); clearTimeout(mrec._t); const blob = new Blob(ch, { type: mrec.mimeType || 'audio/webm' }); await vSet(id, blob); await loadVoicesRec(); renderRecs(); playRec(id); };
+        mrec.start(); mrec._t = setTimeout(() => { if (mrec.state === 'recording') mrec.stop(); }, 3000);
+      } catch (e) { Kit.toast('マイクが つかえないよ'); }
+    };
+    row.querySelector('.p').onclick = () => playRec(id);
+    row.querySelector('.d').onclick = async () => { await vSet(id, null); await loadVoicesRec(); renderRecs(); };
+    $('recs').appendChild(row);
+  });
+}
+$('mRec').onclick = () => { Kit.sfx('tap'); renderRecs(); $('recOv').hidden = false; };
+$('recClose').onclick = () => { if (mrec && mrec.state === 'recording') mrec.stop(); $('recOv').hidden = true; };
 
 Kit.bar({ id: 'tobiishi', title: '🪨 とびいし ジャンプ', help: `
   <p>川の とびいしを わたって、どこまで 行けるか ちょうせん！</p>
