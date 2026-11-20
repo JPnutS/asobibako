@@ -378,7 +378,7 @@ function splashSound() {
 }
 
 /* ---------- じょうたい ---------- */
-const LANE = 1.8, MASH = .06;
+const LANE = 1.5, MASH = .06;
 const CPU_LV = [
   { name: 'よわい', react: [.35, .7], thr: .75, err: .16, jit: .12, mash: 5 },
   { name: 'ふつう', react: [.2, .45], thr: .6, err: .08, jit: .08, mash: 7 },
@@ -406,7 +406,7 @@ function newGame(cfg = {}) {
   }
   for (const P of G.ps) {
     const L = P.lane;
-    addStone(L, 'start', 0, { r: vs ? 1.1 : 1.6 });
+    addStone(L, 'start', 0, { r: vs ? .9 : 1.6 });
     for (let i = 0; i < 4; i++) addStone(L, 'rock', D);
     P.on = L.stones[0]; P.x = L.x; P.z = 0;
   }
@@ -573,7 +573,7 @@ function frame(now) {
   R.render(scene, cam);
 }
 let VW = 0, VH = 0;
-function resize() { const r = stage.getBoundingClientRect(); if (r.width === VW && r.height === VH) return; VW = r.width; VH = r.height; R.setPixelRatio(Math.min(2, devicePixelRatio || 1)); R.setSize(VW, VH, false); cam.aspect = VW / VH; const vs = G && G.vs; cam.fov = VW < VH ? (vs ? 72 : 66) : (vs ? 58 : 54); cam.updateProjectionMatrix(); }
+function resize() { const r = stage.getBoundingClientRect(); if (r.width === VW && r.height === VH) return; VW = r.width; VH = r.height; R.setPixelRatio(Math.min(2, devicePixelRatio || 1)); R.setSize(VW, VH, false); cam.aspect = VW / VH; cam.fov = VW < VH ? 66 : 54; cam.updateProjectionMatrix(); }
 let idleT = 0;
 function idle(dt) {
   idleT += dt;
@@ -781,12 +781,12 @@ function poseKid(p, dt) {
   const on = p.st === 'stand' || p.st === 'ready';
   k.blob.visible = !fallen; k.blob.position.set(p.x, on ? p.y + .02 : .05, p.z); const hgt = Math.max(0, p.y - TOP); k.blob.scale.setScalar(Math.max(.4, 1 - hgt * .25)); k.blob.material.opacity = .28 - Math.min(.15, hgt * .05);
 }
-/* ---------- カメラ（たいせんでは となりの レーンも うつる） ---------- */
+/* ---------- カメラ ---------- */
 const camPos = new THREE.Vector3(0, 4, 7), camLook = new THREE.Vector3();
 function camFollow(dt) {
   const p = camTarget(), portrait = VW < VH, vs = G.vs;
-  const back = vs ? (portrait ? 7.2 : 6.0) : (portrait ? 6.2 : 5.4), hgt = vs ? (portrait ? 4.3 : 3.5) : (portrait ? 3.6 : 3.0);
-  const lx = vs ? p.lane.x : 0, cx = lx * .35, rel = p.x - lx;
+  const back = portrait ? 6.2 : 5.4, hgt = portrait ? 3.6 : 3.0;
+  const lx = vs ? p.lane.x : 0, cx = lx, rel = p.x - lx;   // じぶんの レーンの まうしろ（1人プレイと おなじ）
   const ty = Math.max(TOP, Math.min(p.y, TOP + 1.2));
   const want = new THREE.Vector3(cx + rel * .45, ty + hgt, p.z + back);
   camPos.lerp(want, Math.min(1, dt * (p.st === 'fall' ? 2 : 5)));
