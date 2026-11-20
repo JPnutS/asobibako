@@ -84,11 +84,12 @@ Kit.bar({ id: 'coffee', title: 'コーヒー 4:6', help: `
   <p><b>残りの60%</b>は何回に分けるかで<b>濃さ</b>を決めます。回数を増やすほど濃く、減らすほどすっきりします。</p>
   <p>基本（豆20g・お湯300g・5回）の時間は、PHILOCOFFEAの手順どおり <b>0:00 → 0:45 → 1:30 → 2:10 → 2:40</b> に注ぎ、<b>3:30</b> にドリッパーを外します。60%を1回・2回・4回にした時の注ぐ時間は、この流れに合わせためやすです。</p>
   <p>スケールの表示が「◯gまで」になるまで注ぎます。次に注ぐ5秒前から音でカウントダウンし、3:30には別の音で完成を知らせます。タイマー中は静かなBGMが流れます（BGMだけオフにもできます）。使っている間は画面が消えにくくなります。</p>
+  <p><b>合図の音</b>：タイマー画面で「ふつう・大きめ・最大」を選べます（最初は最大）。スマホ本体の音量より大きくはできません。iPhone は消音モード（横のスイッチ）だと鳴らないことがあります。</p>
   <p>豆は粗挽きがめやすです。3:30ごろにお湯が落ちきるよう、挽き目で調整してください。</p>` });
 
 const $ = id => document.getElementById(id);
 const app = $('app');
-const S = Object.assign({ beans: 20, ratio: 15, taste: 'std', strength: 3, bgm: true }, Kit.store.get('coffee:s', {}));
+const S = Object.assign({ beans: 20, ratio: 15, taste: 'std', strength: 3, bgm: true, vol: 3 }, Kit.store.get('coffee:s', {}));
 const save = () => Kit.store.set('coffee:s', S);
 
 const TASTE = { sweet: [5, 7], std: [6, 6], bright: [7, 5] };           // 40% の分け方（12分の）
@@ -220,6 +221,26 @@ const bgm = {
   },
 };
 
+/* ---------- 合図の音量：Kit の全体音量（半分）を通さず、増幅＋コンプレッサーで大きく鳴らす ---------- */
+const VOL_G = { 1: 0.5, 2: 1.6, 3: 3 };
+let fxBus = null;
+function fx() {
+  const a = Kit.audio(); if (!a) return null;
+  if (!fxBus) {
+    const comp = a.createDynamicsCompressor();
+    comp.threshold.value = -14; comp.knee.value = 6; comp.ratio.value = 12; comp.attack.value = .002; comp.release.value = .2;
+    fxBus = a.createGain(); fxBus.connect(comp); comp.connect(a.destination);
+  }
+  fxBus.gain.value = VOL_G[S.vol] || 1.6;
+  return fxBus;
+}
+// 音色：基音＋少し倍音を混ぜると、スマホのスピーカーでも聞こえやすい
+function ping(f, dur, vol, delay = 0, type = 'triangle') {
+  const out = fx(); if (!out) return;
+  Kit.tone(f, dur, { type, vol, delay, out });
+  Kit.tone(f * 2, dur * .7, { type: 'sine', vol: vol * .35, delay, out });
+}
+
 /* ---------- タイマー ---------- */
 const WAIT_SHOW = 15;   // 最後に注いでからこの秒数で「3:30まで待つ」表示に切り替え
 let timer = null;
@@ -235,6 +256,7 @@ function run(P) {
       <div class="in"><span class="lbl" id="lbl">準備ができたら</span><span class="big" id="big">${P.pours[0].to}<small>g</small></span><span class="sub" id="sub">スケールを0にしてスタート</span></div></div>
     <div class="next" id="next"></div>
     <div class="ctrl"><button class="k-btn is-sun is-big" id="start">スタート（1投目）</button><button class="k-chip" id="bgm"></button></div>
+    <div class="ctrl"><span class="note">合図の音</span><span class="seg" id="vol"></span><button class="k-chip" id="tryVol">試す</button></div>
     <div class="plan" id="plan" style="width:100%">${P.pours.map(p => `<div class="pour ${p.kind === 'body' ? 'body' : p.kind}" data-i="${p.i}"><span class="t">${mmss(p.t)}</span><span class="w"><b>${p.i + 1}投目 ${p.w}g</b><small>${p.kind === 'body' ? '濃さ' : '味'}</small></span><span class="to">${p.to}<small>gまで</small></span></div>`).join('')}
       <div class="pour end" data-i="end"><span class="t">${mmss(P.endT)}</span><span class="w"><b>ドリッパーを外す</b><small>落ちきるまで待つ</small></span><span></span></div></div>
     <button class="k-btn is-small" id="back">設定に戻る</button></div>`;
@@ -247,19 +269,22 @@ function run(P) {
     if (!S.bgm) bgm.stop(); else if (running()) bgm.start();
     if (S.bgm && !Kit.settings.music) Kit.toast('音がオフです。右上の🔊でオンにしてください');
   };
+  const paintVol = () => { $('vol').innerHTML = ''; [[1, 'ふつう'], [2, '大きめ'], [3, '最大']].forEach(([v, l]) => { const b = Kit.el(`<button class="k-chip" aria-pressed="${S.vol === v}">${l}</button>`); b.onclick = () => { S.vol = v; save(); paintVol(); cue(); }; $('vol').appendChild(b); }); };
+  paintVol();
+  $('tryVol').onclick = () => { if (!Kit.settings.sound) { Kit.toast('音がオフです。右上の🔊でオンにしてください'); return; } beep(); setTimeout(beep, 1000); setTimeout(cue, 2000); };
   // 注ぐ合図：2音で上がる
-  function cue() { Kit.vibrate([200, 80, 200]); if (!Kit.settings.sound) return; Kit.tone(880, .15, { type: 'triangle', vol: .3 }); Kit.tone(1320, .25, { type: 'triangle', vol: .3, delay: .15 }); }
+  function cue() { Kit.vibrate([200, 80, 200]); if (!Kit.settings.sound) return; ping(880, .22, .45); ping(1320, .32, .45, .18); }
   // カウントダウン：短い「ピッ」
-  function beep() { if (Kit.settings.sound) Kit.tone(660, .08, { type: 'square', vol: .08 }); }
+  function beep() { if (Kit.settings.sound) ping(1000, .12, .4, 0, 'square'); }
   // 完成の合図：鐘のようにゆっくり響く下りの和音
   function chime() {
     Kit.vibrate([400, 150, 400, 150, 600]);
     if (!Kit.settings.sound) return;
     [1568, 1319, 1047, 784].forEach((f, i) => {
-      Kit.tone(f, 2.4, { vol: .22, delay: i * .32 });
-      Kit.tone(f * 2.76, 1.0, { vol: .04, delay: i * .32 });
+      ping(f, 2.4, .4, i * .32, 'sine');
+      Kit.tone(f * 2.76, 1.0, { vol: .08, delay: i * .32, out: fx() });
     });
-    Kit.tone(523, 3.2, { vol: .15, delay: 1.3 });
+    ping(523, 3.2, .3, 1.3, 'sine');
   }
   function mark(cur) { document.querySelectorAll('#plan .pour').forEach(el => { const i = el.dataset.i === 'end' ? last + 1 : +el.dataset.i; el.classList.toggle('now', i === cur); el.classList.toggle('done', i < cur); }); }
   function tick() {
