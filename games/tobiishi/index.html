@@ -73,6 +73,9 @@
   .modes.sm button { padding: 6px 4px; font-size: .9rem; }
   .vsr { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .vsr > div { position: relative; background: #fff; border-radius: 16px; padding: 10px 6px; text-align: center; box-shadow: 0 3px 0 #c4dcef; display: grid; gap: 2px; }
+  .pill.multi { font-size: .85rem; line-height: 1.35; border-radius: 14px; padding: 4px 10px; }
+  .pill.multi b { font-size: 1rem; }
+  .vsr > div.me { outline: 3px solid #ff7a1a; }
   .vsr > div.win { background: linear-gradient(180deg, #fff6c8, #ffe066); box-shadow: 0 3px 0 #d4a800; }
   .vsr span { font-weight: 900; font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .vsr b { font: 400 2.4rem 'Dela Gothic One', sans-serif; color: #0b6fb8; line-height: 1.1; }
@@ -261,7 +264,10 @@ function makeStoneMesh(s) {
 const KIDCOL = [
   { hoodie: '#ff7a1a', hoodD: '#e0600a', pants: '#24407a', shoe: '#ff3b3b', cap: '#e8262a', bag: '#2f8fff', bagD: '#1a6fd6' },
   { hoodie: '#3fc0ff', hoodD: '#1f94d8', pants: '#2e2e44', shoe: '#22c55e', cap: '#16a34a', bag: '#ffd23f', bagD: '#e0a800' },
+  { hoodie: '#5ad06a', hoodD: '#3aa84a', pants: '#5a3a1a', shoe: '#ffffff', cap: '#ffd23f', bag: '#ff5a8a', bagD: '#d83a6a' },
+  { hoodie: '#b07aff', hoodD: '#8a52e0', pants: '#24304a', shoe: '#ffb13d', cap: '#ff5aa8', bag: '#3fd0c0', bagD: '#22a89a' },
 ];
+const KIDICON = ['🟠', '🔵', '🟢', '🟣'];
 function makeKid(c) {
   const skin = STD('#ffd2ad'), hoodie = STD(c.hoodie, { roughness: .7 }), hoodD = STD(c.hoodD), pants = STD(c.pants), shoe = STD(c.shoe, { roughness: .5 }), sole = STD('#ffffff'), cap = STD(c.cap, { roughness: .5 }), hair = STD('#2a1a10'), bag = STD(c.bag, { roughness: .6 }), strap = STD('#ffffff');
   const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
@@ -299,7 +305,7 @@ function setLabel(sp, text) {
   g.fillStyle = 'rgba(10,60,110,.82)'; if (g.roundRect) { g.beginPath(); g.roundRect(128 - w / 2, 6, w, 52, 26); g.fill(); } else g.fillRect(128 - w / 2, 6, w, 52);
   g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 128, 33, 230); t.needsUpdate = true;
 }
-const opLabel = makeLabel(); KIDS[1].root.add(opLabel);
+KIDS.forEach((k, i) => { if (i) { k.label = makeLabel(); k.root.add(k.label); } });
 
 /* ---------- しぶき・わ ---------- */
 const dropGeo = new THREE.SphereGeometry(1, 6, 4), dropM = new THREE.MeshBasicMaterial({ color: 0xeaf8ff, transparent: true, opacity: .9 });
@@ -396,14 +402,18 @@ function newGame(cfg = {}) {
   clearGame(); lastCfg = cfg;
   const mode = cfg.mode || 'solo', vs = mode !== 'solo', seed = cfg.seed != null ? cfg.seed : (Math.random() * 2 ** 31) | 0;
   G = { t: 0, mode, vs, ps: [], area: 0, shake: 0, cd: vs ? 3.4 : 0, ended: false, sendT: 0, lead: 0 };
-  const lx = i => (vs ? (i ? LANE : -LANE) : 0), my = cfg.myLane || 0;
-  G.me = mkPlayer({ me: true, name: 'じぶん', kid: KIDS[0], lane: mkLane(lx(my), seed) }); G.ps.push(G.me);
-  G.op = null;
-  if (vs) {
-    G.op = mkPlayer({ cpu: mode === 'cpu', remote: mode === 'net', name: cfg.opName || 'CPU', kid: KIDS[1], lane: mkLane(lx(1 - my), seed) });
-    if (G.op.cpu) G.op.ai = { lv: CPU_LV[cfg.lv != null ? cfg.lv : LV], wait: 0, airT: 0, djAt: null, mashT: 0, jumpIn: -1 };
-    G.ps.push(G.op); setLabel(opLabel, (mode === 'cpu' ? '🤖 ' : '') + G.op.name);
-  }
+  // たいせん：人数ぶん レーンを ならべる（2人なら ±1.5、4人なら -4.5〜4.5）
+  const names = vs ? (cfg.players || ['じぶん', cfg.opName || 'CPU']) : ['じぶん'], n = names.length, my = cfg.myIdx || 0;
+  const lx = i => (i - (n - 1) / 2) * LANE * 2;
+  let kk = 1; G.ops = [];
+  names.forEach((nm, i) => {
+    if (i === my) { G.me = mkPlayer({ me: true, idx: i, name: 'じぶん', kid: KIDS[0], icon: KIDICON[0], lane: mkLane(lx(i), seed) }); G.ps.push(G.me); return; }
+    const P = mkPlayer({ idx: i, cpu: mode === 'cpu', remote: mode === 'net', name: nm, kid: KIDS[kk], icon: mode === 'cpu' ? '🤖' : KIDICON[kk], lane: mkLane(lx(i), seed) }); kk++;
+    if (P.cpu) P.ai = { lv: CPU_LV[cfg.lv != null ? cfg.lv : LV], wait: 0, airT: 0, djAt: null, mashT: 0, jumpIn: -1 };
+    setLabel(P.kid.label, (mode === 'cpu' ? '🤖 ' : '') + nm);
+    G.ps.push(P); G.ops.push(P);
+  });
+  G.op = G.ops[0] || null;
   for (const P of G.ps) {
     const L = P.lane;
     addStone(L, 'start', 0, { r: vs ? .9 : 1.6 });
@@ -413,15 +423,15 @@ function newGame(cfg = {}) {
   genAll();
   $('menuOv').hidden = true; $('resOv').hidden = true; $('hud').hidden = false; $('cmts').innerHTML = '';
   VW = 0; setArea(0, true); hud(); balUI();
-  if (vs) { tip('となりの あいてより 先へ すすもう！', 3200); banner('よーい…', `${G.op.name} と たいせん！`); }
+  if (vs) { tip('となりの あいてより 先へ すすもう！', 3200); banner('よーい…', G.ops.length > 1 ? `${G.ps.length}人で たいせん！` : `${G.op.name} と たいせん！`); }
   else { tip('タップで ジャンプ！'); banner('エリア 1', AREAS[0].name); }
   Kit.audio(); Kit.music.play(BGM);
 }
 function hud() {
   const me = G.me;
   if (!G.vs) { $('hLife').innerHTML = '🎥 REC'; $('hScore').innerHTML = `🪨 <b>${me.count}</b>　${me.score} てん`; return; }
-  const op = G.op;
-  $('hLife').innerHTML = `🔵 ${Kit.esc(op.name)} <b>${op.count}</b>${op.alive ? '' : ' 💦'}`;
+  const line = P => `${P.icon} ${Kit.esc(P.name)} <b>${P.count}</b>${P.alive ? '' : ' 💦'}`;
+  $('hLife').innerHTML = G.ops.map(line).join('<br>'); $('hLife').classList.toggle('multi', G.ops.length > 1);
   $('hScore').innerHTML = `🟠 じぶん <b>${me.count}</b>${me.alive ? '' : ' 💦'}`;
 }
 let tipT = 0;
@@ -590,7 +600,7 @@ function step(dt) {
   for (const P of G.ps) { if (P.ai) cpuThink(P, dt); if (P.remote) puppet(P, dt); else stepPlayer(P, dt); if (!G) return; }
   genAll();
   const cz = camTarget().z;
-  for (const P of G.ps) { const L = P.lane, lim = Math.max(P.z, cz) + 14; L.stones = L.stones.filter(s => { const keep = s.z < lim || s === P.on; if (!keep) scene.remove(s.mesh); return keep; }); }
+  for (const P of G.ps) { const L = P.lane, lim = (P.st === 'out' ? cz : Math.max(P.z, cz)) + 14; L.stones = L.stones.filter(s => { const keep = s.z < lim || s === P.on; if (!keep) scene.remove(s.mesh); return keep; }); }
   for (const P of G.ps) poseKid(P, dt);
   camFollow(dt);
   if (G.mode === 'net') { G.sendT -= dt; if (G.sendT <= 0) { G.sendT = .12; const p = G.me; nsend({ k: 's', bal: p.bal, off: p.off, sk: p.on ? p.on.sink : 0, c: p.count, sc: p.score }); } }
@@ -654,17 +664,23 @@ function balUI() {
   if (on) { $('balM').style.left = (50 + Kit.clamp(p.bal, -1, 1) * 48) + '%'; $('balT').textContent = 'ぐらぐら！ もっと 連打で ふんばれ！'; }
   $('mash').hidden = !on;
 }
-const camTarget = () => (G.vs && G.me.st === 'out' && G.op.st !== 'out' ? G.op : G.me);
+// じぶんが おちたら、のこっている 人の なかで いちばん 先の 人を 見る
+function camTarget() {
+  if (!G.vs || G.me.st !== 'out') return G.me;
+  const live = G.ops.filter(P => P.st !== 'out').sort((a, b) => a.z - b.z)[0];
+  return live || G.me;
+}
+const rankOf = p => 1 + G.ps.filter(o => o !== p && o.count > p.count).length;
 function areaCheck(p, gained) {
   if (p !== camTarget() || gained <= 0) return;
   const ai = Math.floor(p.count / AREA_LEN);
   if (ai !== Math.floor((p.count - gained) / AREA_LEN)) { const a = ai % AREAS.length; setArea(a); if (p.me) Kit.sfx('win'); banner(`エリア ${ai + 1}`, AREAS[a].name); cmt(`エリア ${ai + 1} とうちゃく！`, true); }
 }
-function leadCheck() {
+function leadCheck(p) {
   if (!G.vs) return;
-  const d = Math.sign(G.me.count - G.op.count);
-  if (d && d !== G.lead && G.me.alive && G.op.alive && G.lead !== 0) { if (d > 0) { cmt('ぬいた〜！', true); } else { cmt(`${G.op.name} に ぬかれた！`, true); } }
-  if (d) G.lead = d;
+  const r = rankOf(G.me);
+  if (G.rank && r !== G.rank && G.me.alive && G.me.count > 0) { if (r < G.rank && p.me) cmt(r === 1 ? 'トップに なった〜！' : 'ぬいた〜！', true); else if (r > G.rank && !p.me) cmt(`${p.name} に ぬかれた！`, true); }
+  G.rank = r;
 }
 function land(p, s) {
   p.st = 'stand'; p.on = s; p.vy = 0; p.off = p.x - s.x; p.squash = .3; p.flip = 0;
@@ -695,7 +711,7 @@ function land(p, s) {
     }
     if (s.ball) { s.ball = false; gotBall = true; p.balls++; pts += 3; if (s.ballMesh) { s.ballMesh.visible = false; splash(p.x, s.z, 10, .6, true); } if (p.me) { Kit.sfx('coin'); pop('⚽ +3'); } }
     p.score += pts;
-    areaCheck(p, gained); leadCheck(); hud();
+    areaCheck(p, gained); leadCheck(p); hud();
   }
   if (p.me) {
     if (p.count === 1 && !G.vs) tip('のんびりしてると いしが しずむよ', 2500);
@@ -711,7 +727,7 @@ function landRemote(p, m) {
   p.x = s.x + p.off; p.z = s.z; ring(p.x, s.z, .7); splash(p.x, s.z, 6, .35);
   if (m.b && s.ballMesh) { s.ball = false; s.ballMesh.visible = false; splash(p.x, s.z, 10, .6, true); }
   const prev = p.count; p.count = m.c; p.score = m.sc;
-  areaCheck(p, p.count - prev); leadCheck(); hud();
+  areaCheck(p, p.count - prev); leadCheck(p); hud();
 }
 function fall(p, msg) {
   p.st = 'fall'; p.fallT = 2.4; p.bal = 0; p.alive = false; p.combo = 0;
@@ -723,7 +739,7 @@ function fall(p, msg) {
     nsend({ k: 'f', x: p.x, z: p.z, msg: msg || '' });
   } else {
     laugh(1, true); cmt(`${p.name} ドボン〜！`, true);
-    if (G.me.alive) { pop(`${p.name} ドボン！`); tip(G.me.count > p.count ? 'このまま すすめば かち！' : `${p.name} は ${p.count} こ。${p.count + 1} こ 行けば かち！`, 3500); }
+    if (G.me.alive) { pop(`${p.name} ドボン！`); if (G.ops.length === 1) tip(G.me.count > p.count ? 'このまま すすめば かち！' : `${p.name} は ${p.count} こ。${p.count + 1} こ 行けば かち！`, 3500); }
   }
   hud();
 }
@@ -732,21 +748,23 @@ function fallAnim(p, dt) {
   if (p.fallT > 0) return;
   p.st = 'out'; hud();
   if (!G.vs) { G.ended = true; Kit.music.stop(); setTimeout(showResult, 500); }
-  else if (p.me && G.op.alive && !G.ended) tip(`${G.op.name} が ${p.count + 1} こ 行ったら まけ…`, 3500);
+  else if (p.me && !G.ended && G.ops.some(o => o.alive)) tip(G.ops.length === 1 ? `${G.op.name} が ${p.count + 1} こ 行ったら まけ…` : 'みんなを おうえんしよう！', 3500);
 }
+// おわり：おちた 人が みんな しずみおわって、のこりが 0人、または のこり1人が おちた 人より 先に いるとき
 function checkEnd() {
   if (G.ended) return;
-  const a = G.me, b = G.op, out = P => P.st === 'out';
-  let w = null;
-  if (out(a) && out(b)) w = a.count > b.count ? 'me' : b.count > a.count ? 'op' : 'draw';
-  else if (out(b) && a.alive && a.count > b.count) w = 'me';
-  else if (out(a) && b.alive && b.count > a.count) w = 'op';
-  if (!w) return;
-  G.ended = true; G.win = w;
-  const snap = P => ({ name: P.name, count: P.count, score: P.score, perf: P.perf, balls: P.balls, maxCombo: P.maxCombo });
-  G.res = { me: snap(a), op: snap(b) };
+  if (G.ps.some(P => !P.alive && P.st !== 'out')) return;
+  const live = G.ps.filter(P => P.alive), dead = G.ps.filter(P => !P.alive);
+  if (!dead.length || live.length > 1) return;
+  if (live.length === 1 && live[0].count <= Math.max(...dead.map(P => P.count))) return;
+  G.ended = true;
+  const snap = P => ({ me: !!P.me, icon: P.icon, name: P.name, count: P.count, score: P.score, perf: P.perf, balls: P.balls, maxCombo: P.maxCombo, rank: rankOf(P) });
+  G.res = G.ps.map(snap).sort((a, b) => a.rank - b.rank || b.score - a.score);
+  const mine = G.res.find(r => r.me), tops = G.res.filter(r => r.rank === 1);
+  G.win = mine.rank === 1 ? (tops.length > 1 ? 'draw' : 'me') : 'op';
   balUI(); Kit.music.stop();
-  if (w === 'me') { banner('かち！', `${b.name} に かった！`); } else if (w === 'op') banner('まけ…', `${b.name} の かち`); else banner('ひきわけ', 'おなじ かず！');
+  if (G.res.length > 2) banner(mine.rank === 1 ? '1い！' : `${mine.rank}い`, tops.length > 1 ? 'おなじ かずで 1い' : `1いは ${tops[0].me ? 'じぶん' : tops[0].name}`);
+  else if (G.win === 'me') banner('かち！', `${G.op.name} に かった！`); else if (G.win === 'op') banner('まけ…', `${G.op.name} の かち`); else banner('ひきわけ', 'おなじ かず！');
   setTimeout(showResult, 1600);
 }
 const BGM = { bpm: 132, type: 'square', vol: .02, lead: [659, 0, 784, 659, 880, 0, 784, 0, 659, 0, 587, 0, 523, 0, 587, 659, 784, 0, 880, 784, 988, 0, 880, 0, 784, 0, 659, 0, 587, 0, 0, 0], bass: [110, 0, 165, 0, 131, 0, 196, 0, 147, 0, 220, 0, 165, 0, 247, 0] };
@@ -860,14 +878,14 @@ function showResult() {
   $('rMenu').onclick = () => { Kit.sfx('tap'); showMenu(); };
 }
 function showVsResult() {
-  const { me, op } = G.res, w = G.win;
-  const title = w === 'me' ? '🏆 かち！' : w === 'op' ? 'まけ… つぎは かつぞ！' : 'ひきわけ！';
-  const col = (P, icon, win) => `<div class="${win ? 'win' : ''}"><span>${icon} ${Kit.esc(P.name)}</span><b>${P.count}</b><small>こ ・ ${P.score} てん</small>${win ? '<i>かち！</i>' : ''}</div>`;
+  const res = G.res, w = G.win, mine = res.find(r => r.me), many = res.length > 2;
+  const title = many ? (mine.rank === 1 ? (w === 'draw' ? '🏆 1い（おなじ かず）' : '🏆 1い！') : `${mine.rank}い！ つぎは 1いだ！`) : w === 'me' ? '🏆 かち！' : w === 'op' ? 'まけ… つぎは かつぞ！' : 'ひきわけ！';
+  const col = r => `<div class="${r.rank === 1 ? 'win' : ''}${r.me ? ' me' : ''}"><span>${r.icon} ${Kit.esc(r.name)}</span><b>${r.count}</b><small>こ ・ ${r.score} てん</small>${many ? `<i>${r.rank}い</i>` : r.rank === 1 && w !== 'draw' ? '<i>かち！</i>' : ''}</div>`;
   $('resCard').innerHTML = `<div class="ttl">${title}</div>
-    <div class="vsr">${col(me, '🟠', w === 'me')}${col(op, G.mode === 'cpu' ? '🤖' : '🔵', w === 'op')}</div>
-    <div class="bd"><div><span>じぶんの ピタッ！</span><b>${me.perf} かい</b></div>
-    <div><span>じぶんの ボール</span><b>${me.balls} こ</b></div>
-    <div><span>さいだい れんぞく</span><b>${me.maxCombo}</b></div></div>
+    <div class="vsr">${(many ? res : [mine, res.find(r => !r.me)]).map(col).join('')}</div>
+    <div class="bd"><div><span>じぶんの ピタッ！</span><b>${mine.perf} かい</b></div>
+    <div><span>じぶんの ボール</span><b>${mine.balls} こ</b></div>
+    <div><span>さいだい れんぞく</span><b>${mine.maxCombo}</b></div></div>
     <div class="row"><button class="btn main" id="rAgain">もう一回</button><button class="btn" id="rMenu">もどる</button></div>`;
   $('resOv').hidden = false;
   setTimeout(() => { if (w === 'me') { Kit.sfx('win'); Kit.confetti(); } else Kit.sfx('good'); }, 250);
@@ -903,18 +921,17 @@ $('mStart').onclick = () => {
 /* ---------- オンライン たいせん ---------- */
 function openNet(code) {
   if (!window.Net) { Kit.toast('オンラインが つかえないよ'); return; }
-  Net.open({ game: 'tobiishi', min: 2, max: 2, joinCode: code, opts: () => ({}), onStart: startNet, onLeave: () => showMenu() });
+  Net.open({ game: 'tobiishi', min: 2, max: 4, joinCode: code, opts: () => ({}), onStart: startNet, onLeave: () => showMenu() });
 }
 function startNet(r) {
   NET = { room: r }; r.onMessage = onNet;
-  const other = r.players.find((p, i) => i !== r.me);
-  newGame({ mode: 'net', seed: r.seed, myLane: r.me === 0 ? 0 : 1, opName: other ? other.name : 'あいて' });
+  newGame({ mode: 'net', seed: r.seed, myIdx: r.me, players: r.players.map(p => p.name || 'あいて') });
 }
 function leaveNet() { if (NET && NET.room && !NET.room.closed) NET.room.close(); NET = null; }
 function nsend(m) { if (G && G.mode === 'net' && NET && NET.room && !NET.room.closed) NET.room.send(Object.assign({ r: NET.room.round }, m)); }
 function onNet(m, from) {
   if (!NET || !G || G.mode !== 'net' || m.r !== NET.room.round || from === NET.room.me) return;
-  const p = G.op; if (!p) return;
+  const p = G.ps.find(P => P.idx === from && !P.me); if (!p) return;
   if (m.k === 'j') { if (p.on) p.on.left = true; Object.assign(p, { st: 'air', x: m.x, y: m.y, z: m.z, vy: m.vy, vz: m.vz, dj: false, flip: 0, squash: -.25, bal: 0, on: null }); }
   else if (m.k === 'd') { if (p.st === 'air') dJump(p); }
   else if (m.k === 'l') landRemote(p, m);
@@ -961,7 +978,7 @@ Kit.bar({ id: 'tobiishi', title: '🪨 とびいし ジャンプ', help: `
     <li>1かい おちたら おしまい</li>
     <li>まん中に ピタッと のると +2てん、ボールは +3てん</li>
     <li>ぐらぐら したら 画面を いっぱい 連打</li>
-    <li>たいせん：CPU か オンラインで、となりの レーンの あいてと きょうそう。さきに おちても、あいてが その かずを こえるまでは まけじゃない</li>
+    <li>たいせん：CPU か オンライン（4人まで）で、となりの レーンの あいてと きょうそう。さきに おちても、あいてが その かずを こえるまでは まけじゃない</li>
   </ul>` });
 showMenu();
 requestAnimationFrame(frame);
