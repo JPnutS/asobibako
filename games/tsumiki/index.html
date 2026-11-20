@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>つみき タワー</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; overflow: hidden; background: #e8f4ff; }
+  .stage { flex: 1; position: relative; min-height: 0; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  #cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .hud { position: absolute; left: 10px; right: 10px; top: 8px; display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; pointer-events: none; z-index: 3; }
+  .pill { background: rgba(255,255,255,.9); color: #1f3a5a; border-radius: 99px; padding: 4px 12px; font: 900 1rem 'Zen Maru Gothic', sans-serif; box-shadow: 0 2px 0 rgba(31,58,90,.18); white-space: nowrap; }
+  .pill b { font: 400 1.15rem 'Dela Gothic One', sans-serif; }
+  .tip { position: absolute; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 3; pointer-events: none; background: rgba(31,58,90,.82); color: #fff; font: 900 .95rem 'Zen Maru Gothic', sans-serif; border-radius: 99px; padding: 7px 16px; white-space: nowrap; transition: opacity .3s; }
+  .tip.off { opacity: 0; }
+  .rot { position: absolute; left: 12px; bottom: calc(60px + env(safe-area-inset-bottom)); z-index: 4; width: 64px; height: 64px; border-radius: 50%; border: 4px solid #fff; background: linear-gradient(135deg, #7cc8ff, #2a8ae0); color: #fff; font: 900 1.6rem 'Zen Maru Gothic', sans-serif; box-shadow: 0 4px 0 #1a5fa8; cursor: pointer; }
+  .rot[hidden], .pass[hidden] { display: none; }
+  .pass { position: absolute; left: 50%; top: 56px; transform: translateX(-50%); z-index: 5; background: #fff; border: 4px solid #1f3a5a; border-radius: 22px; padding: 12px 18px; text-align: center; box-shadow: 0 8px 0 rgba(31,58,90,.25); width: min(320px, 86vw); }
+  .pass b { display: block; font: 400 2rem 'Dela Gothic One', sans-serif; color: #2a8ae0; }
+  .pass p { margin: 4px 0 10px; font-weight: 900; color: #1f3a5a; font-size: .95rem; }
+  .banner { position: absolute; left: 0; right: 0; top: 26%; text-align: center; pointer-events: none; z-index: 4; opacity: 0; transition: opacity .3s; }
+  .banner.on { opacity: 1; }
+  .banner b { font: 400 clamp(1.8rem, 10vw, 2.8rem) 'Dela Gothic One', sans-serif; color: #ff5a5a; -webkit-text-stroke: 2px #4a0a0a; text-shadow: 0 4px 0 rgba(0,0,0,.25); }
+  .over { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; padding: 14px; overflow: auto; background: rgba(31,58,90,.45); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+  .over[hidden] { display: none; }
+  .card { width: min(420px, 100%); background: #f6fbff; color: #1f3a5a; border-radius: 26px; padding: 18px 16px; display: grid; gap: 10px; box-shadow: 0 20px 50px rgba(0,0,0,.35); }
+  .card h2 { margin: 0; text-align: center; font: 400 2rem 'Dela Gothic One', sans-serif; color: #2a8ae0; -webkit-text-stroke: 1.5px #0a2a5a; }
+  .card p { margin: 0; line-height: 1.7; font-weight: 700; font-size: .95rem; }
+  .how { margin: 0; padding-left: 1.2em; line-height: 1.8; font-size: .92rem; font-weight: 700; }
+  .btn { appearance: none; border: none; border-radius: 14px; font: 900 1.1rem 'Zen Maru Gothic', sans-serif; padding: 12px; cursor: pointer; box-shadow: 0 4px 0 rgba(0,0,0,.15); background: #fff; color: #1f3a5a; }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.15); }
+  .btn.main { background: linear-gradient(135deg, #5cc0ff, #1f7ad6); color: #fff; box-shadow: 0 4px 0 #0f4f99; }
+  .row { display: flex; gap: 8px; } .row .btn { flex: 1; }
+  .chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .chips.c3 { grid-template-columns: repeat(3, 1fr); }
+  .chips button { appearance: none; border: 3px solid #d6e8f6; background: #fff; border-radius: 14px; padding: 8px 2px; font: 900 .95rem 'Zen Maru Gothic', sans-serif; color: #1f3a5a; cursor: pointer; }
+  .chips button big { display: block; font-size: 1.3rem; letter-spacing: -2px; }
+  .chips button.on { border-color: #2a8ae0; background: #e3f4ff; box-shadow: 0 0 0 2px #2a8ae0 inset; }
+  .lbl { font-weight: 900; font-size: .9rem; color: #5b7a96; }
+  .best { text-align: center; font-weight: 900; color: #5b7a96; }
+  .big { text-align: center; font: 400 3.4rem 'Dela Gothic One', sans-serif; line-height: 1; color: #2a8ae0; }
+  .big small { font: 900 1rem 'Zen Maru Gothic', sans-serif; color: #5b7a96; }
+  .ttl { text-align: center; font: 400 1.6rem 'Dela Gothic One', sans-serif; color: #2a8ae0; }
+  .rank { display: grid; gap: 6px; }
+  .rank div { display: grid; grid-template-columns: 2.4em 1fr auto; align-items: center; gap: 6px; background: #fff; border-radius: 14px; padding: 8px 10px; box-shadow: 0 2px 0 #d6e8f6; font-weight: 900; }
+  .rank div.lose { background: #ffe4e4; }
+  .rank i { font-style: normal; font-size: 1.4rem; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <canvas id="cv"></canvas>
+  <div class="hud" id="hud" hidden><span class="pill" id="hL"></span><span class="pill" id="hR"></span></div>
+  <div class="banner" id="banner"><b id="bnA"></b></div>
+  <button class="rot" id="rotBtn" hidden aria-label="まわす">↻</button>
+  <div class="pass" id="passBox" hidden><b id="pWho"></b><p id="pMsg">そーっと わたしてね</p><button class="btn main" id="pGo" style="width:100%">うけとった！</button></div>
+  <div class="tip off" id="tip"></div>
+  <div class="over" id="menuOv"><div class="card">
+    <h2>つみき タワー</h2>
+    <p>つみきを どんどん つんで、たかい タワーを つくろう。スマホを かたむけると、タワーも かたむくよ！</p>
+    <ul class="how">
+      <li>上の つみきを <b>ゆびで うごかして、はなすと おちる</b>。↻ で まわせる</li>
+      <li>スマホが かたむくと、つみきが 下（ほんとうの 下）に ひっぱられる</li>
+      <li>みんなで：つんだら スマホを つぎの 人へ。くずした 人の まけ！</li>
+    </ul>
+    <div class="lbl">なん人で あそぶ？</div>
+    <div class="chips" id="pChips"></div>
+    <div class="lbl">かたむきの つよさ</div>
+    <div class="chips c3" id="tChips"></div>
+    <div class="best" id="mBest"></div>
+    <button class="btn main" id="mStart">はじめる！</button>
+  </div></div>
+  <div class="over" id="resOv" hidden><div class="card" id="resCard"></div></div>
+</div>
+<script src="../../common/kit.js"></script>
+<script src="../../common/tilt.js"></script>
+<script src="../../common/vendor/matter.min.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const stage = $('stage'), cv = $('cv'), ctx = cv.getContext('2d');
+const { Engine, Bodies, Body, Composite, Sleeping } = Matter;
+const PLAYERS = ['🐶', '🐱', '🐰', '🐼'];
+const TILTS = [{ n: 'なし', k: 0 }, { n: 'すこし', k: .55 }, { n: 'ほんもの', k: 1 }];
+const COLORS = ['#ff6b6b', '#ffb13d', '#ffe066', '#5ad06a', '#4cc3ff', '#8a7aff', '#ff8fc8'];
+const SHAPES = [
+  { id: 'wide', w: 110, h: 32, p: 3 }, { id: 'box', w: 58, h: 58, p: 3 }, { id: 'long', w: 160, h: 26, p: 1.6 },
+  { id: 'tall', w: 36, h: 92, p: 1.6 }, { id: 'small', w: 40, h: 40, p: 2 }, { id: 'tri', r: 42, p: 1.4 }, { id: 'ball', r: 24, p: .5 },
+];
+const TABLE_W = 240, FALL_Y = 70;
+
+/* ---------- がめん ---------- */
+let VW = 400, VH = 700, SC = 1, OX = 0, dpr = 1;
+function resize() { const r = stage.getBoundingClientRect(); dpr = Math.min(2, devicePixelRatio || 1); SC = Math.min(r.width / 400, r.height / 640); VW = r.width / SC; VH = r.height / SC; OX = (VW - 400) / 2; cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); }
+addEventListener('resize', resize);
+
+/* ---------- じょうたい ---------- */
+let G = null, NP = Kit.store.get('tsumiki:np', 1), TK = Kit.store.get('tsumiki:tilt', 1);
+if (!TILTS[TK]) TK = 1;
+let camY = -VH + 120;   // がめんの いちばん上の せかいの y
+function newGame() {
+  const engine = Engine.create({ positionIterations: 12, velocityIterations: 10, enableSleeping: true });
+  engine.gravity.scale = .0012;
+  const table = Bodies.rectangle(200, 15, TABLE_W, 30, { isStatic: true, friction: 1, label: 'table' });
+  const floor = Bodies.rectangle(200, 260, 3000, 40, { isStatic: true, friction: .8, label: 'floor' });
+  Composite.add(engine.world, [table, floor]);
+  G = { engine, blocks: [], phase: 'aim', pi: 0, holder: 0, np: NP, k: TILTS[TK].k, count: Array(NP).fill(0), next: null, aimX: 200, rot: 0, settleT: 0, waitT: 0, height: 0, maxH: 0, acc: 0, n: 0, over: false, gang: 0 };
+  camY = -VH + 140; nextBlock();
+  $('menuOv').hidden = true; $('resOv').hidden = true; $('hud').hidden = false; $('passBox').hidden = true;
+  tip('ゆびで うごかして、はなすと おちるよ', 3000); hud();
+}
+function pickShape() {
+  if (G.n === 0) return SHAPES[0];
+  const list = SHAPES.filter(s => s.id !== 'ball' || G.n > 5), tot = list.reduce((a, s) => a + s.p, 0);
+  let k = Math.random() * tot; for (const s of list) { k -= s.p; if (k <= 0) return s; } return list[0];
+}
+function nextBlock() { G.aimTop = towerTop(); G.next = { s: pickShape(), c: COLORS[G.n % COLORS.length], face: Math.floor(Math.random() * 4) }; G.rot = 0; G.phase = 'aim'; $('rotBtn').hidden = false; }
+function makeBody(nx, x, y, rot) {
+  const s = nx.s, o = { friction: .9, frictionStatic: 1.4, restitution: 0, density: .0018, slop: .02, chamfer: s.r ? undefined : { radius: 3 } };
+  let b;
+  if (s.id === 'tri') b = Bodies.polygon(x, y, 3, s.r, o);
+  else if (s.id === 'ball') b = Bodies.circle(x, y, s.r, Object.assign(o, { friction: .5 }));
+  else b = Bodies.rectangle(x, y, s.w, s.h, o);
+  Body.setAngle(b, rot + (s.id === 'tri' ? Math.PI / 2 : 0));   // さんかくは とがった ほうが 上
+  b.plugin = { c: nx.c, s: s.id, face: nx.face, owner: G.holder };
+  return b;
+}
+function towerTop() { let top = 0; if (G) for (const b of G.blocks) top = Math.min(top, b.bounds.min.y); return top; }
+function spawnY() { return Math.max(camY + 100, (G ? G.aimTop : 0) - 150); }
+function drop() {
+  if (!G || G.phase !== 'aim') return;
+  const b = makeBody(G.next, G.aimX, spawnY(), G.rot);
+  Composite.add(G.engine.world, b); G.blocks.push(b); G.n++; G.count[G.holder]++;
+  G.phase = 'fall'; G.settleT = 0; G.waitT = 0; $('rotBtn').hidden = true;
+  Kit.sfx('drop'); hud();
+}
+function hud() {
+  if (!G) return;
+  $('hL').innerHTML = G.np > 1 ? `${PLAYERS[G.holder]} の ばん` : `🧱 <b>${G.n}</b> こ`;
+  $('hR').innerHTML = `📏 <b>${Math.round(G.maxH / 3)}</b> cm`;
+}
+let tipT = 0;
+function tip(s, ms = 2500) { const e = $('tip'); e.textContent = s; e.classList.toggle('off', !s); clearTimeout(tipT); if (s) tipT = setTimeout(() => e.classList.add('off'), ms); }
+let bnT = 0;
+function banner(s, ms = 1800) { $('bnA').textContent = s; $('banner').classList.add('on'); clearTimeout(bnT); bnT = setTimeout(() => $('banner').classList.remove('on'), ms); }
+
+/* ---------- 入力 ---------- */
+function toWorldX(clientX) { const r = stage.getBoundingClientRect(); return (clientX - r.left) / SC - OX; }
+let dragging = false;
+cv.addEventListener('pointerdown', e => { if (!G || G.phase !== 'aim') return; e.preventDefault(); Kit.audio(); dragging = true; G.aimX = Kit.clamp(toWorldX(e.clientX), 20, 380); });
+cv.addEventListener('pointermove', e => { if (!dragging || !G || G.phase !== 'aim') return; G.aimX = Kit.clamp(toWorldX(e.clientX), 20, 380); });
+addEventListener('pointerup', () => { if (dragging) { dragging = false; drop(); } });
+addEventListener('pointercancel', () => { dragging = false; });
+$('rotBtn').onclick = e => { e.stopPropagation(); if (!G || G.phase !== 'aim') return; G.rot += Math.PI / 4; Kit.sfx('tap'); };
+$('pGo').onclick = () => { if (!G) return; Kit.sfx('tap'); $('passBox').hidden = true; G.holder = G.pi; nextBlock(); hud(); };
+// パソコンでの ためし：← → で かたむける
+let keyTilt = 0;
+addEventListener('keydown', e => { if (e.code === 'ArrowLeft') keyTilt = -20; if (e.code === 'ArrowRight') keyTilt = 20; if (e.code === 'Space' && G && G.phase === 'aim') drop(); });
+addEventListener('keyup', e => { if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') keyTilt = 0; });
+
+/* ---------- まいフレーム ---------- */
+let lastT = performance.now();
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(.05, (now - lastT) / 1000); lastT = now;
+  if (G) step(dt); draw();
+}
+function gravAngle() {
+  const roll = Tilt.ok ? Tilt.roll : keyTilt;
+  return Kit.clamp(-roll * (G ? G.k : 0), -40, 40) * Math.PI / 180;
+}
+function step(dt) {
+  const a = gravAngle();
+  G.engine.gravity.x = Math.sin(a); G.engine.gravity.y = Math.cos(a);
+  // かたむきが かわったら ねている つみきを おこす
+  if (Math.abs(a - (G.lastA || 0)) > .015) { G.lastA = a; for (const b of G.blocks) Sleeping.set(b, false); }
+  G.acc += dt; let n = 0;
+  while (G.acc >= 1 / 60 && n++ < 4) { Engine.update(G.engine, 1000 / 120); Engine.update(G.engine, 1000 / 120); G.acc -= 1 / 60; }
+  if (G.over) { camY += (-VH + 140 - camY) * Math.min(1, dt * 2); return; }
+  // おちた？
+  const fallen = G.blocks.find(b => b.position.y > FALL_Y);
+  if (fallen) return collapse();
+  // タワーの たかさ
+  let top = 0; for (const b of G.blocks) top = Math.min(top, b.bounds.min.y);
+  const h = -top;
+  // おちている つみきは まだ かぞえない
+  if (G.phase === 'fall') {
+    G.waitT += dt;
+    const moving = G.blocks.some(b => !b.isSleeping && (b.speed > .25 || Math.abs(b.angularSpeed) > .02));
+    G.settleT = moving ? 0 : G.settleT + dt;
+    if (G.settleT > .6 || G.waitT > 5) settled(h);
+  }
+  // カメラ：タワーの 上が がめんの 上から 4わりくらいに
+  const want = Math.min(-VH + 140, (G.phase === 'aim' ? G.aimTop : top) - 300);
+  camY += (want - camY) * Math.min(1, dt * 2.5);
+}
+function settled(h) {
+  G.height = h; if (h > G.maxH + 2) { if (Math.floor(h / 3 / 50) > Math.floor(G.maxH / 3 / 50)) { banner(`${Math.floor(h / 3 / 50) * 50}cm！`); Kit.sfx('coin'); } G.maxH = h; }
+  hud();
+  if (G.np > 1) {
+    G.phase = 'pass'; G.pi = (G.holder + 1) % G.np;
+    $('pWho').textContent = `${PLAYERS[G.pi]}さんへ`; $('pMsg').textContent = 'そーっと わたしてね。わたす あいだも くずれるよ！';
+    $('passBox').hidden = false;
+  } else { nextBlock(); }
+}
+function collapse() {
+  G.over = true; G.phase = 'over'; $('rotBtn').hidden = true; $('passBox').hidden = true;
+  Kit.sfx('boom'); Kit.vibrate([80, 40, 120]); banner('ガラガラ〜！', 2400);
+  setTimeout(showResult, 2200);
+}
+function showResult() {
+  if (!G) return;
+  const cm = Math.round(G.maxH / 3);
+  if (G.np === 1) {
+    const best = Kit.store.get('tsumiki:best', 0), isBest = cm > best; if (isBest) Kit.store.set('tsumiki:best', cm);
+    const title = cm >= 200 ? 'タワーの たつじん！' : cm >= 120 ? 'すごい たかさ！' : cm >= 60 ? 'いい かんじ！' : 'つぎは もっと たかく！';
+    $('resCard').innerHTML = `<div class="ttl">${title}</div><div class="big">${cm}<small> cm${isBest ? '　ベスト！' : ''}</small></div>
+      <div class="best">つんだ つみき ${G.n - 1} こ ／ ベスト ${Math.max(best, cm)} cm</div>
+      <div class="row"><button class="btn main" id="rAgain">もう一回</button><button class="btn" id="rMenu">もどる</button></div>`;
+    if (isBest) setTimeout(() => { Kit.sfx('win'); Kit.confetti(); }, 200);
+  } else {
+    const loser = G.holder;
+    $('resCard').innerHTML = `<div class="ttl">${PLAYERS[loser]}さんの ときに くずれた！</div>
+      <div class="rank">${PLAYERS.slice(0, G.np).map((p, i) => `<div class="${i === loser ? 'lose' : ''}"><i>${i === loser ? '💥' : '🎉'}</i><span>${p}さん（${G.count[i]} こ）</span><b>${i === loser ? 'まけ' : 'セーフ'}</b></div>`).join('')}</div>
+      <div class="best">タワーの たかさ ${cm} cm</div>
+      <div class="row"><button class="btn main" id="rAgain">もう一回</button><button class="btn" id="rMenu">もどる</button></div>`;
+    setTimeout(() => Kit.sfx('win'), 200);
+  }
+  $('resOv').hidden = false; $('hud').hidden = true;
+  $('rAgain').onclick = () => { Kit.sfx('tap'); newGame(); };
+  $('rMenu').onclick = () => { Kit.sfx('tap'); showMenu(); };
+}
+function showMenu() {
+  G = null; camY = -VH + 140; $('resOv').hidden = true; $('hud').hidden = true; $('rotBtn').hidden = true; $('passBox').hidden = true; tip('');
+  const b = Kit.store.get('tsumiki:best', 0); $('mBest').textContent = b ? `ひとりの ベスト ${b} cm` : '';
+  renderChips(); $('menuOv').hidden = false;
+}
+function renderChips() {
+  $('pChips').innerHTML = [1, 2, 3, 4].map(n => `<button data-n="${n}" class="${n === NP ? 'on' : ''}"><big>${PLAYERS.slice(0, n).join('')}</big>${n}人</button>`).join('');
+  $('pChips').querySelectorAll('button').forEach(b => b.onclick = () => { NP = +b.dataset.n; Kit.store.set('tsumiki:np', NP); Kit.sfx('tap'); renderChips(); });
+  $('tChips').innerHTML = TILTS.map((t, i) => `<button data-k="${i}" class="${i === TK ? 'on' : ''}">${t.n}</button>`).join('');
+  $('tChips').querySelectorAll('button').forEach(b => b.onclick = () => { TK = +b.dataset.k; Kit.store.set('tsumiki:tilt', TK); Kit.sfx('tap'); renderChips(); });
+}
+$('mStart').onclick = () => { Kit.sfx('tap'); Kit.audio(); Tilt.start(); newGame(); };
+
+/* ---------- えがく ---------- */
+function shade(hex, k) { const n = parseInt(hex.slice(1), 16); let r = n >> 16, g = n >> 8 & 255, b = n & 255; r = Math.round(r * k); g = Math.round(g * k); b = Math.round(b * k); return `rgb(${Math.min(255, r)},${Math.min(255, g)},${Math.min(255, b)})`; }
+function draw() {
+  ctx.setTransform(dpr * SC, 0, 0, dpr * SC, 0, 0);
+  // そら → へや（たかく なるほど 空の 色）
+  const t = Kit.clamp(-camY / 2000, 0, 1);
+  const bg = ctx.createLinearGradient(0, 0, 0, VH); bg.addColorStop(0, `hsl(${205 - t * 20}, 80%, ${88 - t * 25}%)`); bg.addColorStop(1, '#f4f9ff');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, VW, VH);
+  ctx.save(); ctx.translate(OX, -camY);
+  // かべの もよう
+  ctx.fillStyle = 'rgba(42,138,224,.06)';
+  for (let y = Math.floor((camY) / 60) * 60; y < camY + VH; y += 60) for (let x = -400; x < 800; x += 60) if (((x + y) / 60) % 2 === 0) ctx.fillRect(x, y, 60, 60);
+  // ゆか
+  ctx.fillStyle = '#c99a6a'; ctx.fillRect(-1000, 240, 2400, 600);
+  ctx.fillStyle = '#e0b88a'; ctx.fillRect(-1000, 240, 2400, 6);
+  // つくえ
+  ctx.fillStyle = '#9a6a3a'; ctx.fillRect(200 - TABLE_W / 2 + 14, 30, 18, 210); ctx.fillRect(200 + TABLE_W / 2 - 32, 30, 18, 210);
+  const tg = ctx.createLinearGradient(0, 0, 0, 30); tg.addColorStop(0, '#d9a066'); tg.addColorStop(1, '#a8703a');
+  ctx.fillStyle = tg; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(200 - TABLE_W / 2, 0, TABLE_W, 30, 6) : ctx.rect(200 - TABLE_W / 2, 0, TABLE_W, 30); ctx.fill();
+  // たかさの めもり
+  ctx.fillStyle = 'rgba(31,58,90,.35)'; ctx.font = "900 12px 'Zen Maru Gothic', sans-serif"; ctx.textAlign = 'left';
+  for (let cm = 50; cm * 3 < -camY + 200; cm += 50) { const y = -cm * 3; ctx.fillRect(4 - OX + 6, y, 14, 2); ctx.fillText(cm + 'cm', 24 - OX + 6, y + 4); }
+  if (G && G.maxH > 5) { ctx.setLineDash([6, 6]); ctx.strokeStyle = 'rgba(255,90,90,.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-OX, -G.maxH); ctx.lineTo(400 + OX, -G.maxH); ctx.stroke(); ctx.setLineDash([]); }
+  if (G) {
+    for (const b of G.blocks) drawBody(b);
+    if (G.phase === 'aim' && G.next) {
+      const y = spawnY();
+      ctx.setLineDash([5, 7]); ctx.strokeStyle = 'rgba(31,58,90,.35)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(G.aimX, y + 30); ctx.lineTo(G.aimX, 0); ctx.stroke(); ctx.setLineDash([]);
+      const pb = makeBody(G.next, G.aimX, y, G.rot);
+      ctx.globalAlpha = .9; drawBody(pb); ctx.globalAlpha = 1;
+      // ゆびの マーク
+      ctx.font = '26px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(dragging ? '👇' : '👆', G.aimX, y - 50);
+    }
+  }
+  ctx.restore();
+  // おもり（どっちが 下か）
+  if (G && G.k > 0) {
+    const a = gravAngle(), cx = VW - 34, cy = 70;
+    ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.beginPath(); ctx.arc(cx, cy, 24, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = '#1f3a5a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx, cy - 16); ctx.lineTo(cx + Math.sin(a) * 18, cy - 16 + Math.cos(a) * 30); ctx.stroke();
+    ctx.fillStyle = '#ff5a5a'; ctx.beginPath(); ctx.arc(cx + Math.sin(a) * 18, cy - 16 + Math.cos(a) * 30, 6, 0, 6.283); ctx.fill();
+  }
+}
+function drawBody(b) {
+  const p = b.plugin || {}, v = b.vertices;
+  ctx.beginPath(); ctx.moveTo(v[0].x, v[0].y); for (let i = 1; i < v.length; i++) ctx.lineTo(v[i].x, v[i].y); ctx.closePath();
+  const g = ctx.createLinearGradient(b.bounds.min.x, b.bounds.min.y, b.bounds.max.x, b.bounds.max.y); g.addColorStop(0, shade(p.c || '#ccc', 1.15)); g.addColorStop(1, shade(p.c || '#ccc', .85));
+  ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = shade(p.c || '#ccc', .6); ctx.lineWidth = 2.5; ctx.stroke();
+  // かお
+  ctx.save(); ctx.translate(b.position.x, b.position.y); ctx.rotate(b.angle - (p.s === 'tri' ? Math.PI / 2 : 0)); if (p.s === 'tri') ctx.translate(0, 8);
+  const sc = p.s === 'long' || p.s === 'wide' ? .8 : p.s === 'small' || p.s === 'ball' ? .7 : 1;
+  ctx.scale(sc, sc); ctx.fillStyle = '#2a1a10';
+  const scared = G && (G.phase === 'over' || b.speed > 3);
+  if (scared) { ctx.font = "900 14px sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('> <', 0, -2); ctx.beginPath(); ctx.ellipse(0, 9, 4, 5, 0, 0, 6.283); ctx.fill(); }
+  else {
+    ctx.beginPath(); ctx.arc(-8, -3, 3, 0, 6.283); ctx.arc(8, -3, 3, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = '#2a1a10'; ctx.lineWidth = 2; ctx.beginPath();
+    if (p.face === 1) ctx.arc(0, 4, 4, 0, Math.PI); else if (p.face === 2) { ctx.moveTo(-4, 6); ctx.lineTo(4, 6); } else ctx.arc(0, 3, 5, .2, Math.PI - .2);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,120,120,.5)'; ctx.beginPath(); ctx.arc(-14, 4, 3, 0, 6.283); ctx.arc(14, 4, 3, 0, 6.283); ctx.fill();
+  }
+  ctx.restore();
+}
+
+Kit.bar({ id: 'tsumiki', title: '🧱 つみき タワー', help: `
+  <p>つみきを つんで たかい タワーを つくろう。スマホの かたむきで タワーも かたむく。</p>
+  <ul>
+    <li>上の つみきを ゆびで 左右に うごかして、はなすと おちる。↻ で まわせる</li>
+    <li>スマホを かたむけると、つみきは ほんとうの 下に むかって ひっぱられる</li>
+    <li>「かたむきの つよさ」で むずかしさを えらべる（なし なら かたむかない）</li>
+    <li>みんなで：つんだら スマホを つぎの 人に わたす。わたす あいだも くずれるので そーっと！ くずした 人の まけ</li>
+    <li>つくえから おちたら おしまい</li>
+  </ul>` });
+resize(); showMenu(); requestAnimationFrame(frame);
+if (location.hash === '#debug') window.__t = { get G() { return G; }, step, drop, newGame, setKey: v => { keyTilt = v; } };
+</script>
+</body>
+</html>

@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ぴったり そそぎ</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; overflow: hidden; background: #fff4e0; }
+  .stage { flex: 1; position: relative; min-height: 0; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  #cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .hud { position: absolute; left: 10px; right: 10px; top: 8px; display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; pointer-events: none; z-index: 3; }
+  .pill { background: rgba(255,255,255,.88); color: #5a3412; border-radius: 99px; padding: 4px 12px; font: 900 1rem 'Zen Maru Gothic', sans-serif; box-shadow: 0 2px 0 rgba(90,52,18,.18); white-space: nowrap; }
+  .pill b { font: 400 1.15rem 'Dela Gothic One', sans-serif; }
+  .order { position: absolute; left: 50%; top: 48px; transform: translateX(-50%); z-index: 3; pointer-events: none; background: #fff; border: 3px solid #5a3412; border-radius: 16px; padding: 6px 14px; font: 900 1rem 'Zen Maru Gothic', sans-serif; color: #5a3412; white-space: nowrap; text-align: center; box-shadow: 0 4px 0 rgba(90,52,18,.25); }
+  .order small { display: block; font-size: .8rem; color: #a0703a; }
+  .tip { position: absolute; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 3; pointer-events: none; background: rgba(90,52,18,.82); color: #fff; font: 900 .95rem 'Zen Maru Gothic', sans-serif; border-radius: 99px; padding: 7px 16px; white-space: nowrap; transition: opacity .3s; }
+  .tip.off { opacity: 0; }
+  .done { position: absolute; right: 12px; bottom: calc(60px + env(safe-area-inset-bottom)); z-index: 4; appearance: none; border: 4px solid #fff; border-radius: 99px; padding: 10px 18px; font: 900 1.1rem 'Zen Maru Gothic', sans-serif; color: #fff; background: linear-gradient(135deg, #4ade80, #16a34a); box-shadow: 0 4px 0 #0f7a36; cursor: pointer; }
+  .done[hidden] { display: none; }
+  .judge { position: absolute; left: 50%; top: 22%; transform: translate(-50%, 0); z-index: 4; pointer-events: none; text-align: center; opacity: 0; transition: opacity .2s, transform .3s cubic-bezier(.3,1.6,.5,1); }
+  .judge.on { opacity: 1; transform: translate(-50%, 0) scale(1.05); }
+  .judge b { display: block; font: 400 clamp(2rem, 11vw, 3rem) 'Dela Gothic One', sans-serif; color: #ff7a1a; -webkit-text-stroke: 2px #5a2a00; text-shadow: 0 4px 0 rgba(0,0,0,.25); }
+  .judge span { display: inline-block; white-space: nowrap; font-size: .95rem !important; margin-top: 4px; background: #fff; color: #5a3412; border-radius: 99px; padding: 4px 14px; font: 900 1.05rem 'Zen Maru Gothic', sans-serif; box-shadow: 0 3px 0 rgba(90,52,18,.25); }
+  .over { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; padding: 14px; overflow: auto; background: rgba(90,52,18,.45); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+  .over[hidden] { display: none; }
+  .card { width: min(420px, 100%); background: #fffaf2; color: #5a3412; border-radius: 26px; padding: 18px 16px; display: grid; gap: 10px; box-shadow: 0 20px 50px rgba(0,0,0,.35); }
+  .card h2 { margin: 0; text-align: center; font: 400 2rem 'Dela Gothic One', sans-serif; color: #ff8a1f; -webkit-text-stroke: 1.5px #5a2a00; }
+  .card p { margin: 0; line-height: 1.7; font-weight: 700; font-size: .95rem; }
+  .how { margin: 0; padding-left: 1.2em; line-height: 1.8; font-size: .92rem; font-weight: 700; }
+  .btn { appearance: none; border: none; border-radius: 14px; font: 900 1.1rem 'Zen Maru Gothic', sans-serif; padding: 12px; cursor: pointer; box-shadow: 0 4px 0 rgba(0,0,0,.15); background: #fff; color: #5a3412; }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.15); }
+  .btn.main { background: linear-gradient(135deg, #ffb13d, #ff6a2c); color: #fff; box-shadow: 0 4px 0 #c2410c; }
+  .row { display: flex; gap: 8px; } .row .btn { flex: 1; }
+  .chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .chips button { appearance: none; border: 3px solid #f0dcc0; background: #fff; border-radius: 14px; padding: 8px 2px; font: 900 .95rem 'Zen Maru Gothic', sans-serif; color: #5a3412; cursor: pointer; }
+  .chips button big { display: block; font-size: 1.3rem; letter-spacing: -2px; }
+  .chips button.on { border-color: #ff7a1a; background: #fff1e0; box-shadow: 0 0 0 2px #ff7a1a inset; }
+  .lbl { font-weight: 900; font-size: .9rem; color: #a0703a; }
+  .best { text-align: center; font-weight: 900; color: #a0703a; }
+  .big { text-align: center; font: 400 3.4rem 'Dela Gothic One', sans-serif; line-height: 1; }
+  .ttl { text-align: center; font: 400 1.6rem 'Dela Gothic One', sans-serif; color: #ff7a1a; }
+  .rank { display: grid; gap: 6px; }
+  .rank div { display: grid; grid-template-columns: 2.4em 1fr auto; align-items: center; gap: 6px; background: #fff; border-radius: 14px; padding: 8px 10px; box-shadow: 0 2px 0 #f0dcc0; font-weight: 900; }
+  .rank div.top { background: linear-gradient(180deg, #fff6c8, #ffe066); }
+  .rank i { font-style: normal; font-size: 1.4rem; }
+  .rank b { font: 400 1.4rem 'Dela Gothic One', sans-serif; color: #ff7a1a; }
+  .hist { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; font-weight: 900; font-size: .85rem; color: #a0703a; }
+  .hist span { background: #fff; border-radius: 8px; padding: 2px 6px; }
+  .turn { text-align: center; font: 400 3.6rem/1.1 'Dela Gothic One', sans-serif; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <canvas id="cv"></canvas>
+  <div class="hud" id="hud" hidden><span class="pill" id="hL"></span><span class="pill" id="hR"></span></div>
+  <div class="order" id="order" hidden></div>
+  <div class="judge" id="judge"><b id="jA"></b><span id="jB"></span></div>
+  <button class="done" id="doneBtn" hidden>できた！</button>
+  <div class="tip off" id="tip"></div>
+  <div class="over" id="menuOv"><div class="card">
+    <h2>ぴったり そそぎ</h2>
+    <p>スマホを ジュースの ビンだと おもって かたむけよう。コップの <b style="color:#e11d48">せん</b> まで ぴったり そそげるかな？</p>
+    <ul class="how">
+      <li>スマホを <b>右か 左に かたむける</b> と ビンが かたむいて ジュースが でる</li>
+      <li>まっすぐに もどすと とまる。おちている とちゅうの ぶんも はいるよ</li>
+      <li>ソーダは あわが ふくらむ。あふれないように！</li>
+    </ul>
+    <div class="lbl">なん人で あそぶ？（スマホを じゅんばんに わたす）</div>
+    <div class="chips" id="pChips"></div>
+    <div class="best" id="mBest"></div>
+    <button class="btn main" id="mStart">はじめる！</button>
+  </div></div>
+  <div class="over" id="turnOv" hidden><div class="card" style="text-align:center">
+    <div class="lbl" id="tRound"></div>
+    <div class="turn" id="tWho"></div>
+    <p id="tMsg"></p>
+    <button class="btn main" id="tGo">はじめる！</button>
+  </div></div>
+  <div class="over" id="resOv" hidden><div class="card" id="resCard"></div></div>
+</div>
+<script src="../../common/kit.js"></script>
+<script src="../../common/tilt.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const stage = $('stage'), cv = $('cv'), ctx = cv.getContext('2d');
+const snd = () => Kit.settings.sound;
+
+/* ---------- きまり ---------- */
+const DRINKS = {
+  orange: { n: 'オレンジジュース', c: '#ff9a1f', c2: '#ffc252', lab: '#ff7a00', k: 1 },
+  apple: { n: 'りんごジュース', c: '#f0c02a', c2: '#ffe27a', lab: '#e23b3b', k: 1 },
+  milk: { n: 'ぎゅうにゅう', c: '#f6f3ec', c2: '#ffffff', lab: '#2f7fe0', k: .85 },
+  grape: { n: 'ぶどうジュース', c: '#7b2d8e', c2: '#a957c2', lab: '#6a1f80', k: 1 },
+  soda: { n: 'ソーダ', c: '#7fd0ff', c2: '#c4ecff', lab: '#1aa0e0', k: 1.05, foam: 1 },
+  tea: { n: 'むぎちゃ', c: '#b8742a', c2: '#dba05a', lab: '#7a4a1a', k: 1.25 },
+};
+const CUPS = {
+  cup: { n: 'コップ', wb: 108, wt: 128, h: 170 },
+  glass: { n: 'ほそい グラス', wb: 62, wt: 72, h: 210 },
+  cone: { n: 'さんかく グラス', wb: 26, wt: 156, h: 150, stem: 1 },
+  jug: { n: 'ジョッキ', wb: 136, wt: 136, h: 180, handle: 1 },
+  small: { n: 'ちいさい コップ', wb: 78, wt: 94, h: 96 },
+};
+const ROUNDS = [
+  { cup: 'cup', d: 'orange', t: [.5, .75] },
+  { cup: 'cup', d: 'apple', t: [.62, .86] },
+  { cup: 'glass', d: 'milk', t: [.45, .8] },
+  { cup: 'cone', d: 'grape', t: [.45, .8] },
+  { cup: 'jug', d: 'soda', t: [.5, .72] },
+  { cup: 'small', d: 'tea', t: [.55, .85] },
+];
+const PLAYERS = ['🐶', '🐱', '🐰', '🐼'];
+const FLOW = 6800;          // いちばん たくさん でる とき（1びょう）
+const GRAV = 1500;
+
+/* ---------- がめん ---------- */
+let VW = 400, VH = 700, SC = 1, OX = 0, dpr = 1;
+function resize() {
+  const r = stage.getBoundingClientRect(); dpr = Math.min(2, devicePixelRatio || 1);
+  SC = Math.min(r.width / 400, r.height / 640); VW = r.width / SC; VH = r.height / SC; OX = (VW - 400) / 2;
+  cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+}
+addEventListener('resize', resize);
+
+/* ---------- じょうたい ---------- */
+let S = { phase: 'menu', np: Kit.store.get('sosogi:np', 1) };
+const counterY = () => VH - 70;
+function cupGeo() { const c = S.cup, x = 200, by = counterY() - (c.stem ? 34 : 0); return { x, by, ty: by - c.h, ...c }; }
+const wAt = (c, y) => c.wb + (c.wt - c.wb) * y / c.h;
+const volAt = (c, y) => c.wb * y + (c.wt - c.wb) * y * y / (2 * c.h);
+function lvlOf(c, V) { if (V <= 0) return 0; const a = (c.wt - c.wb) / (2 * c.h); if (Math.abs(a) < 1e-6) return V / c.wb; return (-c.wb + Math.sqrt(c.wb * c.wb + 4 * a * V)) / (2 * a); }
+
+function newMatch() {
+  S = { phase: 'turn', np: S.np, round: 0, pi: 0, scores: Array(S.np).fill(0), hist: Array.from({ length: S.np }, () => []) };
+  setupRound(); showTurn();
+}
+function setupRound() {
+  const R = ROUNDS[S.round];
+  S.rd = R; S.cup = CUPS[R.cup]; S.drink = DRINKS[R.d];
+  S.target = Math.round(Kit.rand(R.t[0], R.t[1]) * 100) / 100;
+}
+function resetPour() {
+  Object.assign(S, { V: 0, foam: 0, spill: 0, foamSpill: 0, packets: [], drops: [], puddle: 0, theta: 0, side: 1, still: 0, poured: 0, ready: false, want: false, slosh: 0, sloshV: 0, glugT: 0, t: 0, judged: false });
+}
+function showTurn() {
+  S.phase = 'turn'; resetPour();
+  $('hud').hidden = false; $('order').hidden = true; $('doneBtn').hidden = true; tip('');
+  $('tRound').textContent = `${S.round + 1} / ${ROUNDS.length} かいめ　${S.cup.n} ＋ ${S.drink.n}`;
+  $('tWho').textContent = S.np > 1 ? `${PLAYERS[S.pi]}さんの ばん` : 'じゅんび OK？';
+  $('tWho').style.fontSize = S.np > 1 ? '' : '2.2rem';
+  $('tMsg').textContent = S.np > 1 ? 'スマホを うけとったら おしてね' : (S.drink.foam ? 'ソーダは あわに 気をつけて！' : 'まっすぐ もって はじめよう');
+  $('turnOv').hidden = false; hud();
+}
+$('tGo').onclick = () => {
+  Kit.sfx('tap'); Kit.audio(); $('turnOv').hidden = true; S.phase = 'pour'; S.ready = false;
+  $('order').hidden = false; $('order').innerHTML = `${S.drink.n}を <b style="color:#e11d48">せん</b> まで！<small>${S.cup.n}</small>`;
+  tip(Tilt.ok ? 'まっすぐ もってから、かたむけて そそごう' : 'センサーが ないので、おしている あいだ かたむくよ', 3000);
+};
+function hud() {
+  $('hL').innerHTML = S.np > 1 ? `${PLAYERS[S.pi]} の ばん` : `${S.round + 1} / ${ROUNDS.length}`;
+  $('hR').innerHTML = S.np > 1 ? PLAYERS.slice(0, S.np).map((p, i) => `${p}<b>${S.scores[i]}</b>`).join(' ') : `<b>${S.scores[0]}</b> てん`;
+}
+let tipT = 0;
+function tip(s, ms = 2500) { const e = $('tip'); e.textContent = s; e.classList.toggle('off', !s); clearTimeout(tipT); if (s) tipT = setTimeout(() => e.classList.add('off'), ms); }
+
+/* ---------- センサーが ない とき：おしている あいだ かたむく ---------- */
+let holdDir = 0, manRoll = 0;
+stage.addEventListener('pointerdown', e => { if (S.phase !== 'pour' || Tilt.ok || e.target.closest('button')) return; holdDir = e.clientX < innerWidth / 2 ? -1 : 1; });
+addEventListener('pointerup', () => { holdDir = 0; }); addEventListener('pointercancel', () => { holdDir = 0; });
+addEventListener('keydown', e => { if (Tilt.ok) return; if (e.code === 'ArrowRight') holdDir = 1; if (e.code === 'ArrowLeft') holdDir = -1; });
+addEventListener('keyup', e => { if (e.code === 'ArrowRight' || e.code === 'ArrowLeft') holdDir = 0; });
+$('doneBtn').onclick = () => { if (S.phase === 'pour' && S.V > 0) { S.want = true; Kit.sfx('tap'); } };
+
+/* ---------- まいフレーム ---------- */
+let lastT = performance.now();
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(.05, (now - lastT) / 1000); lastT = now;
+  step(dt); draw();
+}
+function rollNow() { return Tilt.ok ? Tilt.roll : manRoll; }
+function step(dt) {
+  if (!Tilt.ok) { const tgt = holdDir * 44; manRoll += Kit.clamp(tgt - manRoll, -dt * (holdDir ? 55 : 120), dt * (holdDir ? 55 : 120)); }
+  if (S.phase !== 'pour' && S.phase !== 'judge') return;
+  S.t += dt;
+  const roll = rollNow();
+  // まっすぐ もつまでは でない
+  if (!S.ready) { if (Math.abs(roll) < 14) S.ready = true; }
+  const wantTheta = S.ready && S.phase === 'pour' ? Kit.clamp(roll * 2.7, -125, 125) : 0;
+  S.theta += (wantTheta - S.theta) * Math.min(1, dt * 12);
+  if (Math.abs(S.theta) > 8) S.side = Math.sign(S.theta);
+  const th = Math.abs(S.theta), f = Kit.clamp((th - 55) / 62, 0, 1);
+  const flow = S.phase === 'pour' ? Math.pow(f, 1.5) * FLOW * S.drink.k * (S.rd.cup === 'small' ? 1.1 : 1) : 0;
+  const m = mouth();
+  if (flow > 0) {
+    const amt = flow * dt; S.poured += amt;
+    S.packets.push({ x: m.x, y: m.y, vx: S.side * (10 + 60 * f), vy: 20, v: amt, t: S.t, inCup: null });
+    S.glugT -= dt;
+    if (S.glugT <= 0) { S.glugT = .09 + (1 - f) * .14; glug(); }
+  }
+  const g = cupGeo(), lvl = lvlOf(S.cup, S.V), surfY = g.by - lvl;
+  for (const p of S.packets) {
+    p.vy += GRAV * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+    if (p.inCup == null && p.y >= g.ty) p.inCup = Math.abs(p.x - g.x) < g.wt / 2 - 4;
+    if (p.inCup && p.y >= surfY) { p.done = true; addLiquid(p.v, p.x); }
+    else if (p.inCup === false && p.y >= counterY()) { p.done = true; S.spill += p.v; S.puddle = Math.min(1, S.puddle + p.v / 3000); if (Math.random() < .3) dropsAt(p.x, counterY(), 2); }
+  }
+  S.packets = S.packets.filter(p => !p.done && p.y < VH + 50);
+  // あわ
+  const Vmax = volAt(S.cup, S.cup.h);
+  if (S.foam > 0) S.foam -= S.foam * dt / 1.1;
+  if (S.V > Vmax) { S.spill += S.V - Vmax; S.V = Vmax; if (Math.random() < .5) dropsAt(g.x + (Math.random() < .5 ? -1 : 1) * g.wt / 2, g.ty, 2); }
+  if (S.V + S.foam > Vmax) { S.foamSpill += S.V + S.foam - Vmax; S.foam = Vmax - S.V; if (Math.random() < .3) dropsAt(g.x + (Math.random() < .5 ? -1 : 1) * g.wt / 2, g.ty, 1, true); }
+  // なみ
+  S.sloshV += (-S.slosh * 60 - S.sloshV * 4) * dt; S.slosh += S.sloshV * dt;
+  for (const d of S.drops) { d.vy += GRAV * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.l -= dt; }
+  S.drops = S.drops.filter(d => d.l > 0);
+  if (S.phase !== 'pour') return;
+  // できあがり：とまって 少し たったら
+  const calm = th < 45 && !S.packets.length && S.foam < Vmax * .012;
+  if (calm && S.V > 0) S.still += dt; else S.still = 0;
+  $('doneBtn').hidden = !(S.V > 0);
+  if (S.V > 0 && ((S.still > 1.1) || (S.want && !S.packets.length && S.foam < Vmax * .012))) judge();
+}
+function mouth() {
+  const b = bottlePos(), a = S.theta * Math.PI / 180;
+  return { x: b.x + Math.sin(a) * 92, y: b.y - Math.cos(a) * 92 };
+}
+function bottlePos() { const g = cupGeo(); return { x: g.x - S.side * 88, y: g.ty - 130 }; }
+function addLiquid(v, x) {
+  S.V += v; S.sloshV += (x < cupGeo().x ? -1 : 1) * v / 900;
+  if (S.drink.foam) S.foam += v * 1.25;
+}
+function dropsAt(x, y, n, foam) { for (let i = 0; i < n; i++) S.drops.push({ x, y, vx: Kit.rand(-90, 90), vy: Kit.rand(-260, -80), l: .5, foam }); }
+let lastGlug = 0;
+function glug() {
+  if (!snd()) return;
+  const lv = lvlOf(S.cup, S.V) / S.cup.h;
+  // コップが いっぱいに なるほど 音が 高く なる
+  Kit.tone(170 + lv * 520 + Math.random() * 40, .06, { type: 'sine', vol: .18, slide: 120 });
+  if (S.drink.foam && Math.random() < .6) Kit.noise(.08, { vol: .05, freq: 6000, filter: 'highpass' });
+}
+
+/* ---------- はんてい ---------- */
+function judge() {
+  S.phase = 'judge'; $('doneBtn').hidden = true;
+  const c = S.cup, lvl = lvlOf(c, S.V), diff = (lvl / c.h - S.target) * 100, ad = Math.abs(diff), Vmax = volAt(c, c.h);
+  let pts, title;
+  const spilled = S.spill > Vmax * .02;
+  if (spilled) { pts = 0; title = 'こぼれた〜！'; }
+  else if (ad <= 1.5) { pts = 100; title = 'ぴったり！！'; }
+  else if (ad <= 3.5) { pts = 80; title = 'すごい！'; }
+  else if (ad <= 7) { pts = 60; title = 'おしい！'; }
+  else if (ad <= 12) { pts = 40; title = 'もうすこし'; }
+  else { pts = 20; title = diff < 0 ? 'すくない〜' : 'おおい〜'; }
+  let sub = spilled ? 'コップの そとに こぼしちゃった' : ad <= 1.5 ? 'せんと ぴったり おなじ！' : `${diff < 0 ? 'あと' : ''} ${Math.max(1, Math.round(ad * c.h / 100 / 2))}mm ${diff < 0 ? 'たりない' : 'オーバー'}`;
+  if (!spilled && S.foamSpill > Vmax * .03) { pts = Math.max(0, pts - 30); sub += '（あわが あふれて −30）'; }
+  S.scores[S.pi] += pts; S.hist[S.pi].push(pts); S.last = { pts, diff };
+  $('jA').textContent = title; $('jB').textContent = `+${pts} てん　${sub}`;
+  $('judge').classList.add('on');
+  if (pts >= 100) { Kit.sfx('win'); Kit.confetti(); } else if (pts >= 60) Kit.sfx('good'); else Kit.sfx(pts ? 'tap' : 'bad');
+  hud();
+  setTimeout(() => {
+    $('judge').classList.remove('on');
+    S.pi++;
+    if (S.pi >= S.np) { S.pi = 0; S.round++; if (S.round >= ROUNDS.length) return showResult(); setupRound(); }
+    showTurn();
+  }, 2600);
+}
+function showResult() {
+  S.phase = 'result'; $('hud').hidden = true; $('order').hidden = true; tip('');
+  const max = ROUNDS.length * 100;
+  if (S.np === 1) {
+    const sc = S.scores[0], best = Kit.store.get('sosogi:best', 0), isBest = sc > best; if (isBest) Kit.store.set('sosogi:best', sc);
+    const title = sc >= max * .9 ? 'そそぎの たつじん！' : sc >= max * .7 ? 'じょうず！' : sc >= max * .5 ? 'いい かんじ！' : 'つぎは ぴったりを ねらおう';
+    $('resCard').innerHTML = `<div class="ttl">${title}</div><div class="big">${sc}<small style="font:900 1rem 'Zen Maru Gothic'"> / ${max} てん${isBest ? '　ベスト！' : ''}</small></div>
+      <div class="hist">${S.hist[0].map((p, i) => `<span>${ROUNDS[i] ? CUPS[ROUNDS[i].cup].n.replace(/ /g, '') : ''} ${p}</span>`).join('')}</div>
+      <div class="best">ベスト ${Math.max(best, sc)} てん</div>
+      <div class="row"><button class="btn main" id="rAgain">もう一回</button><button class="btn" id="rMenu">もどる</button></div>`;
+    if (isBest) setTimeout(() => { Kit.sfx('win'); Kit.confetti(); }, 200);
+  } else {
+    const order = S.scores.map((s, i) => ({ s, i })).sort((a, b) => b.s - a.s);
+    const rankOf = s => 1 + S.scores.filter(x => x > s).length;
+    $('resCard').innerHTML = `<div class="ttl">けっか はっぴょう！</div><div class="rank">${order.map(o => { const r = rankOf(o.s); return `<div class="${r === 1 ? 'top' : ''}"><i>${['🥇', '🥈', '🥉', '4️⃣'][r - 1]}</i><span>${PLAYERS[o.i]}さん</span><b>${o.s}</b></div>`; }).join('')}</div>
+      <div class="row"><button class="btn main" id="rAgain">もう一回</button><button class="btn" id="rMenu">もどる</button></div>`;
+    setTimeout(() => { Kit.sfx('win'); Kit.confetti(); }, 200);
+  }
+  $('resOv').hidden = false;
+  $('rAgain').onclick = () => { Kit.sfx('tap'); $('resOv').hidden = true; newMatch(); };
+  $('rMenu').onclick = () => { Kit.sfx('tap'); showMenu(); };
+}
+function showMenu() {
+  S = { phase: 'menu', np: S.np, cup: CUPS.cup, drink: DRINKS.orange, target: .7 }; resetPour();
+  $('resOv').hidden = true; $('turnOv').hidden = true; $('hud').hidden = true; $('order').hidden = true; $('doneBtn').hidden = true; tip('');
+  const b = Kit.store.get('sosogi:best', 0); $('mBest').textContent = b ? `ひとりの ベスト ${b} てん` : '';
+  renderChips(); $('menuOv').hidden = false;
+}
+function renderChips() {
+  $('pChips').innerHTML = [1, 2, 3, 4].map(n => `<button data-n="${n}" class="${n === S.np ? 'on' : ''}"><big>${PLAYERS.slice(0, n).join('')}</big>${n}人</button>`).join('');
+  $('pChips').querySelectorAll('button').forEach(b => b.onclick = () => { S.np = +b.dataset.n; Kit.store.set('sosogi:np', S.np); Kit.sfx('tap'); renderChips(); });
+}
+$('mStart').onclick = async () => { Kit.sfx('tap'); Kit.audio(); $('menuOv').hidden = true; Tilt.start({ lock: true }); newMatch(); };
+
+/* ---------- えがく ---------- */
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+function draw() {
+  ctx.setTransform(dpr * SC, 0, 0, dpr * SC, 0, 0);
+  // かべ（タイル）と カウンター
+  const cy = counterY();
+  const wg = ctx.createLinearGradient(0, 0, 0, cy); wg.addColorStop(0, '#fff8ea'); wg.addColorStop(1, '#ffe9c8');
+  ctx.fillStyle = wg; ctx.fillRect(0, 0, VW, cy);
+  ctx.strokeStyle = 'rgba(200,150,90,.18)'; ctx.lineWidth = 2;
+  for (let x = (OX % 40) - 40; x < VW; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, cy); ctx.stroke(); }
+  for (let y = cy; y > 0; y -= 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(VW, y); ctx.stroke(); }
+  // まど
+  ctx.save(); ctx.translate(OX, 0);
+  rr(250, 70, 120, 90, 10); ctx.fillStyle = '#bfe6ff'; ctx.fill(); ctx.lineWidth = 6; ctx.strokeStyle = '#fff'; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(310, 70); ctx.lineTo(310, 160); ctx.moveTo(250, 115); ctx.lineTo(370, 115); ctx.lineWidth = 4; ctx.stroke();
+  ctx.restore();
+  const cg = ctx.createLinearGradient(0, cy, 0, VH); cg.addColorStop(0, '#d99a5a'); cg.addColorStop(.12, '#c07a3a'); cg.addColorStop(1, '#9a5a28');
+  ctx.fillStyle = cg; ctx.fillRect(0, cy, VW, VH - cy);
+  ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(0, cy, VW, 4);
+  ctx.save(); ctx.translate(OX, 0);
+  const g = cupGeo();
+  // こぼれた みず
+  if (S.puddle > 0) { ctx.fillStyle = S.drink.c; ctx.globalAlpha = .55; ctx.beginPath(); ctx.ellipse(g.x, cy + 6, 40 + S.puddle * 110, 6 + S.puddle * 6, 0, 0, 6.283); ctx.fill(); ctx.globalAlpha = 1; }
+  drawCup(g);
+  drawStream();
+  drawBottle();
+  for (const d of S.drops) { ctx.fillStyle = d.foam ? '#fff' : S.drink.c; ctx.beginPath(); ctx.arc(d.x, d.y, 3, 0, 6.283); ctx.fill(); }
+  ctx.restore();
+}
+function cupPath(g, inset = 0) {
+  const c = g; ctx.beginPath();
+  ctx.moveTo(g.x - c.wt / 2 + inset, g.ty); ctx.lineTo(g.x - c.wb / 2 + inset, g.by - inset); ctx.lineTo(g.x + c.wb / 2 - inset, g.by - inset); ctx.lineTo(g.x + c.wt / 2 - inset, g.ty);
+}
+function drawCup(g) {
+  const c = S.cup;
+  // かげ
+  ctx.fillStyle = 'rgba(90,52,18,.18)'; ctx.beginPath(); ctx.ellipse(g.x, counterY() + 2, Math.max(c.wb, 50) / 2 + 14, 7, 0, 0, 6.283); ctx.fill();
+  if (c.stem) { ctx.fillStyle = 'rgba(220,240,255,.7)'; ctx.strokeStyle = 'rgba(120,160,190,.8)'; ctx.lineWidth = 2; ctx.fillRect(g.x - 4, g.by, 8, 34); ctx.strokeRect(g.x - 4, g.by, 8, 34); ctx.beginPath(); ctx.ellipse(g.x, counterY() - 3, 36, 6, 0, 0, 6.283); ctx.fill(); ctx.stroke(); }
+  if (c.handle) { ctx.lineWidth = 12; ctx.strokeStyle = 'rgba(200,230,250,.85)'; ctx.beginPath(); ctx.moveTo(g.x + c.wt / 2 - 4, g.ty + 34); ctx.bezierCurveTo(g.x + c.wt / 2 + 46, g.ty + 34, g.x + c.wt / 2 + 46, g.by - 40, g.x + c.wt / 2 - 4, g.by - 40); ctx.stroke(); }
+  // ガラス
+  cupPath(g); ctx.closePath(); ctx.fillStyle = 'rgba(225,245,255,.55)'; ctx.fill();
+  // なかみ
+  ctx.save(); cupPath(g, 5); ctx.closePath(); ctx.clip();
+  const lvl = lvlOf(c, S.V), sy = g.by - lvl;
+  const tiltA = Kit.clamp(-(Tilt.ok ? Tilt.roll : manRoll) * Math.PI / 180, -.45, .45) * .5;
+  if (S.V > 0) {
+    const sl = S.slosh * 30;
+    const lg = ctx.createLinearGradient(0, sy, 0, g.by); lg.addColorStop(0, S.drink.c2); lg.addColorStop(1, S.drink.c);
+    ctx.fillStyle = lg; ctx.beginPath();
+    const L = g.x - c.wt / 2 - 10, Rr = g.x + c.wt / 2 + 10, t = performance.now() / 1000;
+    ctx.moveTo(L, g.by + 10);
+    for (let x = L; x <= Rr; x += 8) { const y = sy + Math.tan(tiltA) * (x - g.x) + sl * (x - g.x) / c.wt + Math.sin(x * .08 + t * 6) * Math.min(3, 1 + S.packets.length * .02); ctx.lineTo(x, y); }
+    ctx.lineTo(Rr, g.by + 10); ctx.closePath(); ctx.fill();
+    // あわ
+    if (S.foam > 1) {
+      const fy = g.by - lvlOf(c, S.V + S.foam);
+      ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.fillRect(L, fy, Rr - L, sy - fy + 2);
+      ctx.fillStyle = '#fff';
+      for (let x = L; x < Rr; x += 12) { ctx.beginPath(); ctx.arc(x + 6, fy, 7, 0, 6.283); ctx.fill(); }
+    }
+    // あわつぶ（ソーダ）
+    if (S.drink.foam) { ctx.fillStyle = 'rgba(255,255,255,.7)'; const tt = performance.now() / 1000; for (let i = 0; i < 14; i++) { const bx = g.x + Math.sin(i * 7.3) * wAt(c, 10) * .4, by = g.by - ((tt * 60 + i * 37) % Math.max(10, lvl)); ctx.beginPath(); ctx.arc(bx, by, 2.2, 0, 6.283); ctx.fill(); } }
+  }
+  ctx.restore();
+  // ガラスの ふち・ひかり
+  cupPath(g); ctx.strokeStyle = 'rgba(110,150,180,.9)'; ctx.lineWidth = 3; ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(g.x, g.ty, c.wt / 2, 6, 0, 0, 6.283); ctx.strokeStyle = 'rgba(110,150,180,.7)'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(g.x - c.wt / 2 + 12, g.ty + 14); ctx.lineTo(g.x - wAt(c, c.h * .3) / 2 + 10, g.by - c.h * .3); ctx.stroke();
+  // めじるしの せん
+  const ty = g.by - S.target * c.h, tw = wAt(c, S.target * c.h);
+  ctx.setLineDash([8, 6]); ctx.strokeStyle = '#e11d48'; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.moveTo(g.x - tw / 2 - 10, ty); ctx.lineTo(g.x + tw / 2 + 10, ty); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = '#e11d48'; ctx.beginPath(); ctx.moveTo(g.x - tw / 2 - 12, ty); ctx.lineTo(g.x - tw / 2 - 26, ty - 8); ctx.lineTo(g.x - tw / 2 - 26, ty + 8); ctx.fill();
+  if (S.phase === 'judge' && S.last) {
+    const ly = g.by - lvl; ctx.strokeStyle = '#16a34a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(g.x + tw / 2 + 16, ty); ctx.lineTo(g.x + tw / 2 + 16, ly); ctx.stroke();
+  }
+}
+function drawStream() {
+  if (!S.packets || S.packets.length < 2) return;
+  const f = Kit.clamp((Math.abs(S.theta) - 55) / 62, 0, 1);
+  ctx.strokeStyle = S.drink.c; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  let prev = null;
+  for (const p of S.packets) {
+    if (prev && p.t - prev.t < .05) { ctx.lineWidth = 3 + 9 * Math.min(1, p.v / 120); ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(p.x, p.y); ctx.stroke(); }
+    prev = p;
+  }
+  void f;
+}
+function drawBottle() {
+  const b = bottlePos(), d = S.drink;
+  ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(S.theta * Math.PI / 180);
+  // ボトル：中心が (0,0)、くちが 上（-92）
+  ctx.beginPath();
+  ctx.moveTo(-12, -92); ctx.lineTo(12, -92); ctx.lineTo(12, -66); ctx.quadraticCurveTo(30, -50, 30, -26); ctx.lineTo(30, 62); ctx.quadraticCurveTo(30, 74, 18, 74); ctx.lineTo(-18, 74); ctx.quadraticCurveTo(-30, 74, -30, 62); ctx.lineTo(-30, -26); ctx.quadraticCurveTo(-30, -50, -12, -66); ctx.closePath();
+  ctx.fillStyle = 'rgba(230,248,255,.6)'; ctx.fill();
+  // なかみ（いつも 下に たまる ふう）
+  ctx.save(); ctx.clip();
+  ctx.rotate(-S.theta * Math.PI / 180);
+  ctx.fillStyle = d.c; ctx.fillRect(-120, -10 + Math.abs(S.theta) * .25, 240, 200);
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(110,150,180,.9)'; ctx.lineWidth = 3; ctx.stroke();
+  // ラベル
+  rr(-31, -12, 62, 50, 6); ctx.fillStyle = d.lab; ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.font = "900 13px 'Zen Maru Gothic', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const short = { orange: 'オレンジ', apple: 'りんご', milk: 'ミルク', grape: 'ぶどう', soda: 'ソーダ', tea: 'むぎちゃ' }[ROUNDS[S.round] ? ROUNDS[S.round].d : 'orange'] || '';
+  ctx.fillText(short, 0, 13);
+  ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillRect(-22, -40, 6, 90);
+  // ふた なし くち
+  ctx.fillStyle = 'rgba(110,150,180,.9)'; ctx.fillRect(-14, -96, 28, 6);
+  ctx.restore();
+}
+
+Kit.bar({ id: 'sosogi', title: '🧃 ぴったり そそぎ', help: `
+  <p>スマホを ジュースの ビンに 見たてて かたむけ、コップの せん まで ぴったり そそぐ ゲーム。</p>
+  <ul>
+    <li>右か 左に かたむけると そそげる。たくさん かたむけるほど いきおいよく でる</li>
+    <li>もどしても、おちている とちゅうの ジュースは はいる。すこし はやめに とめよう</li>
+    <li>さんかく グラスは 上ほど ふえかたが ゆっくり。ソーダは あわが ふくらむ</li>
+    <li>みんなで あそぶ ときは、スマホを じゅんばんに わたして てんすうを きそう</li>
+    <li>センサーが ない きかいでは、画面の 右（左）を おしている あいだ かたむく</li>
+  </ul>` });
+resize(); showMenu(); requestAnimationFrame(frame);
+if (location.hash === '#debug') window.__t = { get S() { return S; }, setupRound, resetPour, step, judge, newMatch, hold: d => { holdDir = d; }, get roll() { return manRoll; }, Tilt };
+</script>
+</body>
+</html>
