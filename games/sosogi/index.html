@@ -65,7 +65,7 @@
     <h2>ぴったり そそぎ</h2>
     <p>スマホを ジュースの ビンだと おもって かたむけよう。コップの <b style="color:#e11d48">せん</b> まで ぴったり そそげるかな？</p>
     <ul class="how">
-      <li>スマホを <b>右か 左に かたむける</b> と ビンが かたむいて ジュースが でる</li>
+      <li>スマホを <b>右に かたむける</b>（上の はしを 右へ たおす）と ビンが かたむいて ジュースが でる</li>
       <li>まっすぐに もどすと とまる。おちている とちゅうの ぶんも はいるよ</li>
       <li>ソーダは あわが ふくらむ。あふれないように！</li>
     </ul>
@@ -153,13 +153,13 @@ function showTurn() {
   $('tRound').textContent = `${S.round + 1} / ${ROUNDS.length} かいめ　${S.cup.n} ＋ ${S.drink.n}`;
   $('tWho').textContent = S.np > 1 ? `${PLAYERS[S.pi]}さんの ばん` : 'じゅんび OK？';
   $('tWho').style.fontSize = S.np > 1 ? '' : '2.2rem';
-  $('tMsg').textContent = S.np > 1 ? 'スマホを うけとったら おしてね' : (S.drink.foam ? 'ソーダは あわに 気をつけて！' : 'まっすぐ もって はじめよう');
+  $('tMsg').textContent = S.np > 1 ? 'スマホを うけとったら おしてね（右に かたむけると そそげる）' : (S.drink.foam ? 'ソーダは あわに 気をつけて！' : 'スマホを たてて もち、右に かたむけると そそげるよ');
   $('turnOv').hidden = false; hud();
 }
 $('tGo').onclick = () => {
   Kit.sfx('tap'); Kit.audio(); $('turnOv').hidden = true; S.phase = 'pour'; S.ready = false;
   $('order').hidden = false; $('order').innerHTML = `${S.drink.n}を <b style="color:#e11d48">せん</b> まで！<small>${S.cup.n}</small>`;
-  tip(Tilt.ok ? 'まっすぐ もってから、かたむけて そそごう' : 'センサーが ないので、おしている あいだ かたむくよ', 3000);
+  tip(Tilt.ok ? 'スマホを たてて もち、右に かたむけよう' : 'センサーが ないので、おしている あいだ かたむくよ', 3000);
 };
 function hud() {
   $('hL').innerHTML = S.np > 1 ? `${PLAYERS[S.pi]} の ばん` : `${S.round + 1} / ${ROUNDS.length}`;
@@ -170,10 +170,10 @@ function tip(s, ms = 2500) { const e = $('tip'); e.textContent = s; e.classList.
 
 /* ---------- センサーが ない とき：おしている あいだ かたむく ---------- */
 let holdDir = 0, manRoll = 0;
-stage.addEventListener('pointerdown', e => { if (S.phase !== 'pour' || Tilt.ok || e.target.closest('button')) return; holdDir = e.clientX < innerWidth / 2 ? -1 : 1; });
+stage.addEventListener('pointerdown', e => { if (S.phase !== 'pour' || Tilt.ok || e.target.closest('button')) return; holdDir = 1; });
 addEventListener('pointerup', () => { holdDir = 0; }); addEventListener('pointercancel', () => { holdDir = 0; });
-addEventListener('keydown', e => { if (Tilt.ok) return; if (e.code === 'ArrowRight') holdDir = 1; if (e.code === 'ArrowLeft') holdDir = -1; });
-addEventListener('keyup', e => { if (e.code === 'ArrowRight' || e.code === 'ArrowLeft') holdDir = 0; });
+addEventListener('keydown', e => { if (Tilt.ok) return; if (e.code === 'ArrowRight' || e.code === 'Space') holdDir = 1; });
+addEventListener('keyup', e => { if (e.code === 'ArrowRight' || e.code === 'Space') holdDir = 0; });
 $('doneBtn').onclick = () => { if (S.phase === 'pour' && S.V > 0) { S.want = true; Kit.sfx('tap'); } };
 
 /* ---------- まいフレーム ---------- */
@@ -190,11 +190,11 @@ function step(dt) {
   S.t += dt;
   const roll = rollNow();
   // まっすぐ もつまでは でない
-  if (!S.ready) { if (Math.abs(roll) < 14) S.ready = true; }
-  const wantTheta = S.ready && S.phase === 'pour' ? Kit.clamp(roll * 2.7, -125, 125) : 0;
+  if (!S.ready) { if (Math.abs(roll) < 14) S.ready = true; else if (S.t > 1 && !S.toldStraight) { S.toldStraight = true; tip('まず スマホを まっすぐ たてて もってね', 2500); } }
+  const wantTheta = S.ready && S.phase === 'pour' ? Kit.clamp(roll * 2.7, -20, 125) : 0;
   S.theta += (wantTheta - S.theta) * Math.min(1, dt * 12);
-  if (Math.abs(S.theta) > 8) S.side = Math.sign(S.theta);
-  const th = Math.abs(S.theta), f = Kit.clamp((th - 55) / 62, 0, 1);
+  S.side = 1;   // ビンは いつも 左。右に かたむけて そそぐ
+  const th = Math.max(0, S.theta), f = Kit.clamp((th - 55) / 62, 0, 1);
   const flow = S.phase === 'pour' ? Math.pow(f, 1.5) * FLOW * S.drink.k * (S.rd.cup === 'small' ? 1.1 : 1) : 0;
   const m = mouth();
   if (flow > 0) {
@@ -332,6 +332,7 @@ function draw() {
   drawCup(g);
   drawStream();
   drawBottle();
+  if (S.phase === 'pour') { drawGauge(g); if (S.poured < 400) drawGuide(g); }
   for (const d of S.drops) { ctx.fillStyle = d.foam ? '#fff' : S.drink.c; ctx.beginPath(); ctx.arc(d.x, d.y, 3, 0, 6.283); ctx.fill(); }
   ctx.restore();
 }
@@ -393,6 +394,33 @@ function drawStream() {
   }
   void f;
 }
+// どれだけ かたむいているか（メーター）
+function drawGauge(g) {
+  const cx = 340, cy = Math.max(150, g.ty - 150), R0 = 34, roll = rollNow(), D = Math.PI / 180;
+  const ang = d => (-90 + d) * D;   // まっすぐ上が 0°、右に たおすと +
+  ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.beginPath(); ctx.arc(cx, cy, R0 + 12, Math.PI, 0); ctx.lineTo(cx + R0 + 12, cy + 12); ctx.lineTo(cx - R0 - 12, cy + 12); ctx.closePath(); ctx.fill();
+  const zone = (a, b, c) => { ctx.strokeStyle = c; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(cx, cy, R0, ang(a), ang(b)); ctx.stroke(); };
+  zone(-30, 20, '#d6d6d6'); zone(20, 32, '#ffd28a'); zone(32, 50, '#ff8a1f');
+  const r = Kit.clamp(roll, -30, 50);
+  ctx.strokeStyle = '#5a3412'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(ang(r)) * (R0 + 6), cy + Math.sin(ang(r)) * (R0 + 6)); ctx.stroke();
+  ctx.fillStyle = '#5a3412'; ctx.beginPath(); ctx.arc(cx, cy, 5, 0, 6.283); ctx.fill();
+  ctx.font = "900 11px 'Zen Maru Gothic', sans-serif"; ctx.textAlign = 'center'; ctx.fillText(r < 20 ? 'でない' : r < 32 ? 'ちょろちょろ' : 'どばっ', cx, cy + 10 + 14);
+}
+// 「右に かたむけて」の えあんない
+function drawGuide(g) {
+  const t = performance.now() / 1000, k = (Math.sin(t * 2.4) + 1) / 2, a = k * 40 * Math.PI / 180;
+  const cx = 300, cy = Math.max(230, g.ty - 40);
+  ctx.save(); ctx.translate(cx, cy + 34); ctx.rotate(a);
+  ctx.fillStyle = '#2a2f3a'; rr(-20, -78, 40, 74, 8); ctx.fill();
+  ctx.fillStyle = '#bfe6ff'; rr(-16, -72, 32, 60, 4); ctx.fill();
+  ctx.fillStyle = '#ff9a1f'; ctx.fillRect(-8, -50, 16, 26);
+  ctx.restore();
+  ctx.strokeStyle = '#ff5a1f'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(cx, cy + 34, 92, -Math.PI / 2 - .1, -Math.PI / 2 + .75); ctx.stroke();
+  const ea = -Math.PI / 2 + .75, ex = cx + Math.cos(ea) * 92, ey = cy + 34 + Math.sin(ea) * 92;
+  ctx.fillStyle = '#ff5a1f'; ctx.beginPath(); ctx.moveTo(ex + 8, ey - 6); ctx.lineTo(ex - 6, ey - 8); ctx.lineTo(ex + 2, ey + 8); ctx.fill();
+  ctx.font = "900 15px 'Zen Maru Gothic', sans-serif"; ctx.textAlign = 'center'; ctx.lineWidth = 4; ctx.strokeStyle = '#fff';
+  ctx.strokeText('みぎに かたむけて！', cx, cy + 58); ctx.fillStyle = '#e1471d'; ctx.fillText('みぎに かたむけて！', cx, cy + 58);
+}
 function drawBottle() {
   const b = bottlePos(), d = S.drink;
   ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(S.theta * Math.PI / 180);
@@ -420,7 +448,7 @@ function drawBottle() {
 Kit.bar({ id: 'sosogi', title: '🧃 ぴったり そそぎ', help: `
   <p>スマホを ジュースの ビンに 見たてて かたむけ、コップの せん まで ぴったり そそぐ ゲーム。</p>
   <ul>
-    <li>右か 左に かたむけると そそげる。たくさん かたむけるほど いきおいよく でる</li>
+    <li>スマホの 上の はしを 右へ たおすように かたむけると そそげる。たくさん かたむけるほど いきおいよく でる</li>
     <li>もどしても、おちている とちゅうの ジュースは はいる。すこし はやめに とめよう</li>
     <li>さんかく グラスは 上ほど ふえかたが ゆっくり。ソーダは あわが ふくらむ</li>
     <li>みんなで あそぶ ときは、スマホを じゅんばんに わたして てんすうを きそう</li>

@@ -10,16 +10,30 @@
   const T = { ok: false, gx: 0, gy: 1, roll: 0, flat: 0, _t: { gx: 0, gy: 1, flat: 0 }, manualOn: false };
   const D = Math.PI / 180;
   function screenAngle() { const o = screen.orientation; return (o && typeof o.angle === 'number') ? o.angle : (window.orientation || 0); }
-  function onOri(e) {
-    if (e.beta == null || e.gamma == null) return;
-    T.ok = true; if (T.manualOn) return;
-    const b = e.beta * D, g = e.gamma * D;
-    // 下むきの ベクトル（きかいの むき：x 右、y 上、z 手前）
-    const dx = Math.sin(g) * Math.cos(b), dy = -Math.sin(b), dz = -Math.cos(g) * Math.cos(b);
+  const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  // 下むきの ベクトル（きかいの むき：x 右、y 上、z 手前）を 画面の むきに なおす
+  function setDown(dx, dy, dz) {
     const a = screenAngle() * D;
     T._t.gx = dx * Math.cos(a) + dy * Math.sin(a);
     T._t.gy = dx * Math.sin(a) - dy * Math.cos(a);
     T._t.flat = Math.abs(dz);
+  }
+  // ① 加速度（重力こみ）：スマホを たてに もっても くるわない
+  let motionAt = 0;
+  function onMotion(e) {
+    const g = e.accelerationIncludingGravity; if (!g || g.x == null || g.y == null) return;
+    let x = g.x, y = g.y, z = g.z || 0; const m = Math.hypot(x, y, z); if (m < 2) return;
+    if (IOS) { x = -x; y = -y; z = -z; }   // iPhone は むきが はんたい
+    T.ok = true; motionAt = performance.now(); if (T.manualOn) return;
+    setDown(-x / m, -y / m, -z / m);
+  }
+  // ② かたむき（角度）：加速度が こない きかい むけ
+  function onOri(e) {
+    if (e.beta == null || e.gamma == null) return;
+    if (performance.now() - motionAt < 1000) return;
+    T.ok = true; if (T.manualOn) return;
+    const b = e.beta * D, g = e.gamma * D;
+    setDown(Math.sin(g) * Math.cos(b), -Math.sin(b), -Math.cos(g) * Math.cos(b));
   }
   let last = performance.now();
   function tick(now) {
@@ -33,10 +47,12 @@
     T.roll = -r * w;
   }
   requestAnimationFrame(tick);
+  window.addEventListener('devicemotion', onMotion);
   window.addEventListener('deviceorientation', onOri);
   T.start = async function (opts = {}) {
     try {
       if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') await DeviceOrientationEvent.requestPermission();
+      if (window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === 'function') await DeviceMotionEvent.requestPermission();
     } catch (e) { /* ことわられた ときは manual */ }
     // スマホを まわしても よこがめんに ならないように（できる きかいだけ）
     if (opts.lock) try {
