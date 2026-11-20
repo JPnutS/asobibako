@@ -92,7 +92,7 @@
   .tslot.off { display: none; }
   .tslot svg { height: 46px; width: auto; filter: drop-shadow(0 3px 2px rgba(0,0,0,.2)); }
   .tslot .new { animation: drop .3s cubic-bezier(.3,1.5,.6,1); }
-  .acts { display: grid; grid-template-columns: auto 1fr; gap: 6px; }
+  .acts { display: grid; grid-template-columns: auto auto 1fr; gap: 6px; }
   .btn { appearance: none; border: none; border-radius: 14px; font: 900 1.05rem 'Zen Maru Gothic', sans-serif; padding: 10px 12px; cursor: pointer; box-shadow: 0 4px 0 rgba(0,0,0,.18); transition: transform .08s; color: #3a2416; background: #fff; }
   .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.18); }
   .btn.serve { background: linear-gradient(135deg, #ffb13d, #ff6a2c); color: #fff; font-size: 1.15rem; box-shadow: 0 4px 0 #c2410c; text-shadow: 0 1px 0 rgba(0,0,0,.2); }
@@ -240,7 +240,7 @@
           <div class="tslot" id="tsI"><span class="lab">ソフト</span></div>
         </div>
         </div></div>
-        <div class="acts"><button class="btn trash" id="trash" aria-label="すてる">🗑️</button><button class="btn serve" id="serve">わたす</button></div>
+        <div class="acts"><button class="btn trash" id="undo" aria-label="ひとつ もどす">↩️</button><button class="btn trash" id="trash" aria-label="すてる">🗑️</button><button class="btn serve" id="serve">わたす</button></div>
       </div>
     </div>
     <div class="stations">
@@ -268,10 +268,10 @@
       <details><summary>あそびかた</summary>
         <ul class="how">
           <li>左の <b>ちゅうもん票</b> を 見て、下から じゅんばんに かさねる。さいしょと さいごは <b>バンズ</b></li>
-          <li><b>お肉</b> を おすと てっぱんで やける。ちょうどいい 色に なったら お肉を タップして のせる（こげると つかえない）</li>
+          <li><b>お肉</b> を おすと てっぱんで やける。やけたら お肉を タップして のせる（こげないから あわてなくて OK）</li>
           <li>ポテトは あげて、できたら タップ。ドリンクと ソフトは ボタンを おしっぱなしで、S・M・L の 線に ぴったり あわせる</li>
           <li>ぜんぶ そろったら <b>わたす</b>。おきゃくさんを タップすると、その人の ちゅうもんに きりかわる</li>
-          <li>まちがえたら 🗑️ で すてて つくりなおし。トレーの ものは タップで すてられる</li>
+          <li>まちがえたら ↩️（または バーガーを タップ）で ひとつ もどせる。🗑️ で ぜんぶ すてる。トレーの ものは タップで すてられる</li>
           <li>はやく・ていねいに わたすと チップが ふえるよ</li>
         </ul>
       </details>
@@ -323,7 +323,7 @@ const DAYS = [
   { t: '大にぎわい！', n: 10, pat: 66, gap: 6.5, fries: .5, drink: .55, ice: .45 },
 ];
 const ANIMALS = ['🐻', '🐰', '🐱', '🐶', '🐼', '🦊', '🐸', '🐨', '🐯', '🐷', '🐵', '🐧', '🦁', '🐹'];
-const COOK = 4.2, BURN = 9;          // お肉が やける / こげる 秒
+const COOK = 4.2, BURN = Infinity;   // お肉が やける 秒（こげない）
 const FRY = 4.5, FBURN = 10;
 const save = () => Kit.store.get('burger:days', {});
 
@@ -520,9 +520,19 @@ function tapGrill(i) {
   if (g.t < COOK) return toast('まだ なまやけ！ もうすこし まってね');
   if (!G.stack.length) return toast('さきに バンズを おいてね');
   if (G.closed) return toast('もう ふたを したよ');
-  G.stack.push('patty'); G.pq.push(g.t < COOK + 2.6 ? 2 : 1); G.grill[i] = null;
+  G.stack.push('patty'); G.pq.push(2); G.grill[i] = null;
   Kit.sfx('pop'); Kit.vibrate(8); drawStack(true); drawTicket();
 }
+// ひとつ もどす（いちばん上を とる。お肉は てっぱんに もどる）
+function undo() {
+  if (!G || G.state !== 'play' || !G.stack.length) return;
+  const k = G.stack.pop();
+  if (k === 'bun_t') G.closed = false;
+  if (k === 'patty') { G.pq.pop(); const i = G.grill.findIndex(g => !g); if (i >= 0) G.grill[i] = { t: COOK, sz: 0 }; }
+  Kit.sfx('whoosh'); drawStack(); drawTicket();
+}
+$('undo').onclick = undo;
+$('stack').onclick = undo;
 $('trash').onclick = () => { if (!G || !G.stack.length) return; G.stack = []; G.pq = []; G.closed = false; Kit.sfx('whoosh'); drawStack(); drawTicket(); };
 $('tsF').onclick = () => { if (G && G.tray.fries) { G.tray.fries = null; Kit.sfx('whoosh'); drawTray(); drawTicket(); } };
 $('tsD').onclick = () => { if (G && G.tray.drink) { G.tray.drink = null; Kit.sfx('whoosh'); drawTray(); drawTicket(); } };
@@ -736,7 +746,7 @@ function hints() {
   const o = c.o, t = G.tray, mark = el => el && el.classList.add('hint');
   if (o.stack && !G.closed) {
     const ok = G.stack.every((k, i) => k === o.stack[i]);
-    if (!ok) return mark($('trash'));
+    if (!ok) return mark($('undo'));
     const need = o.stack[G.stack.length];
     if (need === 'bun_b' || need === 'bun_t') return mark(document.querySelector('.bin[data-id="bun"]'));
     if (need === 'patty') {
@@ -809,7 +819,8 @@ Kit.bar({ id: 'burger', extra: $('pauseBtn'), guard: { active: () => G && (G.sta
   <p>ハンバーガーやさんの てんいんさんに なって、ちゅうもんどおりに つくって わたそう。</p>
   <ul>
     <li>ちゅうもん票を 見て、下から じゅんばんに かさねる。さいしょと さいごは バンズ</li>
-    <li>お肉は てっぱんで やく。ちょうどいい ときに タップ（こげると すてるしか ない）</li>
+    <li>お肉は てっぱんで やく。やけたら タップ（こげないよ）</li>
+    <li>まちがえたら ↩️ か バーガーを タップで ひとつ もどせる</li>
     <li>ドリンク・ソフトは おしっぱなしで S・M・L の 線に あわせる</li>
     <li>おきゃくさんを タップすると ちゅうもん票が きりかわる</li>
     <li>はやく わたすと チップ。まちすぎると おきゃくさんが かえっちゃう</li>
