@@ -229,7 +229,7 @@ function beanStep(d) {
     d.method = $('bm').value; d.bean.name = $('bn').value.trim(); d.bean.shop = $('bs').value.trim(); d.bean.roast = $('br').value;
     d.bean.origin = $('bo').value === 'その他' ? ($('boOther').value.trim() || 'その他') : $('bo').value;
   };
-  $('back').onclick = () => home();
+  $('back').onclick = () => d.editOf ? detail(d.editOf) : home();
   $('next').onclick = () => { read(); axisStep(d, 0); };
 }
 function scale(cur, on) {
@@ -285,7 +285,12 @@ function sumStep(d) {
   paint();
   $('back').onclick = () => { d.memo = $('memo').value; axisStep(d, AXES.length - 1); };
   $('save').onclick = () => {
-    d.memo = $('memo').value.trim(); d.at = Date.now();
+    d.memo = $('memo').value.trim();
+    if (d.editOf) {   // 修正：元の記録を置きかえる（日時と冷めてからはそのまま）
+      const orig = d.editOf; delete d.editOf;
+      Object.assign(orig, d); saveList(); Kit.sfx('good'); Kit.toast('修正しました'); detail(orig); return;
+    }
+    d.at = Date.now();
     list.unshift(d); saveList(); Kit.sfx('good');
     Kit.toast('記録しました。10分ほどして冷めたら、もう一度味わってみてください', 3500);
     home();
@@ -338,10 +343,11 @@ function detail(r) {
     ${r.words.length ? `<div class="tags">${r.words.map(w => `<span>${esc(w)}</span>`).join('')}</div>` : ''}
     ${r.memo ? `<p style="margin:0">${esc(r.memo)}</p>` : ''}
     ${coolV && r.cool.memo ? `<p style="margin:0"><span class="note">冷めてから：</span>${esc(r.cool.memo)}</p>` : ''}
-    <div class="k-row">${!r.cool || r.cool.skipped ? '<button class="k-btn is-small" id="cool">冷めてからを記録</button>' : ''}<button class="k-btn is-small is-sun" id="cmp">ほかの記録と比べる</button></div>
-    <div class="k-row"><button class="k-btn is-small" id="back">一覧へ</button><button class="k-btn is-small" id="del">削除</button></div></div>`);
+    <div class="k-row">${!r.cool || r.cool.skipped ? '<button class="k-btn is-small" id="cool">冷めてからを記録</button>' : '<button class="k-btn is-small" id="cool">冷めてからを直す</button>'}<button class="k-btn is-small is-sun" id="cmp">ほかの記録と比べる</button></div>
+    <div class="k-row"><button class="k-btn is-small" id="edit">内容を直す</button><button class="k-btn is-small" id="back">一覧へ</button><button class="k-btn is-small" id="del">削除</button></div></div>`);
   app.appendChild(c);
-  if ($('cool')) $('cool').onclick = () => coolFlow(r);
+  $('cool').onclick = () => coolFlow(r);
+  $('edit').onclick = () => { const d = JSON.parse(JSON.stringify(r)); delete d.cool; delete d.at; d.editOf = r; beanStep(d); };
   $('cmp').onclick = () => { if (list.length < 2) { Kit.toast('比べるには、記録が2つ以上必要です'); return; } picking = r; home(); };
   $('back').onclick = () => home();
   $('del').onclick = async () => { if (!(await Kit.ask('この記録を削除しますか？', '削除', 'やめる'))) return; list = list.filter(x => x !== r); saveList(); home(); };
