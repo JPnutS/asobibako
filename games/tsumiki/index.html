@@ -171,7 +171,7 @@ function frame(now) {
 }
 function gravAngle() {
   const roll = Tilt.ok ? Tilt.roll : keyTilt;
-  return Kit.clamp(-roll * (G ? G.k : 0), -40, 40) * Math.PI / 180;
+  return Kit.clamp(roll * (G ? G.k : 0), -40, 40) * Math.PI / 180;   // ほんとうの 下の むき
 }
 function step(dt) {
   const a = gravAngle();

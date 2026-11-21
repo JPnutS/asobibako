@@ -44,7 +44,7 @@
     const m = Math.hypot(T.gx, T.gy);
     // ねかせると むきが きまらないので、だんだん 0° に もどす
     const r = m > .05 ? Math.atan2(T.gx, T.gy) / D : 0, w = Math.min(1, Math.max(0, (m - .2) / .3));
-    T.roll = -r * w;
+    T.roll = r * w;   // 右（時計まわり）に かたむけると、下が 画面の 右に よる → +
   }
   requestAnimationFrame(tick);
   window.addEventListener('devicemotion', onMotion);
@@ -66,7 +66,7 @@
   // センサーの かわり：roll（度）を いれる
   T.manual = function (deg) {
     T.manualOn = true;
-    T._t.gx = -Math.sin(deg * D); T._t.gy = Math.cos(deg * D); T._t.flat = 0;
+    T._t.gx = Math.sin(deg * D); T._t.gy = Math.cos(deg * D); T._t.flat = 0;
   };
   T.auto = function () { T.manualOn = false; };
   window.Tilt = T;
