@@ -351,7 +351,7 @@ function drawCup(g) {
   // なかみ
   ctx.save(); cupPath(g, 5); ctx.closePath(); ctx.clip();
   const lvl = lvlOf(c, S.V), sy = g.by - lvl;
-  const tiltA = Kit.clamp(-(Tilt.ok ? Tilt.roll : manRoll) * Math.PI / 180, -.45, .45) * .5;
+  const tiltA = 0;   // 画面の 中では コップの 水めんは いつも 水平（ビンと おなじ 考え方）
   if (S.V > 0) {
     const sl = S.slosh * 30;
     const lg = ctx.createLinearGradient(0, sy, 0, g.by); lg.addColorStop(0, S.drink.c2); lg.addColorStop(1, S.drink.c);
