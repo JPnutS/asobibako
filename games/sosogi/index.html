@@ -51,6 +51,20 @@
   .hist { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; font-weight: 900; font-size: .85rem; color: #a0703a; }
   .hist span { background: #fff; border-radius: 8px; padding: 2px 6px; }
   .turn { text-align: center; font: 400 3.6rem/1.1 'Dela Gothic One', sans-serif; }
+  .modes { display: grid; gap: 8px; }
+  .modes .btn { display: grid; grid-template-columns: 2.2em 1fr; align-items: center; text-align: left; gap: 8px; padding: 10px 14px; }
+  .modes .btn i { font-style: normal; font-size: 1.7rem; text-align: center; }
+  .modes .btn small { display: block; font-size: .78rem; opacity: .85; }
+  .chips.two { grid-template-columns: 1fr 1fr; }
+  .chips.three { grid-template-columns: repeat(3, 1fr); }
+  .stg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+  .stg button { appearance: none; border: 3px solid #f0dcc0; background: #fff; border-radius: 14px; padding: 6px 2px; font: 900 .78rem 'Zen Maru Gothic', sans-serif; color: #5a3412; cursor: pointer; line-height: 1.25; min-height: 76px; word-break: keep-all; }
+  .stg button b { display: block; font: 400 1.3rem 'Dela Gothic One', sans-serif; color: #ff7a1a; }
+  .stg button em { display: block; font-style: normal; color: #f5a400; letter-spacing: 1px; }
+  .stg button:disabled { opacity: .45; cursor: default; }
+  .stars { text-align: center; font-size: 2.6rem; color: #f5a400; letter-spacing: 4px; text-shadow: 0 3px 0 rgba(90,52,18,.2); }
+  .stars s { text-decoration: none; color: #e6d6bf; }
+  .handBtn { justify-self: center; padding: 8px 16px !important; font-size: .95rem !important; }
 </style>
 </head>
 <body>
@@ -64,20 +78,33 @@
   <div class="over" id="menuOv"><div class="card">
     <h2>ぴったり そそぎ</h2>
     <p>スマホを ジュースの ビンだと おもって かたむけよう。コップの <b style="color:#e11d48">せん</b> まで ぴったり そそげるかな？</p>
-    <ul class="how">
-      <li>スマホを <b>右に かたむける</b>（上の はしを 右へ たおす）と ビンが かたむいて ジュースが でる</li>
-      <li>まっすぐに もどすと とまる。おちている とちゅうの ぶんも はいるよ</li>
-      <li>ソーダは あわが ふくらむ。あふれないように！</li>
-    </ul>
-    <div class="lbl">なん人で あそぶ？（スマホを じゅんばんに わたす）</div>
-    <div class="chips" id="pChips"></div>
+    <div class="lbl">スマホを もつ 手は？</div>
+    <div class="chips two" id="hChips"></div>
+    <div class="lbl">あそびかた</div>
+    <div class="modes">
+      <button class="btn main" id="mStage"><i>⭐</i><span>ステージ<small>12この ステージ。★を 3つ あつめよう</small></span></button>
+      <button class="btn" id="mParty"><i>🎉</i><span>みんなで<small>2〜4人で スマホを わたして しょうぶ</small></span></button>
+      <button class="btn" id="mCafe"><i>☕</i><span>カフェ タイム<small>60びょうで どれだけ おきゃくさんに だせるかな</small></span></button>
+    </div>
     <div class="best" id="mBest"></div>
-    <button class="btn main" id="mStart">はじめる！</button>
+  </div></div>
+  <div class="over" id="stOv" hidden><div class="card">
+    <h2 style="font-size:1.6rem">ステージ</h2>
+    <div class="stg" id="stGrid"></div>
+    <button class="btn" id="stBack">もどる</button>
+  </div></div>
+  <div class="over" id="ptOv" hidden><div class="card">
+    <h2 style="font-size:1.6rem">みんなで</h2>
+    <p>5かい しょうぶ。じゅんばんに スマホを わたして、ぴったりを きそおう。</p>
+    <div class="lbl">なん人？</div>
+    <div class="chips three" id="pChips"></div>
+    <div class="row"><button class="btn" id="ptBack">もどる</button><button class="btn main" id="ptGo">はじめる！</button></div>
   </div></div>
   <div class="over" id="turnOv" hidden><div class="card" style="text-align:center">
     <div class="lbl" id="tRound"></div>
     <div class="turn" id="tWho"></div>
     <p id="tMsg"></p>
+    <button class="btn handBtn" id="tHand"></button>
     <button class="btn main" id="tGo">はじめる！</button>
   </div></div>
   <div class="over" id="resOv" hidden><div class="card" id="resCard"></div></div>
@@ -92,12 +119,12 @@ const snd = () => Kit.settings.sound;
 
 /* ---------- きまり ---------- */
 const DRINKS = {
-  orange: { n: 'オレンジジュース', c: '#ff9a1f', c2: '#ffc252', lab: '#ff7a00', k: 1 },
-  apple: { n: 'りんごジュース', c: '#f0c02a', c2: '#ffe27a', lab: '#e23b3b', k: 1 },
-  milk: { n: 'ぎゅうにゅう', c: '#f6f3ec', c2: '#ffffff', lab: '#2f7fe0', k: .85 },
-  grape: { n: 'ぶどうジュース', c: '#7b2d8e', c2: '#a957c2', lab: '#6a1f80', k: 1 },
-  soda: { n: 'ソーダ', c: '#7fd0ff', c2: '#c4ecff', lab: '#1aa0e0', k: 1.05, foam: 1 },
-  tea: { n: 'むぎちゃ', c: '#b8742a', c2: '#dba05a', lab: '#7a4a1a', k: 1.25 },
+  orange: { n: 'オレンジジュース', s: 'オレンジ', c: '#ff9a1f', c2: '#ffc252', lab: '#ff7a00', k: 1 },
+  apple: { n: 'りんごジュース', s: 'りんご', c: '#f0c02a', c2: '#ffe27a', lab: '#e23b3b', k: 1 },
+  milk: { n: 'ぎゅうにゅう', s: 'ミルク', c: '#f6f3ec', c2: '#ffffff', lab: '#2f7fe0', k: .85 },
+  grape: { n: 'ぶどうジュース', s: 'ぶどう', c: '#7b2d8e', c2: '#a957c2', lab: '#6a1f80', k: 1 },
+  soda: { n: 'ソーダ', s: 'ソーダ', c: '#7fd0ff', c2: '#c4ecff', lab: '#1aa0e0', k: 1.05, foam: 1 },
+  tea: { n: 'むぎちゃ', s: 'むぎちゃ', c: '#b8742a', c2: '#dba05a', lab: '#7a4a1a', k: 1.25 },
 };
 const CUPS = {
   cup: { n: 'コップ', wb: 108, wt: 128, h: 170 },
@@ -106,17 +133,28 @@ const CUPS = {
   jug: { n: 'ジョッキ', wb: 136, wt: 136, h: 180, handle: 1 },
   small: { n: 'ちいさい コップ', wb: 78, wt: 94, h: 96 },
 };
-const ROUNDS = [
-  { cup: 'cup', d: 'orange', t: [.5, .75] },
-  { cup: 'cup', d: 'apple', t: [.62, .86] },
-  { cup: 'glass', d: 'milk', t: [.45, .8] },
-  { cup: 'cone', d: 'grape', t: [.45, .8] },
-  { cup: 'jug', d: 'soda', t: [.5, .72] },
-  { cup: 'small', d: 'tea', t: [.55, .85] },
+// L：[のみもの, せんの たかさ]。ならべると かさねて そそぐ
+const STAGES = [
+  { n: 'はじめての ジュース', T: [{ cup: 'cup', L: [['orange', .6]] }] },
+  { n: 'たっぷり りんご', T: [{ cup: 'cup', L: [['apple', .82]] }] },
+  { n: 'ほそい グラス', T: [{ cup: 'glass', L: [['milk', .7]] }] },
+  { n: 'しゅわしゅわ ソーダ', T: [{ cup: 'jug', L: [['soda', .62]] }] },
+  { n: 'さんかく グラス', T: [{ cup: 'cone', L: [['grape', .7]] }] },
+  { n: 'うごく コップ', T: [{ cup: 'cup', L: [['orange', .65]], move: 55 }] },
+  { n: 'ふたいろ ジュース', T: [{ cup: 'cup', L: [['apple', .4], ['grape', .78]] }] },
+  { n: 'かくれる せん', T: [{ cup: 'glass', L: [['apple', .66]], hide: 1 }] },
+  { n: '3つ れんぞく', T: [{ cup: 'small', L: [['tea', .6]] }, { cup: 'small', L: [['orange', .8]] }, { cup: 'small', L: [['milk', .5]] }] },
+  { n: 'うごく ジョッキ', T: [{ cup: 'jug', L: [['soda', .6]], move: 45 }] },
+  { n: 'にじいろ 3だん', T: [{ cup: 'glass', L: [['grape', .3], ['orange', .58], ['soda', .85]] }] },
+  { n: 'さいごの ちょうせん', T: [{ cup: 'cone', L: [['milk', .72]], move: 40, hide: 1 }] },
 ];
 const PLAYERS = ['🐶', '🐱', '🐰', '🐼'];
+const GUESTS = ['🐻', '🦊', '🐸', '🐨', '🐯', '🐷', '🐵', '🐔', '🦁', '🐧'];
+const PARTY_ROUNDS = 5, CAFE_SEC = 60;
 const FLOW = 6800;          // いちばん たくさん でる とき（1びょう）
 const GRAV = 1500;
+const r2 = v => Math.round(v * 100) / 100;
+const pickD = (no) => Kit.pick(Object.keys(DRINKS).filter(k => k !== no));
 
 /* ---------- がめん ---------- */
 let VW = 400, VH = 700, SC = 1, OX = 0, dpr = 1;
@@ -128,53 +166,135 @@ function resize() {
 addEventListener('resize', resize);
 
 /* ---------- じょうたい ---------- */
-let S = { phase: 'menu', np: Kit.store.get('sosogi:np', 1) };
+let HAND = Kit.store.get('sosogi:hand', 'R');          // R：右手で もって 左に かたむける
+let NP = Math.max(2, Kit.store.get('sosogi:np', 2));
+let stars = Kit.store.get('sosogi:stars', []);
+let S = { phase: 'menu' };
 const counterY = () => VH - 70;
-function cupGeo() { const c = S.cup, x = 200, by = counterY() - (c.stem ? 34 : 0); return { x, by, ty: by - c.h, ...c }; }
+function cupGeo() { const c = S.cup, x = S.cupX || 200, by = counterY() - (c.stem ? 34 : 0); return { x, by, ty: by - c.h, ...c }; }
 const wAt = (c, y) => c.wb + (c.wt - c.wb) * y / c.h;
 const volAt = (c, y) => c.wb * y + (c.wt - c.wb) * y * y / (2 * c.h);
 function lvlOf(c, V) { if (V <= 0) return 0; const a = (c.wt - c.wb) / (2 * c.h); if (Math.abs(a) < 1e-6) return V / c.wb; return (-c.wb + Math.sqrt(c.wb * c.wb + 4 * a * V)) / (2 * a); }
+const handNow = () => S.mode === 'party' && S.hands ? S.hands[S.pi] : HAND;
+const sideOf = h => h === 'R' ? -1 : 1;   // ビンが ある むきの はんたい（そそぐ むき）
+const tiltWord = () => S.side < 0 ? 'ひだり' : 'みぎ';
 
-function newMatch() {
-  S = { phase: 'turn', np: S.np, round: 0, pi: 0, scores: Array(S.np).fill(0), hist: Array.from({ length: S.np }, () => []) };
-  setupRound(); showTurn();
+/* ---------- ステージ・あそびかた ---------- */
+function baseState(mode) {
+  S = { phase: 'turn', mode, pi: 0, round: 0, score: 0, res: [], cupX: 200, side: sideOf(HAND) };
 }
-function setupRound() {
-  const R = ROUNDS[S.round];
-  S.rd = R; S.cup = CUPS[R.cup]; S.drink = DRINKS[R.d];
-  S.target = Math.round(Kit.rand(R.t[0], R.t[1]) * 100) / 100;
+function beginTask(task) {
+  S.task = task; S.cup = CUPS[task.cup]; S.cupX = 200; S.mt = Math.random() * 6;
+  Object.assign(S, { V: 0, foam: 0, last: null, layers: [], li: 0, packets: [], drops: [], puddle: 0, pa: 0, slosh: 0, sloshV: 0, glugT: 0, t: 0, timeUp: false });
+  S.side = sideOf(handNow());
+  startLayer();
 }
-function resetPour() {
-  Object.assign(S, { V: 0, foam: 0, spill: 0, foamSpill: 0, packets: [], drops: [], puddle: 0, theta: 0, side: 1, still: 0, poured: 0, ready: false, want: false, slosh: 0, sloshV: 0, glugT: 0, t: 0, judged: false });
+function startLayer() {
+  const [d, t] = S.task.L[S.li];
+  S.dk = d; S.drink = DRINKS[d]; S.target = t;
+  S.layers.push({ d, V: 0 });
+  Object.assign(S, { foam: S.foam || 0, spill: 0, foamSpill: 0, poured: 0, ready: false, want: false, still: 0, hideT: 0, toldStraight: false, phase: 'pour', judged: false });
+  orderBox(); hud();
 }
+function startStage(n) {
+  baseState('stage'); S.sn = n; S.ti = 0;
+  beginTask(STAGES[n].T[0]); showTurn();
+}
+function partyTasks() {
+  const t = (a, b) => r2(Kit.rand(a, b));
+  const d1 = pickD('soda'), d2 = pickD(d1);
+  return Kit.shuffle([
+    { cup: Kit.pick(['cup', 'small']), L: [[pickD('soda'), t(.5, .82)]] },
+    Math.random() < .5 ? { cup: 'cone', L: [[pickD('soda'), t(.5, .78)]] } : { cup: 'jug', L: [['soda', t(.5, .66)]] },
+    { cup: 'glass', L: [[pickD(), t(.5, .8)]], hide: 1 },
+  ]).concat([
+    { cup: 'cup', L: [[d1, t(.3, .45)], [d2, t(.65, .85)]] },
+    { cup: Kit.pick(['cup', 'jug']), L: [[pickD('soda'), t(.5, .75)]], move: 45 },
+  ]);
+}
+function startParty() {
+  baseState('party'); S.np = NP; S.scores = Array(NP).fill(0); S.hands = Array(NP).fill(HAND);
+  S.tasks = partyTasks();
+  beginTask(S.tasks[0]); showTurn();
+}
+function cafeTask() {
+  const n = S.served || 0, cup = Kit.pick(Object.keys(CUPS));
+  const d = cup === 'jug' && Math.random() < .5 ? 'soda' : pickD();
+  const task = { cup, L: [[d, r2(Kit.rand(.45, cup === 'cone' ? .8 : .85))]], guest: Kit.pick(GUESTS) };
+  if (n >= 2 && Math.random() < .35) task.move = Kit.pick([30, 40, 50]);
+  else if (n >= 4 && Math.random() < .25) task.hide = 1;
+  return task;
+}
+function startCafe() {
+  baseState('cafe'); S.timeLeft = CAFE_SEC; S.served = 0; S.combo = 0; S.maxCombo = 0;
+  beginTask(cafeTask()); showTurn();
+}
+
 function showTurn() {
-  S.phase = 'turn'; resetPour();
+  S.phase = 'turn';
   $('hud').hidden = false; $('order').hidden = true; $('doneBtn').hidden = true; tip('');
-  $('tRound').textContent = `${S.round + 1} / ${ROUNDS.length} かいめ　${S.cup.n} ＋ ${S.drink.n}`;
-  $('tWho').textContent = S.np > 1 ? `${PLAYERS[S.pi]}さんの ばん` : 'じゅんび OK？';
-  $('tWho').style.fontSize = S.np > 1 ? '' : '2.2rem';
-  $('tMsg').textContent = S.np > 1 ? 'スマホを うけとったら おしてね（右に かたむけると そそげる）' : (S.drink.foam ? 'ソーダは あわに 気をつけて！' : 'スマホを たてて もち、右に かたむけると そそげるよ');
+  const m = S.mode;
+  if (m === 'stage') {
+    $('tRound').textContent = `ステージ ${S.sn + 1}`;
+    $('tWho').textContent = STAGES[S.sn].n; $('tWho').style.fontSize = '2rem';
+    const T = STAGES[S.sn].T, t0 = T[0];
+    $('tMsg').textContent = T.length > 1 ? `コップが ${T.length}こ。じゅんばんに そそごう` : t0.L.length > 1 ? `${t0.L.map(l => DRINKS[l[0]].s).join(' → ')} の じゅんに かさねよう` : t0.move ? 'コップが うごくよ。タイミングを あわせて！' : t0.hide ? 'そそぎはじめると せんが きえるよ。おぼえておこう' : DRINKS[t0.L[0][0]].foam ? 'ソーダは あわに 気をつけて！' : `スマホを たてて もち、${tiltWord()}に かたむけると そそげるよ`;
+  } else if (m === 'party') {
+    $('tRound').textContent = `${S.round + 1} / ${PARTY_ROUNDS} かいめ　${S.cup.n}${S.task.move ? '（うごく）' : ''}${S.task.hide ? '（せんが きえる）' : ''}`;
+    $('tWho').textContent = `${PLAYERS[S.pi]}さんの ばん`; $('tWho').style.fontSize = '';
+    $('tMsg').textContent = `スマホを うけとったら おしてね（${tiltWord()}に かたむけると そそげる）`;
+  } else {
+    $('tRound').textContent = `${CAFE_SEC}びょうの しょうぶ`;
+    $('tWho').textContent = '☕ カフェ タイム'; $('tWho').style.fontSize = '2rem';
+    $('tMsg').textContent = 'おきゃくさんが つぎつぎ くるよ。80てん いじょうが つづくと コンボで ボーナス！';
+  }
+  handBtn();
   $('turnOv').hidden = false; hud();
 }
-$('tGo').onclick = () => {
-  Kit.sfx('tap'); Kit.audio(); $('turnOv').hidden = true; S.phase = 'pour'; S.ready = false;
-  $('order').hidden = false; $('order').innerHTML = `${S.drink.n}を <b style="color:#e11d48">せん</b> まで！<small>${S.cup.n}</small>`;
-  tip(Tilt.ok ? 'スマホを たてて もち、右に かたむけよう' : 'センサーが ないので、おしている あいだ かたむくよ', 3000);
+function handBtn() { const h = handNow(); $('tHand').textContent = h === 'R' ? '✋ みぎてで もつ（かえる）' : '🤚 ひだりてで もつ（かえる）'; }
+$('tHand').onclick = () => {
+  Kit.sfx('tap'); const h = handNow() === 'R' ? 'L' : 'R';
+  if (S.mode === 'party') S.hands[S.pi] = h; else { HAND = h; Kit.store.set('sosogi:hand', h); }
+  S.side = sideOf(h); handBtn(); showTurn();
 };
+$('tGo').onclick = () => {
+  Kit.sfx('tap'); Kit.audio(); Tilt.start({ lock: true }); $('turnOv').hidden = true;
+  S.side = sideOf(handNow()); S.phase = 'pour'; S.ready = false; S.t = 0; S.toldStraight = false;
+  orderBox();
+  tip(Tilt.ok ? `スマホを たてて もち、${tiltWord()}に かたむけよう` : 'センサーが ないので、おしている あいだ かたむくよ', 3000);
+};
+function orderBox() {
+  const T = S.task; if (!T) return;
+  const lines = T.L.length > 1 ? `<small>${T.L.map((l, i) => `<span style="${i === S.li ? 'color:#e11d48' : i < S.li ? 'opacity:.45' : ''}">${'①②③'[i]}${DRINKS[l[0]].s}</span>`).join(' → ')}</small>` : `<small>${S.cup.n}${T.move ? '・うごく' : ''}${T.hide ? '・せんが きえる' : ''}</small>`;
+  $('order').innerHTML = `${T.guest ? `<span style="font-size:1.5rem">${T.guest}</span> ` : ''}${S.drink.n}を <b style="color:#e11d48">せん</b> まで！${lines}`;
+  $('order').hidden = S.phase !== 'pour' && S.phase !== 'judge';
+}
 function hud() {
-  $('hL').innerHTML = S.np > 1 ? `${PLAYERS[S.pi]} の ばん` : `${S.round + 1} / ${ROUNDS.length}`;
-  $('hR').innerHTML = S.np > 1 ? PLAYERS.slice(0, S.np).map((p, i) => `${p}<b>${S.scores[i]}</b>`).join(' ') : `<b>${S.scores[0]}</b> てん`;
+  const m = S.mode;
+  if (m === 'stage') {
+    const n = STAGES[S.sn].T.length;
+    $('hL').innerHTML = `ステージ <b>${S.sn + 1}</b>${n > 1 ? `　${S.ti + 1}/${n}こめ` : ''}`;
+    $('hR').innerHTML = `<b>${S.score}</b> てん`;
+  } else if (m === 'party') {
+    $('hL').innerHTML = `${PLAYERS[S.pi]} の ばん`;
+    $('hR').innerHTML = PLAYERS.slice(0, S.np).map((p, i) => `${p}<b>${S.scores[i]}</b>`).join(' ');
+  } else if (m === 'cafe') {
+    $('hL').innerHTML = `⏱ <b>${Math.max(0, Math.ceil(S.timeLeft))}</b>`;
+    $('hR').innerHTML = `<b>${S.score}</b> てん${S.combo > 1 ? `　🔥${S.combo}` : ''}`;
+  }
 }
 let tipT = 0;
 function tip(s, ms = 2500) { const e = $('tip'); e.textContent = s; e.classList.toggle('off', !s); clearTimeout(tipT); if (s) tipT = setTimeout(() => e.classList.add('off'), ms); }
 
 /* ---------- センサーが ない とき：おしている あいだ かたむく ---------- */
 let holdDir = 0, manRoll = 0;
+const KEYS = ['ArrowRight', 'ArrowLeft', 'Space'];
 stage.addEventListener('pointerdown', e => { if (S.phase !== 'pour' || Tilt.ok || e.target.closest('button')) return; holdDir = 1; });
 addEventListener('pointerup', () => { holdDir = 0; }); addEventListener('pointercancel', () => { holdDir = 0; });
-addEventListener('keydown', e => { if (Tilt.ok) return; if (e.code === 'ArrowRight' || e.code === 'Space') holdDir = 1; });
-addEventListener('keyup', e => { if (e.code === 'ArrowRight' || e.code === 'Space') holdDir = 0; });
-$('doneBtn').onclick = () => { if (S.phase === 'pour' && S.V > 0) { S.want = true; Kit.sfx('tap'); } };
+addEventListener('keydown', e => { if (Tilt.ok) return; if (KEYS.includes(e.code)) holdDir = 1; });
+addEventListener('keyup', e => { if (KEYS.includes(e.code)) holdDir = 0; });
+$('doneBtn').onclick = () => { if (S.phase === 'pour' && curV() > 0) { S.want = true; Kit.sfx('tap'); } };
+const curV = () => S.layers && S.layers.length ? S.layers[S.layers.length - 1].V : 0;
 
 /* ---------- まいフレーム ---------- */
 let lastT = performance.now();
@@ -185,24 +305,32 @@ function frame(now) {
 }
 function rollNow() { return Tilt.ok ? Tilt.roll : manRoll; }
 function step(dt) {
-  if (!Tilt.ok) { const tgt = holdDir * 44; manRoll += Kit.clamp(tgt - manRoll, -dt * (holdDir ? 55 : 120), dt * (holdDir ? 55 : 120)); }
+  if (!Tilt.ok) { const tgt = holdDir * 44 * S.side, sp = dt * (holdDir ? 55 : 120); manRoll += Kit.clamp(tgt - manRoll, -sp, sp); }
   if (S.phase !== 'pour' && S.phase !== 'judge') return;
   S.t += dt;
-  const roll = rollNow();
-  // まっすぐ もつまでは でない
-  if (!S.ready) { if (Math.abs(roll) < 14) S.ready = true; else if (S.t > 1 && !S.toldStraight) { S.toldStraight = true; tip('まず スマホを まっすぐ たてて もってね', 2500); } }
-  const wantTheta = S.ready && S.phase === 'pour' ? Kit.clamp(roll * 2.7, -20, 125) : 0;
-  S.theta += (wantTheta - S.theta) * Math.min(1, dt * 12);
-  S.side = 1;   // ビンは いつも 左。右に かたむけて そそぐ
-  const th = Math.max(0, S.theta), f = Kit.clamp((th - 55) / 62, 0, 1);
-  const flow = S.phase === 'pour' ? Math.pow(f, 1.5) * FLOW * S.drink.k * (S.rd.cup === 'small' ? 1.1 : 1) : 0;
+  const pour = S.phase === 'pour';
+  // カフェの じかん
+  if (pour && S.mode === 'cafe' && !S.timeUp) {
+    S.timeLeft -= dt;
+    if (Math.ceil(S.timeLeft) !== S.lastSec) { S.lastSec = Math.ceil(S.timeLeft); hud(); if (S.lastSec <= 5 && S.lastSec > 0 && snd()) Kit.tone(880, .08, { type: 'square', vol: .08 }); }
+    if (S.timeLeft <= 0) { S.timeUp = true; tip('じかん ぎれ！', 1500); }
+  }
+  // うごく コップ
+  if (pour && S.task.move) { S.mt += dt; S.cupX = 200 + Math.sin(S.mt * 1.3) * S.task.move; }
+  const tilt = rollNow() * S.side;   // そそぐ むきに どれだけ かたむいているか
+  if (!S.ready) { if (Math.abs(tilt) < 14) S.ready = true; else if (S.t > 1 && !S.toldStraight) { S.toldStraight = true; tip('まず スマホを まっすぐ たてて もってね', 2500); } }
+  const wantPa = S.ready && pour && !S.timeUp ? Kit.clamp(tilt * 2.7, -20, 125) : 0;
+  S.pa += (wantPa - S.pa) * Math.min(1, dt * 12);
+  const th = Math.max(0, S.pa), f = Kit.clamp((th - 55) / 62, 0, 1);
+  const flow = pour && !S.timeUp ? Math.pow(f, 1.5) * FLOW * S.drink.k * (S.task.cup === 'small' ? 1.1 : 1) : 0;
   const m = mouth();
   if (flow > 0) {
     const amt = flow * dt; S.poured += amt;
-    S.packets.push({ x: m.x, y: m.y, vx: S.side * (10 + 60 * f), vy: 20, v: amt, t: S.t, inCup: null });
+    S.packets.push({ x: m.x, y: m.y, vx: S.side * (10 + 60 * f), vy: 20, v: amt, t: S.t, inCup: null, c: S.drink.c });
     S.glugT -= dt;
     if (S.glugT <= 0) { S.glugT = .09 + (1 - f) * .14; glug(); }
   }
+  if (S.poured > 0 && S.task.hide) S.hideT += dt;
   const g = cupGeo(), lvl = lvlOf(S.cup, S.V), surfY = g.by - lvl;
   for (const p of S.packets) {
     p.vy += GRAV * dt; p.x += p.vx * dt; p.y += p.vy * dt;
@@ -211,33 +339,35 @@ function step(dt) {
     else if (p.inCup === false && p.y >= counterY()) { p.done = true; S.spill += p.v; S.puddle = Math.min(1, S.puddle + p.v / 3000); if (Math.random() < .3) dropsAt(p.x, counterY(), 2); }
   }
   S.packets = S.packets.filter(p => !p.done && p.y < VH + 50);
-  // あわ
-  const Vmax = volAt(S.cup, S.cup.h);
+  // あわ・あふれ
+  const Vmax = volAt(S.cup, S.cup.h), top = S.layers[S.layers.length - 1];
   if (S.foam > 0) S.foam -= S.foam * dt / 1.1;
-  if (S.V > Vmax) { S.spill += S.V - Vmax; S.V = Vmax; if (Math.random() < .5) dropsAt(g.x + (Math.random() < .5 ? -1 : 1) * g.wt / 2, g.ty, 2); }
+  if (S.V > Vmax) { const o = S.V - Vmax; S.spill += o; S.V = Vmax; top.V = Math.max(0, top.V - o); if (Math.random() < .5) dropsAt(g.x + (Math.random() < .5 ? -1 : 1) * g.wt / 2, g.ty, 2); }
   if (S.V + S.foam > Vmax) { S.foamSpill += S.V + S.foam - Vmax; S.foam = Vmax - S.V; if (Math.random() < .3) dropsAt(g.x + (Math.random() < .5 ? -1 : 1) * g.wt / 2, g.ty, 1, true); }
   // なみ
   S.sloshV += (-S.slosh * 60 - S.sloshV * 4) * dt; S.slosh += S.sloshV * dt;
   for (const d of S.drops) { d.vy += GRAV * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.l -= dt; }
   S.drops = S.drops.filter(d => d.l > 0);
-  if (S.phase !== 'pour') return;
+  if (!pour) return;
   // できあがり：とまって 少し たったら
   const calm = th < 45 && !S.packets.length && S.foam < Vmax * .012;
-  if (calm && S.V > 0) S.still += dt; else S.still = 0;
-  $('doneBtn').hidden = !(S.V > 0);
-  if (S.V > 0 && ((S.still > 1.1) || (S.want && !S.packets.length && S.foam < Vmax * .012))) judge();
+  const has = curV() > 0;
+  if (calm && has) S.still += dt; else S.still = 0;
+  $('doneBtn').hidden = !has;
+  const wait = S.mode === 'cafe' ? .7 : 1.1;
+  if (S.timeUp && !S.packets.length) { if (has) judge(); else endCafe(); return; }
+  if (has && (S.still > wait || (S.want && !S.packets.length && S.foam < Vmax * .012))) judge();
 }
 function mouth() {
-  const b = bottlePos(), a = S.theta * Math.PI / 180;
+  const b = bottlePos(), a = S.side * S.pa * Math.PI / 180;
   return { x: b.x + Math.sin(a) * 92, y: b.y - Math.cos(a) * 92 };
 }
-function bottlePos() { const g = cupGeo(); return { x: g.x - S.side * 88, y: g.ty - 130 }; }
+function bottlePos() { const g = cupGeo(); return { x: 200 - S.side * 88, y: g.ty - 130 }; }
 function addLiquid(v, x) {
-  S.V += v; S.sloshV += (x < cupGeo().x ? -1 : 1) * v / 900;
+  S.V += v; S.layers[S.layers.length - 1].V += v; S.sloshV += (x < cupGeo().x ? -1 : 1) * v / 900;
   if (S.drink.foam) S.foam += v * 1.25;
 }
-function dropsAt(x, y, n, foam) { for (let i = 0; i < n; i++) S.drops.push({ x, y, vx: Kit.rand(-90, 90), vy: Kit.rand(-260, -80), l: .5, foam }); }
-let lastGlug = 0;
+function dropsAt(x, y, n, foam) { for (let i = 0; i < n; i++) S.drops.push({ x, y, vx: Kit.rand(-90, 90), vy: Kit.rand(-260, -80), l: .5, foam, c: S.drink.c }); }
 function glug() {
   if (!snd()) return;
   const lv = lvlOf(S.cup, S.V) / S.cup.h;
@@ -251,7 +381,7 @@ function judge() {
   S.phase = 'judge'; $('doneBtn').hidden = true;
   const c = S.cup, lvl = lvlOf(c, S.V), diff = (lvl / c.h - S.target) * 100, ad = Math.abs(diff), Vmax = volAt(c, c.h);
   let pts, title;
-  const spilled = S.spill > Vmax * .02;
+  const spilled = S.spill > Vmax * (S.task.move ? .05 : .02);
   if (spilled) { pts = 0; title = 'こぼれた〜！'; }
   else if (ad <= 1.5) { pts = 100; title = 'ぴったり！！'; }
   else if (ad <= 3.5) { pts = 80; title = 'すごい！'; }
@@ -260,51 +390,124 @@ function judge() {
   else { pts = 20; title = diff < 0 ? 'すくない〜' : 'おおい〜'; }
   let sub = spilled ? 'コップの そとに こぼしちゃった' : ad <= 1.5 ? 'せんと ぴったり おなじ！' : `${diff < 0 ? 'あと' : ''} ${Math.max(1, Math.round(ad * c.h / 100 / 2))}mm ${diff < 0 ? 'たりない' : 'オーバー'}`;
   if (!spilled && S.foamSpill > Vmax * .03) { pts = Math.max(0, pts - 30); sub += '（あわが あふれて −30）'; }
-  S.scores[S.pi] += pts; S.hist[S.pi].push(pts); S.last = { pts, diff };
-  $('jA').textContent = title; $('jB').textContent = `+${pts} てん　${sub}`;
-  $('judge').classList.add('on');
-  if (pts >= 100) { Kit.sfx('win'); Kit.confetti(); } else if (pts >= 60) Kit.sfx('good'); else Kit.sfx(pts ? 'tap' : 'bad');
-  hud();
-  setTimeout(() => {
-    $('judge').classList.remove('on');
-    S.pi++;
-    if (S.pi >= S.np) { S.pi = 0; S.round++; if (S.round >= ROUNDS.length) return showResult(); setupRound(); }
-    showTurn();
-  }, 2600);
-}
-function showResult() {
-  S.phase = 'result'; $('hud').hidden = true; $('order').hidden = true; tip('');
-  const max = ROUNDS.length * 100;
-  if (S.np === 1) {
-    const sc = S.scores[0], best = Kit.store.get('sosogi:best', 0), isBest = sc > best; if (isBest) Kit.store.set('sosogi:best', sc);
-    const title = sc >= max * .9 ? 'そそぎの たつじん！' : sc >= max * .7 ? 'じょうず！' : sc >= max * .5 ? 'いい かんじ！' : 'つぎは ぴったりを ねらおう';
-    $('resCard').innerHTML = `<div class="ttl">${title}</div><div class="big">${sc}<small style="font:900 1rem 'Zen Maru Gothic'"> / ${max} てん${isBest ? '　ベスト！' : ''}</small></div>
-      <div class="hist">${S.hist[0].map((p, i) => `<span>${ROUNDS[i] ? CUPS[ROUNDS[i].cup].n.replace(/ /g, '') : ''} ${p}</span>`).join('')}</div>
-      <div class="best">ベスト ${Math.max(best, sc)} てん</div>
-      <div class="row"><button class="btn main" id="rAgain">もう一回</button><button class="btn" id="rMenu">もどる</button></div>`;
-    if (isBest) setTimeout(() => { Kit.sfx('win'); Kit.confetti(); }, 200);
-  } else {
-    const order = S.scores.map((s, i) => ({ s, i })).sort((a, b) => b.s - a.s);
-    const rankOf = s => 1 + S.scores.filter(x => x > s).length;
-    $('resCard').innerHTML = `<div class="ttl">けっか はっぴょう！</div><div class="rank">${order.map(o => { const r = rankOf(o.s); return `<div class="${r === 1 ? 'top' : ''}"><i>${['🥇', '🥈', '🥉', '4️⃣'][r - 1]}</i><span>${PLAYERS[o.i]}さん</span><b>${o.s}</b></div>`; }).join('')}</div>
-      <div class="row"><button class="btn main" id="rAgain">もう一回</button><button class="btn" id="rMenu">もどる</button></div>`;
-    setTimeout(() => { Kit.sfx('win'); Kit.confetti(); }, 200);
+  let add = pts;
+  if (S.mode === 'cafe') {
+    S.combo = pts >= 80 ? S.combo + 1 : 0; S.maxCombo = Math.max(S.maxCombo, S.combo);
+    const bonus = S.combo > 1 ? (S.combo - 1) * 10 : 0; add += bonus;
+    if (bonus) sub = `コンボ ${S.combo}！ ＋${bonus}`;
   }
-  $('resOv').hidden = false;
-  $('rAgain').onclick = () => { Kit.sfx('tap'); $('resOv').hidden = true; newMatch(); };
-  $('rMenu').onclick = () => { Kit.sfx('tap'); showMenu(); };
+  S.score += add; S.res.push(pts); if (S.mode === 'party') S.scores[S.pi] += pts;
+  S.last = { pts, diff };
+  $('jA').textContent = title; $('jB').textContent = `+${add} てん　${sub}`;
+  $('judge').classList.add('on');
+  if (pts >= 100) { Kit.sfx('win'); if (S.mode !== 'cafe') Kit.confetti(); } else if (pts >= 60) Kit.sfx('good'); else Kit.sfx(pts ? 'tap' : 'bad');
+  hud();
+  const more = S.li + 1 < S.task.L.length;
+  setTimeout(nextStep, S.mode === 'cafe' ? 1000 : more ? 1700 : 2400);
 }
+function nextStep() {
+  $('judge').classList.remove('on');
+  if (S.phase !== 'judge') return;
+  // かさねる つぎの のみもの
+  if (S.li + 1 < S.task.L.length && !(S.mode === 'cafe' && S.timeUp)) {
+    S.li++; startLayer(); S.t = 0;
+    tip(`つぎは ${S.drink.s}！ まっすぐに もどしてから そそいでね`, 2600); return;
+  }
+  if (S.mode === 'stage') {
+    S.ti++;
+    if (S.ti < STAGES[S.sn].T.length) { beginTask(STAGES[S.sn].T[S.ti]); S.t = 0; tip('つぎの コップ！ まっすぐに もどしてね', 2400); return; }
+    return stageResult();
+  }
+  if (S.mode === 'party') {
+    S.pi++;
+    if (S.pi >= S.np) { S.pi = 0; S.round++; if (S.round >= PARTY_ROUNDS) return partyResult(); }
+    beginTask(S.tasks[S.round]); return showTurn();
+  }
+  if (S.mode === 'cafe') {
+    S.served++;
+    if (S.timeUp || S.timeLeft <= 0) return endCafe();
+    const left = S.timeLeft; beginTask(cafeTask()); S.timeLeft = left; S.t = 0;
+    tip(`${S.task.guest} いらっしゃいませ！`, 1400);
+  }
+}
+
+/* ---------- けっか ---------- */
+const starStr = n => '★'.repeat(n) + `<s>${'★'.repeat(3 - n)}</s>`;
+const starsOf = avg => avg >= 90 ? 3 : avg >= 70 ? 2 : avg >= 40 ? 1 : 0;
+function resultCard(html, cb) {
+  S.phase = 'result'; $('hud').hidden = true; $('order').hidden = true; $('doneBtn').hidden = true; tip('');
+  $('resCard').innerHTML = html; $('resOv').hidden = false; cb();
+}
+function stageResult() {
+  const avg = Math.round(S.score / S.res.length), st = starsOf(avg), n = S.sn, old = stars[n] || 0;
+  if (st > old) { stars[n] = st; Kit.store.set('sosogi:stars', stars); }
+  const canNext = n + 1 < STAGES.length && (stars[n] || 0) > 0;
+  const title = st === 3 ? 'かんぺき！' : st === 2 ? 'じょうず！' : st === 1 ? 'クリア！' : 'ざんねん…';
+  resultCard(`<div class="lbl" style="text-align:center">ステージ ${n + 1}　${STAGES[n].n}</div>
+    <div class="ttl">${title}</div><div class="stars">${starStr(st)}</div>
+    <div class="best">${S.res.length > 1 ? `へいきん ${avg} てん（${S.res.join('・')}）` : `${avg} てん`}${st > old && old ? '　★が ふえた！' : ''}</div>
+    ${st === 0 ? '<p style="text-align:center">40てん いじょうで ★1つ。つぎの ステージが あくよ</p>' : n + 1 === STAGES.length && st > 0 ? '<p style="text-align:center">ぜんぶの ステージ クリア！ ★3つを めざそう</p>' : ''}
+    <div class="row"><button class="btn" id="rAgain">もう一回</button>${canNext ? '<button class="btn main" id="rNext">つぎへ</button>' : ''}</div>
+    <button class="btn" id="rList">ステージ いちらん</button>`, () => {
+    if (st > 0) setTimeout(() => { Kit.sfx('win'); if (st >= 2) Kit.confetti(); }, 200); else Kit.sfx('bad');
+    $('rAgain').onclick = () => { Kit.sfx('tap'); $('resOv').hidden = true; startStage(n); };
+    if (canNext) $('rNext').onclick = () => { Kit.sfx('tap'); $('resOv').hidden = true; startStage(n + 1); };
+    $('rList').onclick = () => { Kit.sfx('tap'); $('resOv').hidden = true; showStages(); };
+  });
+}
+function partyResult() {
+  const order = S.scores.map((s, i) => ({ s, i })).sort((a, b) => b.s - a.s);
+  const rankOf = s => 1 + S.scores.filter(x => x > s).length;
+  resultCard(`<div class="ttl">けっか はっぴょう！</div><div class="rank">${order.map(o => { const r = rankOf(o.s); return `<div class="${r === 1 ? 'top' : ''}"><i>${['🥇', '🥈', '🥉', '4️⃣'][r - 1]}</i><span>${PLAYERS[o.i]}さん</span><b>${o.s}</b></div>`; }).join('')}</div>
+    <div class="row"><button class="btn main" id="rAgain">もう一回</button><button class="btn" id="rMenu">もどる</button></div>`, () => {
+    setTimeout(() => { Kit.sfx('win'); Kit.confetti(); }, 200);
+    $('rAgain').onclick = () => { Kit.sfx('tap'); $('resOv').hidden = true; startParty(); };
+    $('rMenu').onclick = () => { Kit.sfx('tap'); showMenu(); };
+  });
+}
+function endCafe() {
+  if (S.phase === 'result') return;
+  const sc = S.score, best = Kit.store.get('sosogi:cafe', 0), isBest = sc > best; if (isBest) Kit.store.set('sosogi:cafe', sc);
+  const served = S.res.length, good = S.res.filter(p => p >= 80).length;
+  resultCard(`<div class="ttl">へいてん です！</div><div class="big">${sc}<small style="font:900 1rem 'Zen Maru Gothic'"> てん${isBest ? '　ベスト！' : ''}</small></div>
+    <div class="best">おきゃくさん ${served}人・ぴったりに ちかい ${good}はい・さいだい コンボ ${S.maxCombo}</div>
+    <div class="best">ベスト ${Math.max(best, sc)} てん</div>
+    <div class="row"><button class="btn main" id="rAgain">もう一回</button><button class="btn" id="rMenu">もどる</button></div>`, () => {
+    setTimeout(() => { Kit.sfx('win'); if (isBest) Kit.confetti(); }, 200);
+    $('rAgain').onclick = () => { Kit.sfx('tap'); $('resOv').hidden = true; startCafe(); };
+    $('rMenu').onclick = () => { Kit.sfx('tap'); showMenu(); };
+  });
+}
+
+/* ---------- メニュー ---------- */
+function hideAll() { ['menuOv', 'stOv', 'ptOv', 'turnOv', 'resOv'].forEach(i => { $(i).hidden = true; }); $('hud').hidden = true; $('order').hidden = true; $('doneBtn').hidden = true; tip(''); }
+function idleState() { S = { phase: 'menu', mode: 'menu', cup: CUPS.cup, drink: DRINKS.orange, dk: 'orange', target: .7, task: { cup: 'cup', L: [['orange', .7]] }, V: 0, layers: [], foam: 0, packets: [], drops: [], puddle: 0, pa: 0, slosh: 0, sloshV: 0, cupX: 200, side: sideOf(HAND) }; }
 function showMenu() {
-  S = { phase: 'menu', np: S.np, cup: CUPS.cup, drink: DRINKS.orange, target: .7 }; resetPour();
-  $('resOv').hidden = true; $('turnOv').hidden = true; $('hud').hidden = true; $('order').hidden = true; $('doneBtn').hidden = true; tip('');
-  const b = Kit.store.get('sosogi:best', 0); $('mBest').textContent = b ? `ひとりの ベスト ${b} てん` : '';
-  renderChips(); $('menuOv').hidden = false;
+  idleState(); hideAll();
+  const tot = stars.reduce((a, b) => a + (b || 0), 0), cb = Kit.store.get('sosogi:cafe', 0);
+  $('mBest').textContent = [tot ? `★ ${tot} / ${STAGES.length * 3}` : '', cb ? `カフェの ベスト ${cb} てん` : ''].filter(Boolean).join('　');
+  renderHand(); $('menuOv').hidden = false;
 }
-function renderChips() {
-  $('pChips').innerHTML = [1, 2, 3, 4].map(n => `<button data-n="${n}" class="${n === S.np ? 'on' : ''}"><big>${PLAYERS.slice(0, n).join('')}</big>${n}人</button>`).join('');
-  $('pChips').querySelectorAll('button').forEach(b => b.onclick = () => { S.np = +b.dataset.n; Kit.store.set('sosogi:np', S.np); Kit.sfx('tap'); renderChips(); });
+function renderHand() {
+  $('hChips').innerHTML = [['R', '✋', 'みぎて', 'ひだりに かたむける'], ['L', '🤚', 'ひだりて', 'みぎに かたむける']].map(([h, e, n, d]) => `<button data-h="${h}" class="${h === HAND ? 'on' : ''}"><big>${e}</big>${n}<br><small style="font-size:.72rem;color:#a0703a">${d}</small></button>`).join('');
+  $('hChips').querySelectorAll('button').forEach(b => b.onclick = () => { HAND = b.dataset.h; Kit.store.set('sosogi:hand', HAND); S.side = sideOf(HAND); Kit.sfx('tap'); renderHand(); });
 }
-$('mStart').onclick = async () => { Kit.sfx('tap'); Kit.audio(); $('menuOv').hidden = true; Tilt.start({ lock: true }); newMatch(); };
+function showStages() {
+  idleState(); hideAll();
+  $('stGrid').innerHTML = STAGES.map((st, i) => { const open = i === 0 || (stars[i - 1] || 0) > 0, n = stars[i] || 0; return `<button data-i="${i}" ${open ? '' : 'disabled'}><b>${open ? i + 1 : '🔒'}</b>${st.n}<em>${open ? '★'.repeat(n) + '☆'.repeat(3 - n) : ''}</em></button>`; }).join('');
+  $('stGrid').querySelectorAll('button').forEach(b => b.onclick = () => { Kit.sfx('tap'); Kit.audio(); Tilt.start({ lock: true }); $('stOv').hidden = true; startStage(+b.dataset.i); });
+  $('stOv').hidden = false;
+}
+function renderNP() {
+  $('pChips').innerHTML = [2, 3, 4].map(n => `<button data-n="${n}" class="${n === NP ? 'on' : ''}"><big>${PLAYERS.slice(0, n).join('')}</big>${n}人</button>`).join('');
+  $('pChips').querySelectorAll('button').forEach(b => b.onclick = () => { NP = +b.dataset.n; Kit.store.set('sosogi:np', NP); Kit.sfx('tap'); renderNP(); });
+}
+$('mStage').onclick = () => { Kit.sfx('tap'); Kit.audio(); Tilt.start({ lock: true }); showStages(); };
+$('mParty').onclick = () => { Kit.sfx('tap'); Kit.audio(); Tilt.start({ lock: true }); hideAll(); renderNP(); $('ptOv').hidden = false; };
+$('mCafe').onclick = () => { Kit.sfx('tap'); Kit.audio(); Tilt.start({ lock: true }); hideAll(); startCafe(); };
+$('stBack').onclick = () => { Kit.sfx('tap'); showMenu(); };
+$('ptBack').onclick = () => { Kit.sfx('tap'); showMenu(); };
+$('ptGo').onclick = () => { Kit.sfx('tap'); $('ptOv').hidden = true; startParty(); };
 
 /* ---------- えがく ---------- */
 function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
@@ -317,10 +520,11 @@ function draw() {
   ctx.strokeStyle = 'rgba(200,150,90,.18)'; ctx.lineWidth = 2;
   for (let x = (OX % 40) - 40; x < VW; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, cy); ctx.stroke(); }
   for (let y = cy; y > 0; y -= 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(VW, y); ctx.stroke(); }
-  // まど
+  // まど（ビンと はんたいがわ）
   ctx.save(); ctx.translate(OX, 0);
-  rr(250, 70, 120, 90, 10); ctx.fillStyle = '#bfe6ff'; ctx.fill(); ctx.lineWidth = 6; ctx.strokeStyle = '#fff'; ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(310, 70); ctx.lineTo(310, 160); ctx.moveTo(250, 115); ctx.lineTo(370, 115); ctx.lineWidth = 4; ctx.stroke();
+  const wx = S.side < 0 ? 30 : 250;
+  rr(wx, 70, 120, 90, 10); ctx.fillStyle = '#bfe6ff'; ctx.fill(); ctx.lineWidth = 6; ctx.strokeStyle = '#fff'; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(wx + 60, 70); ctx.lineTo(wx + 60, 160); ctx.moveTo(wx, 115); ctx.lineTo(wx + 120, 115); ctx.lineWidth = 4; ctx.stroke();
   ctx.restore();
   const cg = ctx.createLinearGradient(0, cy, 0, VH); cg.addColorStop(0, '#d99a5a'); cg.addColorStop(.12, '#c07a3a'); cg.addColorStop(1, '#9a5a28');
   ctx.fillStyle = cg; ctx.fillRect(0, cy, VW, VH - cy);
@@ -328,12 +532,12 @@ function draw() {
   ctx.save(); ctx.translate(OX, 0);
   const g = cupGeo();
   // こぼれた みず
-  if (S.puddle > 0) { ctx.fillStyle = S.drink.c; ctx.globalAlpha = .55; ctx.beginPath(); ctx.ellipse(g.x, cy + 6, 40 + S.puddle * 110, 6 + S.puddle * 6, 0, 0, 6.283); ctx.fill(); ctx.globalAlpha = 1; }
+  if (S.puddle > 0) { ctx.fillStyle = S.drink.c; ctx.globalAlpha = .55; ctx.beginPath(); ctx.ellipse(200, cy + 6, 40 + S.puddle * 110, 6 + S.puddle * 6, 0, 0, 6.283); ctx.fill(); ctx.globalAlpha = 1; }
   drawCup(g);
   drawStream();
   drawBottle();
-  if (S.phase === 'pour') { drawGauge(g); if (S.poured < 400) drawGuide(g); }
-  for (const d of S.drops) { ctx.fillStyle = d.foam ? '#fff' : S.drink.c; ctx.beginPath(); ctx.arc(d.x, d.y, 3, 0, 6.283); ctx.fill(); }
+  if (S.phase === 'pour') { drawGauge(g); if (S.poured < 400 && S.li === 0 && (S.mode !== 'cafe' || !S.served)) drawGuide(g); }
+  for (const d of S.drops) { ctx.fillStyle = d.foam ? '#fff' : d.c; ctx.beginPath(); ctx.arc(d.x, d.y, 3, 0, 6.283); ctx.fill(); }
   ctx.restore();
 }
 function cupPath(g, inset = 0) {
@@ -345,21 +549,28 @@ function drawCup(g) {
   // かげ
   ctx.fillStyle = 'rgba(90,52,18,.18)'; ctx.beginPath(); ctx.ellipse(g.x, counterY() + 2, Math.max(c.wb, 50) / 2 + 14, 7, 0, 0, 6.283); ctx.fill();
   if (c.stem) { ctx.fillStyle = 'rgba(220,240,255,.7)'; ctx.strokeStyle = 'rgba(120,160,190,.8)'; ctx.lineWidth = 2; ctx.fillRect(g.x - 4, g.by, 8, 34); ctx.strokeRect(g.x - 4, g.by, 8, 34); ctx.beginPath(); ctx.ellipse(g.x, counterY() - 3, 36, 6, 0, 0, 6.283); ctx.fill(); ctx.stroke(); }
-  if (c.handle) { ctx.lineWidth = 12; ctx.strokeStyle = 'rgba(200,230,250,.85)'; ctx.beginPath(); ctx.moveTo(g.x + c.wt / 2 - 4, g.ty + 34); ctx.bezierCurveTo(g.x + c.wt / 2 + 46, g.ty + 34, g.x + c.wt / 2 + 46, g.by - 40, g.x + c.wt / 2 - 4, g.by - 40); ctx.stroke(); }
+  if (c.handle) { const hs = S.side < 0 ? -1 : 1; ctx.lineWidth = 12; ctx.strokeStyle = 'rgba(200,230,250,.85)'; ctx.beginPath(); ctx.moveTo(g.x + hs * (c.wt / 2 - 4), g.ty + 34); ctx.bezierCurveTo(g.x + hs * (c.wt / 2 + 46), g.ty + 34, g.x + hs * (c.wt / 2 + 46), g.by - 40, g.x + hs * (c.wt / 2 - 4), g.by - 40); ctx.stroke(); }
   // ガラス
   cupPath(g); ctx.closePath(); ctx.fillStyle = 'rgba(225,245,255,.55)'; ctx.fill();
-  // なかみ
+  // なかみ（上の そうから じゅんに、下の そうで ぬりかさねる）
   ctx.save(); cupPath(g, 5); ctx.closePath(); ctx.clip();
   const lvl = lvlOf(c, S.V), sy = g.by - lvl;
-  const tiltA = 0;   // 画面の 中では コップの 水めんは いつも 水平（ビンと おなじ 考え方）
+  const L = g.x - c.wt / 2 - 10, Rr = g.x + c.wt / 2 + 10;
   if (S.V > 0) {
-    const sl = S.slosh * 30;
-    const lg = ctx.createLinearGradient(0, sy, 0, g.by); lg.addColorStop(0, S.drink.c2); lg.addColorStop(1, S.drink.c);
-    ctx.fillStyle = lg; ctx.beginPath();
-    const L = g.x - c.wt / 2 - 10, Rr = g.x + c.wt / 2 + 10, t = performance.now() / 1000;
-    ctx.moveTo(L, g.by + 10);
-    for (let x = L; x <= Rr; x += 8) { const y = sy + Math.tan(tiltA) * (x - g.x) + sl * (x - g.x) / c.wt + Math.sin(x * .08 + t * 6) * Math.min(3, 1 + S.packets.length * .02); ctx.lineTo(x, y); }
-    ctx.lineTo(Rr, g.by + 10); ctx.closePath(); ctx.fill();
+    const sl = S.slosh * 30, t = performance.now() / 1000;
+    const lay = S.layers.length ? S.layers : [{ d: S.dk, V: S.V }];
+    let acc = S.V;
+    for (let i = lay.length - 1; i >= 0; i--) {
+      const d = DRINKS[lay[i].d], ly = g.by - lvlOf(c, acc);
+      if (acc > 0) {
+        const lg = ctx.createLinearGradient(0, ly, 0, g.by); lg.addColorStop(0, d.c2); lg.addColorStop(.35, d.c); lg.addColorStop(1, d.c);
+        ctx.fillStyle = lg; ctx.beginPath(); ctx.moveTo(L, g.by + 10);
+        if (i === lay.length - 1) { for (let x = L; x <= Rr; x += 8) ctx.lineTo(x, ly + sl * (x - g.x) / c.wt + Math.sin(x * .08 + t * 6) * Math.min(3, 1 + S.packets.length * .02)); }
+        else { ctx.lineTo(L, ly); ctx.lineTo(Rr, ly); }
+        ctx.lineTo(Rr, g.by + 10); ctx.closePath(); ctx.fill();
+      }
+      acc -= lay[i].V;
+    }
     // あわ
     if (S.foam > 1) {
       const fy = g.by - lvlOf(c, S.V + S.foam);
@@ -368,94 +579,104 @@ function drawCup(g) {
       for (let x = L; x < Rr; x += 12) { ctx.beginPath(); ctx.arc(x + 6, fy, 7, 0, 6.283); ctx.fill(); }
     }
     // あわつぶ（ソーダ）
-    if (S.drink.foam) { ctx.fillStyle = 'rgba(255,255,255,.7)'; const tt = performance.now() / 1000; for (let i = 0; i < 14; i++) { const bx = g.x + Math.sin(i * 7.3) * wAt(c, 10) * .4, by = g.by - ((tt * 60 + i * 37) % Math.max(10, lvl)); ctx.beginPath(); ctx.arc(bx, by, 2.2, 0, 6.283); ctx.fill(); } }
+    const top = lay[lay.length - 1];
+    if (DRINKS[top.d].foam && top.V > 0) { const l0 = lvlOf(c, S.V - top.V), span = Math.max(10, lvl - l0); ctx.fillStyle = 'rgba(255,255,255,.7)'; for (let i = 0; i < 14; i++) { const bx = g.x + Math.sin(i * 7.3) * wAt(c, l0 + 10) * .4, by = g.by - l0 - ((t * 60 + i * 37) % span); ctx.beginPath(); ctx.arc(bx, by, 2.2, 0, 6.283); ctx.fill(); } }
   }
   ctx.restore();
   // ガラスの ふち・ひかり
   cupPath(g); ctx.strokeStyle = 'rgba(110,150,180,.9)'; ctx.lineWidth = 3; ctx.stroke();
   ctx.beginPath(); ctx.ellipse(g.x, g.ty, c.wt / 2, 6, 0, 0, 6.283); ctx.strokeStyle = 'rgba(110,150,180,.7)'; ctx.lineWidth = 2; ctx.stroke();
   ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(g.x - c.wt / 2 + 12, g.ty + 14); ctx.lineTo(g.x - wAt(c, c.h * .3) / 2 + 10, g.by - c.h * .3); ctx.stroke();
-  // めじるしの せん
+  // めじるしの せん（かくれる ときは そそぎはじめると きえる）
   const ty = g.by - S.target * c.h, tw = wAt(c, S.target * c.h);
-  ctx.setLineDash([8, 6]); ctx.strokeStyle = '#e11d48'; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.moveTo(g.x - tw / 2 - 10, ty); ctx.lineTo(g.x + tw / 2 + 10, ty); ctx.stroke(); ctx.setLineDash([]);
-  ctx.fillStyle = '#e11d48'; ctx.beginPath(); ctx.moveTo(g.x - tw / 2 - 12, ty); ctx.lineTo(g.x - tw / 2 - 26, ty - 8); ctx.lineTo(g.x - tw / 2 - 26, ty + 8); ctx.fill();
+  const a = S.task && S.task.hide && S.phase === 'pour' ? Kit.clamp(1 - S.hideT / .8, 0, 1) : 1;
+  if (a > 0) {
+    ctx.globalAlpha = a;
+    ctx.setLineDash([8, 6]); ctx.strokeStyle = '#e11d48'; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.moveTo(g.x - tw / 2 - 10, ty); ctx.lineTo(g.x + tw / 2 + 10, ty); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#e11d48'; ctx.beginPath(); ctx.moveTo(g.x - tw / 2 - 12, ty); ctx.lineTo(g.x - tw / 2 - 26, ty - 8); ctx.lineTo(g.x - tw / 2 - 26, ty + 8); ctx.fill();
+    ctx.globalAlpha = 1;
+  } else { ctx.font = "900 22px 'Zen Maru Gothic', sans-serif"; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(225,29,72,.5)'; ctx.fillText('？', g.x - c.wt / 2 - 18, g.by - c.h / 2); }
   if (S.phase === 'judge' && S.last) {
     const ly = g.by - lvl; ctx.strokeStyle = '#16a34a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(g.x + tw / 2 + 16, ty); ctx.lineTo(g.x + tw / 2 + 16, ly); ctx.stroke();
   }
 }
 function drawStream() {
   if (!S.packets || S.packets.length < 2) return;
-  const f = Kit.clamp((Math.abs(S.theta) - 55) / 62, 0, 1);
-  ctx.strokeStyle = S.drink.c; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   let prev = null;
   for (const p of S.packets) {
-    if (prev && p.t - prev.t < .05) { ctx.lineWidth = 3 + 9 * Math.min(1, p.v / 120); ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(p.x, p.y); ctx.stroke(); }
+    if (prev && p.t - prev.t < .05) { ctx.strokeStyle = p.c; ctx.lineWidth = 3 + 9 * Math.min(1, p.v / 120); ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(p.x, p.y); ctx.stroke(); }
     prev = p;
   }
-  void f;
 }
-// どれだけ かたむいているか（メーター）
+// どれだけ かたむいているか（メーター）：ビンと はんたいがわに おく
 function drawGauge(g) {
-  const cx = 340, cy = Math.max(150, g.ty - 150), R0 = 34, roll = rollNow(), D = Math.PI / 180;
-  const ang = d => (-90 + d) * D;   // まっすぐ上が 0°、右に たおすと +
+  const sd = S.side, cx = 200 + sd * 140, cy = Math.max(150, g.ty - 150), R0 = 34, D = Math.PI / 180;
+  const r = Kit.clamp(rollNow() * sd, -30, 50);
+  const ang = d => (-90 + d * sd) * D;   // まっすぐ上が 0°、そそぐ むきに たおすと ふえる
   ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.beginPath(); ctx.arc(cx, cy, R0 + 12, Math.PI, 0); ctx.lineTo(cx + R0 + 12, cy + 12); ctx.lineTo(cx - R0 - 12, cy + 12); ctx.closePath(); ctx.fill();
-  const zone = (a, b, c) => { ctx.strokeStyle = c; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(cx, cy, R0, ang(a), ang(b)); ctx.stroke(); };
+  const zone = (a, b, c) => { ctx.strokeStyle = c; ctx.lineWidth = 10; ctx.beginPath(); if (sd > 0) ctx.arc(cx, cy, R0, ang(a), ang(b)); else ctx.arc(cx, cy, R0, ang(b), ang(a)); ctx.stroke(); };
   zone(-30, 20, '#d6d6d6'); zone(20, 32, '#ffd28a'); zone(32, 50, '#ff8a1f');
-  const r = Kit.clamp(roll, -30, 50);
   ctx.strokeStyle = '#5a3412'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(ang(r)) * (R0 + 6), cy + Math.sin(ang(r)) * (R0 + 6)); ctx.stroke();
   ctx.fillStyle = '#5a3412'; ctx.beginPath(); ctx.arc(cx, cy, 5, 0, 6.283); ctx.fill();
   ctx.font = "900 11px 'Zen Maru Gothic', sans-serif"; ctx.textAlign = 'center'; ctx.fillText(r < 20 ? 'でない' : r < 32 ? 'ちょろちょろ' : 'どばっ', cx, cy + 10 + 14);
 }
-// 「右に かたむけて」の えあんない
+// 「みぎ／ひだりに かたむけて」の えあんない
 function drawGuide(g) {
-  const t = performance.now() / 1000, k = (Math.sin(t * 2.4) + 1) / 2, a = k * 40 * Math.PI / 180;
-  const cx = 300, cy = Math.max(230, g.ty - 40);
+  const sd = S.side, t = performance.now() / 1000, k = (Math.sin(t * 2.4) + 1) / 2, a = sd * k * 40 * Math.PI / 180;
+  const cx = 200 + sd * 100, cy = Math.max(230, g.ty - 40);
   ctx.save(); ctx.translate(cx, cy + 34); ctx.rotate(a);
   ctx.fillStyle = '#2a2f3a'; rr(-20, -78, 40, 74, 8); ctx.fill();
   ctx.fillStyle = '#bfe6ff'; rr(-16, -72, 32, 60, 4); ctx.fill();
-  ctx.fillStyle = '#ff9a1f'; ctx.fillRect(-8, -50, 16, 26);
+  ctx.fillStyle = S.drink.c; ctx.fillRect(-8, -50, 16, 26);
   ctx.restore();
+  ctx.save(); ctx.translate(cx, 0); ctx.scale(sd, 1); ctx.translate(-cx, 0);
   ctx.strokeStyle = '#ff5a1f'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(cx, cy + 34, 92, -Math.PI / 2 - .1, -Math.PI / 2 + .75); ctx.stroke();
   const ea = -Math.PI / 2 + .75, ex = cx + Math.cos(ea) * 92, ey = cy + 34 + Math.sin(ea) * 92;
   ctx.fillStyle = '#ff5a1f'; ctx.beginPath(); ctx.moveTo(ex + 8, ey - 6); ctx.lineTo(ex - 6, ey - 8); ctx.lineTo(ex + 2, ey + 8); ctx.fill();
+  ctx.restore();
+  const txt = `${tiltWord()}に かたむけて！`;
   ctx.font = "900 15px 'Zen Maru Gothic', sans-serif"; ctx.textAlign = 'center'; ctx.lineWidth = 4; ctx.strokeStyle = '#fff';
-  ctx.strokeText('みぎに かたむけて！', cx, cy + 58); ctx.fillStyle = '#e1471d'; ctx.fillText('みぎに かたむけて！', cx, cy + 58);
+  ctx.strokeText(txt, cx, cy + 58); ctx.fillStyle = '#e1471d'; ctx.fillText(txt, cx, cy + 58);
 }
 function drawBottle() {
-  const b = bottlePos(), d = S.drink;
-  ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(S.theta * Math.PI / 180);
+  const b = bottlePos(), d = S.drink, rot = S.side * S.pa * Math.PI / 180;
+  ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(rot);
   // ボトル：中心が (0,0)、くちが 上（-92）
   ctx.beginPath();
   ctx.moveTo(-12, -92); ctx.lineTo(12, -92); ctx.lineTo(12, -66); ctx.quadraticCurveTo(30, -50, 30, -26); ctx.lineTo(30, 62); ctx.quadraticCurveTo(30, 74, 18, 74); ctx.lineTo(-18, 74); ctx.quadraticCurveTo(-30, 74, -30, 62); ctx.lineTo(-30, -26); ctx.quadraticCurveTo(-30, -50, -12, -66); ctx.closePath();
   ctx.fillStyle = 'rgba(230,248,255,.6)'; ctx.fill();
   // なかみ（いつも 下に たまる ふう）
   ctx.save(); ctx.clip();
-  ctx.rotate(-S.theta * Math.PI / 180);
-  ctx.fillStyle = d.c; ctx.fillRect(-120, -10 + Math.abs(S.theta) * .25, 240, 200);
+  ctx.rotate(-rot);
+  ctx.fillStyle = d.c; ctx.fillRect(-120, -10 + Math.abs(S.pa) * .25, 240, 200);
   ctx.restore();
   ctx.strokeStyle = 'rgba(110,150,180,.9)'; ctx.lineWidth = 3; ctx.stroke();
   // ラベル
   rr(-31, -12, 62, 50, 6); ctx.fillStyle = d.lab; ctx.fill();
   ctx.fillStyle = '#fff'; ctx.font = "900 13px 'Zen Maru Gothic', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  const short = { orange: 'オレンジ', apple: 'りんご', milk: 'ミルク', grape: 'ぶどう', soda: 'ソーダ', tea: 'むぎちゃ' }[ROUNDS[S.round] ? ROUNDS[S.round].d : 'orange'] || '';
-  ctx.fillText(short, 0, 13);
+  ctx.fillText(d.s, 0, 13);
   ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillRect(-22, -40, 6, 90);
   // ふた なし くち
   ctx.fillStyle = 'rgba(110,150,180,.9)'; ctx.fillRect(-14, -96, 28, 6);
   ctx.restore();
+  ctx.textBaseline = 'alphabetic';
 }
 
 Kit.bar({ id: 'sosogi', title: '🧃 ぴったり そそぎ', help: `
   <p>スマホを ジュースの ビンに 見たてて かたむけ、コップの せん まで ぴったり そそぐ ゲーム。</p>
   <ul>
-    <li>スマホの 上の はしを 右へ たおすように かたむけると そそげる。たくさん かたむけるほど いきおいよく でる</li>
-    <li>もどしても、おちている とちゅうの ジュースは はいる。すこし はやめに とめよう</li>
-    <li>さんかく グラスは 上ほど ふえかたが ゆっくり。ソーダは あわが ふくらむ</li>
-    <li>みんなで あそぶ ときは、スマホを じゅんばんに わたして てんすうを きそう</li>
-    <li>センサーが ない きかいでは、画面の 右（左）を おしている あいだ かたむく</li>
+    <li>はじめに「スマホを もつ 手」を えらぶ。みぎては ひだりに、ひだりては みぎに かたむけると そそげる</li>
+    <li>たくさん かたむけるほど いきおいよく でる。もどしても、おちている とちゅうの ジュースは はいる</li>
+    <li>ステージ：12この ステージ。へいきん 40てんで ★1、70てんで ★2、90てんで ★3。★が 1つ あれば つぎが あく</li>
+    <li>ふたいろ・3だん：じゅんばんに かさねて、それぞれの せんで とめる</li>
+    <li>うごく コップ・かくれる せん・3つ れんぞく など、いろいろな しかけが ある</li>
+    <li>みんなで：2〜4人で 5かい しょうぶ。ばんごとに もつ 手を かえられる</li>
+    <li>カフェ タイム：60びょうで どれだけ だせるか。80てん いじょうが つづくと コンボ ボーナス</li>
+    <li>センサーが ない きかいでは、画面を おしている あいだ かたむく</li>
   </ul>` });
 resize(); showMenu(); requestAnimationFrame(frame);
-if (location.hash === '#debug') window.__t = { get S() { return S; }, setupRound, resetPour, step, judge, newMatch, hold: d => { holdDir = d; }, get roll() { return manRoll; }, Tilt };
+if (location.hash === '#debug') window.__t = { get S() { return S; }, step, judge, startStage, startParty, startCafe, showStages, hold: d => { holdDir = d; }, get roll() { return manRoll; }, Tilt, STAGES };
 </script>
 </body>
 </html>

@@ -13,7 +13,7 @@ self.ASOBI_GAMES = [
   { id: 'kaishu', hidden: true, cat: 'play', name: 'ボール かいしゅう 大作戦', icon: '⚽', color: 'sky', tag: '一人で', who: '1人', desc: '川に 流れてくる ボールを あみで ひろおう。のばしすぎると ドボン！' },
   { id: 'dobon', hidden: true, cat: 'play', name: 'ドボン チャレンジ', icon: '💦', color: 'sky', tag: '一人で', who: '1人', desc: '水に うかぶ ボールめがけて ジャンプ。くるくる まわって キレイに ドボン！' },
   { id: 'burger', cat: 'play', name: 'もぐもぐバーガー', icon: '🍔', color: 'orange', tag: '一人で', who: '1人', desc: 'ハンバーガーやさんの てんいんさん。ちゅうもんどおりに かさねて、ポテト・ドリンク・ソフトも つくろう' },
-  { id: 'sosogi', cat: 'play', name: 'ぴったり そそぎ', icon: '🧃', color: 'orange', tag: 'みんなで', who: '1〜4人', desc: 'スマホを ビンみたいに かたむけて、コップの せん まで ぴったり そそごう' },
+  { id: 'sosogi', cat: 'play', name: 'ぴったり そそぎ', icon: '🧃', color: 'orange', tag: 'みんなで', who: '1〜4人', desc: 'スマホを ビンみたいに かたむけて、コップの せん まで ぴったり そそごう。ステージ・カフェ タイムも' },
   { id: 'tsumiki', cat: 'play', name: 'つみき タワー', icon: '🧱', color: 'sky', tag: 'みんなで', who: '1〜4人', desc: 'つみきを つんで たかい タワーに。スマホが かたむくと タワーも ぐらぐら！' },
   { id: 'bouken', hidden: true, cat: 'play', name: 'ぷっちーのぼうけん', icon: '🚩', color: 'grass', tag: '一人で', who: '1人', desc: 'はしって とんで てきを ふんで、ゴールの はたを めざす よこスクロール アクション' },
   { id: 'puchic', cat: 'play', name: 'ぷちぷちチャレンジ', icon: '🫧', color: 'sky', tag: '対戦', who: '1〜2人＋CPU', desc: 'ぷちぷちを つぶして とくてんを きそおう' },
