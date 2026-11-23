@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ぐるぐる なわとび</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="../../common/kit.css">
+<style>
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; overflow: hidden; background: #bfe8ff; }
+  .stage { flex: 1; position: relative; min-height: 0; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  #cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .cnt { position: absolute; left: 50%; transform: translateX(-50%); z-index: 3; pointer-events: none; text-align: center; color: #fff; font: 400 2.6rem/1 'Dela Gothic One', sans-serif; -webkit-text-stroke: 2px #1f4a6a; text-shadow: 0 4px 0 rgba(0,0,0,.2); }
+  .cnt small { display: block; font: 900 .85rem 'Zen Maru Gothic', sans-serif; -webkit-text-stroke: 0; color: #1f4a6a; text-shadow: none; }
+  .cnt[hidden] { display: none; }
+  .jb { position: absolute; z-index: 4; appearance: none; border: 4px solid #fff; border-radius: 24px; color: #fff; font: 900 1.25rem 'Zen Maru Gothic', sans-serif; box-shadow: 0 5px 0 rgba(0,0,0,.25); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; touch-action: none; }
+  .jb big { font-size: 2rem; }
+  .jb.flip { transform: rotate(180deg); }
+  .jb.down { filter: brightness(.88); box-shadow: 0 1px 0 rgba(0,0,0,.25); }
+  .jb.out { opacity: .35; }
+  .banner { position: absolute; left: 0; right: 0; top: 34%; text-align: center; pointer-events: none; z-index: 4; opacity: 0; transition: opacity .25s, transform .3s cubic-bezier(.3,1.6,.5,1); transform: scale(.8); }
+  .banner.on { opacity: 1; transform: scale(1); }
+  .banner b { font: 400 clamp(2rem, 12vw, 3.2rem) 'Dela Gothic One', sans-serif; color: #ffd23a; -webkit-text-stroke: 2px #5a3a00; text-shadow: 0 4px 0 rgba(0,0,0,.25); }
+  .tip { position: absolute; left: 50%; top: 52%; transform: translateX(-50%); z-index: 3; pointer-events: none; background: rgba(31,74,106,.85); color: #fff; font: 900 .95rem 'Zen Maru Gothic', sans-serif; border-radius: 99px; padding: 7px 16px; white-space: nowrap; transition: opacity .3s; }
+  .tip.off { opacity: 0; }
+  .over { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; padding: 14px; overflow: auto; background: rgba(31,74,106,.45); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+  .over[hidden] { display: none; }
+  .card { width: min(420px, 100%); background: #f6fbff; color: #1f4a6a; border-radius: 26px; padding: 18px 16px; display: grid; gap: 10px; box-shadow: 0 20px 50px rgba(0,0,0,.35); }
+  .card h2 { margin: 0; text-align: center; font: 400 1.9rem 'Dela Gothic One', sans-serif; color: #ff8a1f; -webkit-text-stroke: 1.5px #5a2a00; }
+  .card p { margin: 0; line-height: 1.7; font-weight: 700; font-size: .95rem; }
+  .how { margin: 0; padding-left: 1.2em; line-height: 1.8; font-size: .92rem; font-weight: 700; }
+  .btn { appearance: none; border: none; border-radius: 14px; font: 900 1.1rem 'Zen Maru Gothic', sans-serif; padding: 12px; cursor: pointer; box-shadow: 0 4px 0 rgba(0,0,0,.15); background: #fff; color: #1f4a6a; }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.15); }
+  .btn.main { background: linear-gradient(135deg, #ffb13d, #ff6a2c); color: #fff; box-shadow: 0 4px 0 #c2410c; }
+  .btn:disabled { opacity: .6; }
+  .row { display: flex; gap: 8px; } .row .btn { flex: 1; }
+  .chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .chips.c2 { grid-template-columns: 1fr 1fr; }
+  .chips button { appearance: none; border: 3px solid #d6e8f6; background: #fff; border-radius: 14px; padding: 8px 2px; font: 900 .95rem 'Zen Maru Gothic', sans-serif; color: #1f4a6a; cursor: pointer; }
+  .chips button big { display: block; font-size: 1.3rem; letter-spacing: -2px; }
+  .chips button.on { border-color: #ff7a1a; background: #fff1e0; box-shadow: 0 0 0 2px #ff7a1a inset; }
+  .lbl { font-weight: 900; font-size: .9rem; color: #5b7a96; }
+  .best { text-align: center; font-weight: 900; color: #5b7a96; }
+  .big { text-align: center; font: 400 3.4rem 'Dela Gothic One', sans-serif; line-height: 1; color: #ff7a1a; }
+  .big small { font: 900 1rem 'Zen Maru Gothic', sans-serif; color: #5b7a96; }
+  .ttl { text-align: center; font: 400 1.6rem 'Dela Gothic One', sans-serif; color: #ff7a1a; }
+  .rank { display: grid; gap: 6px; }
+  .rank div { display: grid; grid-template-columns: 2.4em 1fr auto; align-items: center; gap: 6px; background: #fff; border-radius: 14px; padding: 8px 10px; box-shadow: 0 2px 0 #d6e8f6; font-weight: 900; }
+  .rank div.top { background: linear-gradient(180deg, #fff6c8, #ffe066); }
+  .rank i { font-style: normal; font-size: 1.4rem; }
+  .rank b { font: 400 1.2rem 'Dela Gothic One', sans-serif; color: #ff7a1a; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <canvas id="cv"></canvas>
+  <div class="cnt" id="cnt" hidden></div>
+  <div id="btns"></div>
+  <div class="banner" id="banner"><b id="bnA"></b></div>
+  <div class="tip off" id="tip"></div>
+  <div class="over" id="menuOv"><div class="card">
+    <h2>ぐるぐる なわとび</h2>
+    <p>くまの きょうだいが まわす 大なわを、タイミングよく ジャンプ！ さいごまで のこった 人の かち。</p>
+    <ul class="how">
+      <li>なわが 足もとに くる ちょっと まえに ボタンを おす</li>
+      <li>なわは だんだん はやく なる。とちゅうで とまったり、きゅうに はやく なったり、2本に なったりするよ</li>
+    </ul>
+    <div class="lbl">あそびかた</div>
+    <div class="chips c2" id="mChips"></div>
+    <div id="localOpts" style="display:grid;gap:10px">
+      <div class="lbl">この スマホで あそぶ 人数（ボタンを わけるよ）</div>
+      <div class="chips" id="pChips"></div>
+      <div class="lbl">CPU（あいている ところに 入る）</div>
+      <div class="chips" id="cChips"></div>
+    </div>
+    <div class="best" id="mBest"></div>
+    <button class="btn main" id="mStart">はじめる！</button>
+  </div></div>
+  <div class="over" id="resOv" hidden><div class="card" id="resCard"></div></div>
+</div>
+<script src="../../common/kit.js"></script>
+<script src="../../common/net.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const stage = $('stage'), cv = $('cv'), ctx = cv.getContext('2d');
+const snd = () => Kit.settings.sound;
+
+/* ---------- きまり ---------- */
+const KIDS = [
+  { icon: '🐶', c: '#ff8a1f', d: '#c25a00' },
+  { icon: '🐱', c: '#3a9cf0', d: '#1a64b0' },
+  { icon: '🐰', c: '#3cc46a', d: '#1d8a44' },
+  { icon: '🐼', c: '#9a5ae0', d: '#6a2ab0' },
+];
+const CPU_LV = [
+  null,
+  { n: 'よわい', sd: .1, miss: .06, adapt: .2, tire: .002 },
+  { n: 'ふつう', sd: .08, miss: .02, adapt: .5, tire: .0012 },
+  { n: 'つよい', sd: .055, miss: .006, adapt: .8, tire: .0006 },
+];
+const STEP = 1 / 120;
+const V0 = 430, GRAV = 2000, TAIR = 2 * V0 / GRAV, CLEAR = 14;
+const P0 = 1.7, PMIN = .7;           // なわ 1しゅうの じかん（はじめ／いちばん はやい）
+const R = 150;                       // なわの まわる 大きさ
+const TWIN = [[20, 10], [45, 12], [75, 14], [110, 16]];   // [なんかいめで, なんかい] 2本に なる
+
+/* ---------- がめん ---------- */
+let SC = 1, VW = 400, VH = 700, OX = 0, dpr = 1, topPad = 60, botPad = 130, groundY = 500;
+function layout() {
+  const r = stage.getBoundingClientRect(); dpr = Math.min(2, devicePixelRatio || 1);
+  cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+  const local = G ? G.ps.filter(p => p.kind === 'human').length : 1;
+  topPad = local >= 3 ? 120 : 64; botPad = G ? 130 : 40;
+  const H = r.height - topPad - botPad;
+  SC = Math.min(r.width / 410, H / 400); VW = r.width / SC; VH = r.height / SC; OX = (VW - 400) / 2;
+  groundY = (r.height - botPad) / SC - 34;
+  $('cnt').style.top = (topPad + 4) + 'px';
+  placeButtons(r);
+}
+addEventListener('resize', layout);
+
+/* ---------- じょうたい ---------- */
+let G = null, NET = null;
+let MODE = Kit.store.get('nawa:mode', 'local'), NP = Kit.store.get('nawa:np', 1), CPU = Kit.store.get('nawa:cpu', 2);
+function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+function newGame(cfg) {
+  const ps = [];
+  if (cfg.mode === 'net') {
+    cfg.names.forEach((n, i) => ps.push(mkP(i, i === cfg.me ? 'human' : 'net', n, i === cfg.me ? 0 : -1)));
+  } else {
+    for (let i = 0; i < cfg.np; i++) ps.push(mkP(i, 'human', cfg.np > 1 ? `${KIDS[i].icon}さん` : 'じぶん', i));
+    if (cfg.cpu) for (let i = cfg.np; i < 4; i++) ps.push(mkP(i, 'cpu', `CPU${KIDS[i].icon}`, -1, cfg.cpu));
+  }
+  const n = ps.length;
+  ps.forEach((p, i) => { p.x = 200 + (i - (n - 1) / 2) * (n > 3 ? 52 : 60); });
+  G = {
+    mode: cfg.mode, ps, solo: n === 1, rng: cfg.seed != null ? mulberry(cfg.seed) : Math.random,
+    t: -3.2, acc: 0, phi: .35, P: P0, ropes: 1, twinLeft: 0, twinI: 0, ev: null, evId: 0, count: 0, spin: 0,
+    over: false, ff: 1, cpuOnlyAt: -1, lastCd: 4,
+  };
+  $('menuOv').hidden = true; $('resOv').hidden = true;
+  buildButtons(); layout(); hud();
+  Kit.audio();
+}
+function mkP(i, kind, name, btn, lv) {
+  return { i, kind, name, kid: KIDS[i], btn, lv: lv ? CPU_LV[lv] : null, h: 0, vy: 0, air: false, alive: true, outAt: Infinity, jumps: 0, fallT: 0, squash: 0, plan: null, blink: Math.random() * 4 };
+}
+
+/* ---------- ボタン ---------- */
+function buildButtons() {
+  const box = $('btns'); box.innerHTML = '';
+  G.ps.filter(p => p.kind === 'human').forEach(p => {
+    const b = document.createElement('button'); b.className = 'jb'; p.el = b;
+    b.style.background = `linear-gradient(160deg, ${p.kid.c}, ${p.kid.d})`;
+    b.innerHTML = `<big>${p.kid.icon}</big>ジャンプ`;
+    b.addEventListener('pointerdown', e => { e.preventDefault(); press(p); b.classList.add('down'); });
+    const up = () => b.classList.remove('down');
+    b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', up);
+    box.appendChild(b);
+  });
+}
+function placeButtons(r) {
+  if (!G) return;
+  const hs = G.ps.filter(p => p.kind === 'human'), n = hs.length, W = r.width, Hh = r.height, m = 10, bh = 104;
+  const bottom = Hh - bh - m - 6, top = 8;
+  hs.forEach((p, k) => {
+    const s = p.el.style; let x, y, w, flip = false;
+    if (n === 1) { x = m; w = W - 2 * m; y = bottom; }
+    else if (n === 2) { w = (W - 3 * m) / 2; x = m + k * (w + m); y = bottom; }
+    else {
+      w = (W - 3 * m) / 2;
+      if (k < 2) { x = m + k * (w + m); y = bottom; }
+      else { const tn = n - 2; flip = true; if (tn === 1) { x = m; w = W - 2 * m; } else { x = W - m - w - (k - 2) * (w + m); } y = top; }
+    }
+    Object.assign(s, { left: x + 'px', top: y + 'px', width: w + 'px', height: bh + 'px' });
+    p.el.classList.toggle('flip', flip);
+  });
+}
+const KEYMAP = { Space: 0, ArrowUp: 0, KeyA: 0, KeyL: 1, Enter: 1, KeyZ: 2, KeyM: 3 };
+addEventListener('keydown', e => {
+  if (!G || e.repeat || !(e.code in KEYMAP)) return;
+  const hs = G.ps.filter(p => p.kind === 'human'); const p = hs.find(q => q.btn === KEYMAP[e.code]); if (p) { e.preventDefault(); press(p); }
+});
+function press(p) {
+  if (!G || G.over || !p.alive || p.air || G.t < -.2) return;
+  jump(p);
+  if (G.mode === 'net') nsend({ k: 'j', t: G.t });
+}
+function jump(p) {
+  p.air = true; p.vy = V0; p.squash = -.25;
+  if (snd() && p.kind !== 'cpu') Kit.tone(420 + p.i * 60, .09, { type: 'triangle', vol: .12, slide: 300 });
+}
+
+/* ---------- なわの うごき（きまった きざみで すすめる＝オンラインでも おなじ） ---------- */
+const TAU = Math.PI * 2;
+const wrap = a => ((a % TAU) + TAU) % TAU;
+function omega() {
+  let w = TAU / G.P;
+  if (G.t < 1.2) w *= Math.max(.15, G.t / 1.2);        // はじめは ゆっくり まわりだす
+  if (G.ropes > 1) w *= .5;
+  if (G.ev) { if (G.ev.type === 'pause') return 0; w *= G.ev.mul; }
+  return w;
+}
+function ropeAngles() { const a = [G.phi]; if (G.ropes > 1) a.push(G.phi + Math.PI); return a; }
+function tick() {
+  G.t += STEP;
+  for (const p of G.ps) phys(p);
+  if (G.t < 0) { const cd = Math.ceil(-G.t); if (cd !== G.lastCd) { G.lastCd = cd; if (cd <= 3) { banner(String(cd), 700); if (snd()) Kit.tone(600, .1, { type: 'square', vol: .1 }); } } return; }
+  if (G.lastCd !== 0) { G.lastCd = 0; banner('スタート！', 800); if (snd()) Kit.tone(900, .16, { type: 'square', vol: .12 }); }
+  if (G.ev && G.ev.type === 'pause') { G.ev.t -= STEP; if (G.ev.t <= 0) G.ev = null; }
+  const before = ropeAngles().map(a => wrap(a - Math.PI));
+  const topBefore = wrap(G.phi);
+  G.phi += omega() * STEP;
+  const after = ropeAngles().map(a => wrap(a - Math.PI));
+  // てっぺんを こえた とき：しかけ
+  if (wrap(G.phi) < topBefore && G.ropes === 1 && G.t > 2) onTop();
+  // 足もとを こえた とき：はんてい
+  for (let k = 0; k < after.length; k++) if (after[k] < before[k]) onBottom();
+  for (const p of G.ps) if (p.kind === 'cpu') cpuThink(p);
+}
+function onTop() {
+  if (G.count < 4 || G.ev) return;
+  const r = G.rng();
+  if (r < .17) { G.ev = { type: 'pause', t: .38 + G.rng() * .3 }; G.evId++; }
+  else if (r < .27 && G.count >= 8) { G.ev = { type: 'fast', mul: 1.5 }; G.evId++; }
+  else if (r < .36) { G.ev = { type: 'slow', mul: .55 }; G.evId++; }
+}
+function onBottom() {
+  if (G.ev && G.ev.type !== 'pause') G.ev = null;
+  G.count++;
+  for (const p of G.ps) {
+    if (!p.alive || p.kind === 'net') continue;
+    if (p.h < CLEAR) out(p);
+  }
+  for (const p of G.ps) if (p.alive) p.jumps = G.count;
+  if (snd()) Kit.noise(.07, { vol: .06, freq: 900, filter: 'bandpass' });
+  // はやさ と 2本なわ
+  if (G.ropes > 1) { if (--G.twinLeft <= 0) { G.ropes = 1; banner('1本に もどった！', 900); } }
+  else {
+    G.P = Math.max(PMIN, G.P * .975);
+    const tw = TWIN[G.twinI];
+    if (tw && G.count === tw[0]) { G.ropes = 2; G.twinLeft = tw[1]; G.twinI++; G.ev = null; banner('なわが 2本！', 1100); if (snd()) Kit.sfx('select'); }
+  }
+  if (G.count % 10 === 0 && G.ps.some(p => p.alive && p.kind !== 'cpu')) { tip(`${G.count}かい！`, 900); if (snd()) Kit.sfx('good'); }
+  hud(); checkEnd();
+}
+function phys(p) {
+  if (p.air) { p.h += p.vy * STEP; p.vy -= GRAV * STEP; if (p.h <= 0) { p.h = 0; p.air = false; p.squash = .22; } }
+  p.squash *= .9;
+  if (!p.alive) p.fallT += STEP;
+}
+function out(p) {
+  p.alive = false; p.outAt = G.count; p.fallT = 0;
+  if (p.el) p.el.classList.add('out');
+  if (p.kind === 'human') { Kit.sfx('bad'); Kit.vibrate && Kit.vibrate(120); }
+  if (G.mode === 'net' && p.kind === 'human') nsend({ k: 'o', c: G.count });
+}
+
+/* ---------- CPU ---------- */
+function timeToBottom() {
+  // いまの うごきの まま すすめたら、あと なんびょうで 足もとに くるか（しかけは まだ しらない）
+  let phi = G.phi, t = G.t, pause = G.ev && G.ev.type === 'pause' ? G.ev.t : 0;
+  const mul = G.ev && G.ev.mul ? G.ev.mul : 1;
+  const dist = () => Math.min(...ropeAnglesOf(phi).map(a => wrap(Math.PI - a)));
+  let d0 = dist();
+  for (let k = 0; k < 240; k++) {
+    let w = TAU / G.P * (G.ropes > 1 ? .5 : 1) * mul; if (t < 1.2) w *= Math.max(.15, t / 1.2);
+    if (pause > 0) { pause -= STEP; w = 0; }
+    phi += w * STEP; t += STEP;
+    const d = dist(); if (d > d0 + 1) return (k + 1) * STEP; d0 = d;
+  }
+  return Infinity;
+}
+function ropeAnglesOf(phi) { const a = [phi]; if (G.ropes > 1) a.push(phi + Math.PI); return a; }
+function cpuThink(p) {
+  if (!p.alive || p.air || G.t < .3) { if (p.air) p.plan = null; return; }
+  if (p.plan && p.plan.ev !== G.evId && G.rng() < p.lv.adapt) p.plan = null;   // とまったのに 気づいた
+  if (!p.plan) {
+    const tb = timeToBottom(); if (tb > .9) return;
+    const hard = Math.sqrt(P0 / G.P) * (G.ropes > 1 ? 1.25 : 1);   // はやく なるほど CPUも ミスしやすい
+    const skip = G.rng() < p.lv.miss + G.count * p.lv.tire;
+    p.plan = { at: G.t + tb - TAIR / 2 + gauss() * p.lv.sd * hard + (skip ? .6 : 0), ev: G.evId };
+  }
+  if (G.t >= p.plan.at) { p.plan = null; jump(p); }
+}
+function gauss() { let u = 0, v = 0; while (!u) u = G.rng(); while (!v) v = G.rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(TAU * v); }
+
+/* ---------- おわり ---------- */
+function checkEnd() {
+  if (G.over) return;
+  const alive = G.ps.filter(p => p.alive);
+  const humansAlive = G.ps.some(p => p.alive && p.kind !== 'cpu');
+  if (G.solo ? alive.length === 0 : alive.length <= 1) return finish();
+  if (!humansAlive && G.mode !== 'net') {
+    if (G.ff === 1) { G.ff = 4; G.cpuOnlyAt = G.count; tip('CPUの しょうぶを はやおくり…', 2000); }
+    if (G.count - G.cpuOnlyAt > 40) return finish();
+  }
+}
+function finish() {
+  G.over = true;
+  setTimeout(showResult, 1100);
+}
+function showResult() {
+  if (!G) return;
+  $('cnt').hidden = true;
+  const ps = G.ps, myH = ps.filter(p => p.kind === 'human');
+  if (G.solo) {
+    const sc = ps[0].jumps, best = Kit.store.get('nawa:best', 0), isBest = sc > best; if (isBest) Kit.store.set('nawa:best', sc);
+    const title = sc >= 60 ? 'なわとび めいじん！' : sc >= 30 ? 'すごい！' : sc >= 12 ? 'いい かんじ！' : 'もう一回 ちょうせん！';
+    $('resCard').innerHTML = `<div class="ttl">${title}</div><div class="big">${sc}<small> かい${isBest ? '　ベスト！' : ''}</small></div><div class="best">ベスト ${Math.max(best, sc)} かい</div>
+      <div class="row"><button class="btn main" id="rAgain">もう一回</button><button class="btn" id="rMenu">もどる</button></div>`;
+    if (isBest && sc > 0) setTimeout(() => { Kit.sfx('win'); Kit.confetti(); }, 200);
+  } else {
+    const rankOf = p => 1 + ps.filter(q => q.outAt > p.outAt).length;
+    const order = ps.slice().sort((a, b) => b.outAt - a.outAt || a.i - b.i);
+    const winners = order.filter(p => rankOf(p) === 1);
+    const meWin = winners.some(p => p.kind === 'human');
+    const title = winners.length > 1 ? 'ひきわけ！' : `${winners[0].kid.icon} ${winners[0].name}の かち！`;
+    $('resCard').innerHTML = `<div class="ttl">${Kit.esc(title)}</div><div class="rank">${order.map(p => { const r = rankOf(p); return `<div class="${r === 1 ? 'top' : ''}"><i>${['🥇', '🥈', '🥉', '4️⃣'][r - 1]}</i><span>${p.kid.icon} ${Kit.esc(p.name)}</span><b>${p.jumps}かい</b></div>`; }).join('')}</div>
+      <div class="row"><button class="btn main" id="rAgain">もう一回</button><button class="btn" id="rMenu">もどる</button></div>`;
+    if (meWin || (G.mode === 'local' && myH.length > 1)) setTimeout(() => { Kit.sfx('win'); Kit.confetti(); }, 200); else Kit.sfx('tap');
+  }
+  $('resOv').hidden = false;
+  $('rAgain').onclick = () => {
+    Kit.sfx('tap');
+    if (G.mode === 'net') { if (!NET || NET.room.closed) return showMenu(); const b = $('rAgain'); b.disabled = true; b.textContent = 'まってね…'; NET.room.again(); }
+    else startLocal();
+  };
+  $('rMenu').onclick = () => { Kit.sfx('tap'); showMenu(); };
+}
+
+/* ---------- HUD・えんしゅつ ---------- */
+function hud() {
+  const e = $('cnt'); e.hidden = false;
+  const alive = G.ps.filter(p => p.alive).length;
+  e.innerHTML = `${G.count}<small>${G.solo ? `かい（ベスト ${Kit.store.get('nawa:best', 0)}）` : `かい・のこり ${alive}人`}</small>`;
+}
+let bnT = 0;
+function banner(s, ms) { $('bnA').textContent = s; $('banner').classList.add('on'); clearTimeout(bnT); bnT = setTimeout(() => $('banner').classList.remove('on'), ms); }
+let tipT = 0;
+function tip(s, ms = 2000) { const e = $('tip'); e.textContent = s; e.classList.toggle('off', !s); clearTimeout(tipT); if (s) tipT = setTimeout(() => e.classList.add('off'), ms); }
+
+/* ---------- まいフレーム ---------- */
+let lastT = performance.now();
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(.1, (now - lastT) / 1000); lastT = now;
+  if (G && !G.over) { G.acc += dt * G.ff; let n = 0; while (G.acc >= STEP && n < 60) { G.acc -= STEP; tick(); n++; if (G.over) break; } }
+  else if (G) { for (const p of G.ps) { if (p.air) phys(p); else p.fallT += dt; } }
+  draw(now / 1000);
+}
+
+/* ---------- えがく ---------- */
+const HX = [34, 366], HAND_R = 22;
+function hands(phi) { return HX.map(x => ({ x: x + (x < 200 ? 26 : -26), y: groundY - R - HAND_R * Math.cos(phi) + 6 * Math.sin(phi), z: Math.sin(phi) })); }
+function ropePts(phi) {
+  const [a, b] = hands(phi), pts = [];
+  for (let i = 0; i <= 32; i++) {
+    const u = i / 32, s = Math.min(1, 1.55 * Math.sin(Math.PI * u));
+    const x = a.x + (b.x - a.x) * u, base = a.y + (b.y - a.y) * u;
+    pts.push([x, base - (R - 22) * Math.cos(phi) * s + .18 * R * Math.sin(phi) * s]);   // 足もとでは 手 ＋(R-22) ＝ じめん
+  }
+  return pts;
+}
+function drawRope(phi, col) {
+  const pts = ropePts(phi);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = 9; ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y + 2) : ctx.moveTo(x, y + 2)); ctx.stroke();
+  ctx.strokeStyle = col; ctx.lineWidth = 6; ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 2; ctx.setLineDash([6, 8]); ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y - 1) : ctx.moveTo(x, y - 1)); ctx.stroke(); ctx.setLineDash([]);
+  // かげ（足もとに くるほど こく）
+  const near = Math.max(0, -Math.cos(phi));
+  if (near > .5) { ctx.fillStyle = `rgba(0,0,0,${(near - .5) * .3})`; ctx.beginPath(); ctx.ellipse(200, groundY + 4, 110, 5, 0, 0, TAU); ctx.fill(); }
+}
+function draw(t) {
+  ctx.setTransform(dpr * SC, 0, 0, dpr * SC, 0, 0);
+  // そら
+  const sg = ctx.createLinearGradient(0, 0, 0, groundY); sg.addColorStop(0, '#8fd3ff'); sg.addColorStop(1, '#e6f7ff');
+  ctx.fillStyle = sg; ctx.fillRect(0, 0, VW, VH);
+  ctx.save(); ctx.translate(OX, 0);
+  ctx.fillStyle = '#fff3a8'; ctx.beginPath(); ctx.arc(330, groundY - 330, 30, 0, TAU); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.9)';
+  for (const [cx, cy, s] of [[70, groundY - 340, 1], [250, groundY - 280, .8], [-60, groundY - 250, .9], [450, groundY - 360, 1.1]]) {
+    const x = ((cx + t * 8 * s) % 560 + 560) % 560 - 80;
+    ctx.beginPath(); ctx.arc(x, cy, 18 * s, 0, TAU); ctx.arc(x + 20 * s, cy - 8 * s, 22 * s, 0, TAU); ctx.arc(x + 42 * s, cy, 17 * s, 0, TAU); ctx.fill();
+  }
+  // おか
+  ctx.fillStyle = '#a6e08a'; ctx.beginPath(); ctx.ellipse(60, groundY + 10, 220, 90, 0, Math.PI, TAU); ctx.fill();
+  ctx.fillStyle = '#93d679'; ctx.beginPath(); ctx.ellipse(340, groundY + 10, 240, 70, 0, Math.PI, TAU); ctx.fill();
+  ctx.restore();
+  // じめん
+  const gg = ctx.createLinearGradient(0, groundY - 6, 0, VH); gg.addColorStop(0, '#7cc95a'); gg.addColorStop(1, '#5aa83c');
+  ctx.fillStyle = gg; ctx.fillRect(0, groundY - 6, VW, VH - groundY + 6);
+  ctx.save(); ctx.translate(OX, 0);
+  ctx.fillStyle = '#e8d6a8'; ctx.beginPath(); ctx.ellipse(200, groundY + 4, 150, 16, 0, 0, TAU); ctx.fill();
+  if (!G) { drawHolder(0, .4, t); drawHolder(1, .4, t); drawRope(.4 + t * 1.2, '#ff4d6d'); ctx.restore(); return; }
+  const angs = ropeAngles(), cols = ['#ff4d6d', '#2fa6ff'];
+  // うしろの なわ
+  angs.forEach((a, k) => { if (Math.sin(a) <= 0) drawRope(a, cols[k]); });
+  drawHolder(0, G.phi, t); drawHolder(1, G.phi, t);
+  // アウトの 子は 下に すわる、のこりは じゅんばんに
+  for (const p of G.ps) if (p.alive || p.fallT < .5) drawKid(p, t);
+  angs.forEach((a, k) => { if (Math.sin(a) > 0) drawRope(a, cols[k]); });
+  for (const p of G.ps) if (!p.alive && p.fallT >= .5) drawKid(p, t);
+  ctx.restore();
+}
+function drawHolder(k, phi, t) {
+  const x = HX[k], gy = groundY, col = k ? '#efe6d8' : '#b5794a', dk = k ? '#c9bba6' : '#7d4f2c', inn = k ? 1 : -1;
+  const h = hands(phi)[k];
+  const bob = Math.sin(phi) * 2;
+  // からだ
+  ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(x, gy - 58 + bob, 40, 54, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.ellipse(x, gy - 50 + bob, 24, 32, 0, 0, TAU); ctx.fill();
+  // あし
+  ctx.fillStyle = dk; ctx.beginPath(); ctx.ellipse(x - 18, gy - 4, 16, 9, 0, 0, TAU); ctx.ellipse(x + 18, gy - 4, 16, 9, 0, 0, TAU); ctx.fill();
+  // うで
+  ctx.strokeStyle = col; ctx.lineWidth = 16; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x - inn * 22, gy - 86 + bob); ctx.lineTo(h.x, h.y); ctx.stroke();
+  ctx.fillStyle = dk; ctx.beginPath(); ctx.arc(h.x, h.y, 9, 0, TAU); ctx.fill();
+  // あたま
+  const hy = gy - 130 + bob;
+  ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x - 22, hy - 24, 11, 0, TAU); ctx.arc(x + 22, hy - 24, 11, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc(x, hy, 32, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#fff4e4'; ctx.beginPath(); ctx.ellipse(x - inn * 6, hy + 10, 15, 11, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#2a1a10';
+  const bl = (t * 1.3 + k * .7) % 4 < .12;
+  for (const ex of [-11, 11]) { if (bl) ctx.fillRect(x - inn * 4 + ex - 4, hy - 6, 8, 2.5); else { ctx.beginPath(); ctx.arc(x - inn * 4 + ex, hy - 5, 3.6, 0, TAU); ctx.fill(); } }
+  ctx.beginPath(); ctx.ellipse(x - inn * 6, hy + 5, 5, 3.6, 0, 0, TAU); ctx.fill();
+  ctx.strokeStyle = '#2a1a10'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x - inn * 6, hy + 10, 5, .2, Math.PI - .2); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,120,120,.45)'; ctx.beginPath(); ctx.arc(x - 22, hy + 8, 6, 0, TAU); ctx.arc(x + 14, hy + 8, 6, 0, TAU); ctx.fill();
+}
+function drawKid(p, t) {
+  const sat = !p.alive && p.fallT >= .5;
+  let x = p.x, gy = groundY, h = p.h, rot = 0, alpha = 1;
+  if (!p.alive && !sat) { rot = Math.min(1, p.fallT / .3) * (p.i % 2 ? .9 : -.9); h = 0; }
+  if (sat) { gy = groundY + 46; alpha = .75; h = 0; }
+  // かげ
+  if (!sat) { ctx.fillStyle = `rgba(0,0,0,${.22 - Math.min(.15, h / 400)})`; ctx.beginPath(); ctx.ellipse(x, gy + 2, 18 - Math.min(8, h / 8), 5, 0, 0, TAU); ctx.fill(); }
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, gy - h); ctx.rotate(rot);
+  const sq = p.squash, sx = 1 + sq * .6, sy = 1 - sq;
+  ctx.scale(sx, sy);
+  // あし
+  ctx.strokeStyle = p.kid.d; ctx.lineWidth = 6; ctx.lineCap = 'round';
+  const legUp = p.air ? 6 : 0;
+  ctx.beginPath(); ctx.moveTo(-6, -16); ctx.lineTo(-7, -2 - legUp); ctx.moveTo(6, -16); ctx.lineTo(7, -2 - legUp); ctx.stroke();
+  // からだ
+  ctx.fillStyle = p.kid.c; ctx.beginPath(); ctx.ellipse(0, -28, 15, 16, 0, 0, TAU); ctx.fill();
+  // うで
+  const arm = p.air ? -1 : .4;
+  ctx.strokeStyle = p.kid.c; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(-12, -34); ctx.lineTo(-22, -34 + arm * 12); ctx.moveTo(12, -34); ctx.lineTo(22, -34 + arm * 12); ctx.stroke();
+  // かお
+  ctx.font = '30px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(p.kid.icon, 0, -58);
+  ctx.restore();
+  // なまえ
+  if (G.ps.length > 1) {
+    ctx.font = "900 11px 'Zen Maru Gothic', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    const lab = sat ? 'アウト' : p.kind === 'cpu' ? 'CPU' : p.kind === 'net' ? p.name.slice(0, 5) : (G.ps.filter(q => q.kind === 'human').length > 1 ? p.kid.icon : 'じぶん');
+    ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.strokeText(lab, x, gy + (sat ? 14 : 18)); ctx.fillStyle = sat ? '#c0392b' : p.kid.d; ctx.fillText(lab, x, gy + (sat ? 14 : 18));
+  }
+}
+
+/* ---------- メニュー ---------- */
+function showMenu() {
+  leaveNet(); G = null; $('btns').innerHTML = ''; $('cnt').hidden = true; $('resOv').hidden = true; tip('');
+  const b = Kit.store.get('nawa:best', 0); $('mBest').textContent = b ? `ひとりの ベスト ${b} かい` : '';
+  renderMenu(); $('menuOv').hidden = false; layout();
+}
+function renderMenu() {
+  $('mChips').innerHTML = [['local', '📱', 'この スマホで'], ['net', '🌐', 'オンライン 2〜4人']].map(([m, e, n]) => `<button data-m="${m}" class="${m === MODE ? 'on' : ''}"><big>${e}</big>${n}</button>`).join('');
+  $('pChips').innerHTML = [1, 2, 3, 4].map(n => `<button data-n="${n}" class="${n === NP ? 'on' : ''}"><big>${KIDS.slice(0, n).map(k => k.icon).join('')}</big>${n}人</button>`).join('');
+  $('cChips').innerHTML = [0, 1, 2, 3].map(l => `<button data-l="${l}" class="${l === CPU ? 'on' : ''}" ${l && NP >= 4 ? 'disabled style="opacity:.4"' : ''}>${l ? CPU_LV[l].n : 'なし'}</button>`).join('');
+  $('localOpts').style.display = MODE === 'local' ? 'grid' : 'none';
+  const solo = MODE === 'local' && NP === 1 && !CPU;
+  $('mStart').textContent = MODE === 'net' ? 'へやを つくる・はいる' : solo ? 'ひとりで ちょうせん！' : 'はじめる！';
+  $('mChips').querySelectorAll('button').forEach(b => b.onclick = () => { MODE = b.dataset.m; Kit.store.set('nawa:mode', MODE); Kit.sfx('tap'); renderMenu(); });
+  $('pChips').querySelectorAll('button').forEach(b => b.onclick = () => { NP = +b.dataset.n; Kit.store.set('nawa:np', NP); Kit.sfx('tap'); renderMenu(); });
+  $('cChips').querySelectorAll('button').forEach(b => b.onclick = () => { CPU = +b.dataset.l; Kit.store.set('nawa:cpu', CPU); Kit.sfx('tap'); renderMenu(); });
+}
+function startLocal() { newGame({ mode: 'local', np: NP, cpu: NP >= 4 ? 0 : CPU }); }
+$('mStart').onclick = () => { Kit.sfx('tap'); Kit.audio(); if (MODE === 'net') openNet(); else startLocal(); };
+
+/* ---------- オンライン たいせん ---------- */
+function openNet(code) {
+  if (!window.Net) { Kit.toast('オンラインが つかえないよ'); return; }
+  Net.open({ game: 'nawatobi', min: 2, max: 4, joinCode: code, opts: () => ({}), onStart: startNet, onLeave: () => showMenu() });
+}
+function startNet(r) {
+  NET = { room: r }; r.onMessage = onNet;
+  newGame({ mode: 'net', seed: r.seed, me: r.me, names: r.players.map((p, i) => i === r.me ? 'じぶん' : (p.name || 'あいて')) });
+}
+function leaveNet() { if (NET && NET.room && !NET.room.closed) NET.room.close(); NET = null; }
+function nsend(m) { if (G && G.mode === 'net' && NET && NET.room && !NET.room.closed) NET.room.send(Object.assign({ r: NET.room.round }, m)); }
+function onNet(m, from) {
+  if (!NET || !G || G.mode !== 'net' || m.r !== NET.room.round) return;
+  const p = G.ps[from]; if (!p || p.kind !== 'net') return;
+  if (m.k === 'j') { if (p.alive && !p.air) jump(p); }
+  else if (m.k === 'o') { if (!p.alive) return; p.alive = false; p.outAt = m.c; p.jumps = m.c - 1; p.fallT = 0; hud(); checkEnd(); }
+}
+
+Kit.bar({ id: 'nawatobi', title: '🪢 ぐるぐる なわとび', help: `
+  <p>くまの きょうだいが まわす 大なわを ジャンプして、さいごまで のこった 人の かち！</p>
+  <ul>
+    <li>なわが 足もとに くる ちょっと まえに、じぶんの ボタンを おす（キーボードは スペース）</li>
+    <li>なわは だんだん はやく なる。てっぺんで とまったり、きゅうに はやく・おそく なったりする</li>
+    <li>とちゅうで なわが 2本に なる。いそがしいよ！</li>
+    <li>この スマホで：1〜4人。ボタンが 人数ぶん でる（3人いじょうは 上にも）。あいている ところに CPU を 入れられる</li>
+    <li>ひとりで CPU なし：なんかい とべるか きろくに ちょうせん</li>
+    <li>オンライン：べつの スマホと 2〜4人で たいせん</li>
+  </ul>` });
+showMenu(); requestAnimationFrame(frame);
+{ const jc = window.Net && Net.joinCode(); if (jc) { MODE = 'net'; renderMenu(); openNet(jc); } }
+if (location.hash === '#debug') window.__t = { get G() { return G; }, newGame, tick, press, onNet, startLocal, timeToBottom };
+</script>
+</body>
+</html>
