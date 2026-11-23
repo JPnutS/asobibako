@@ -13,7 +13,7 @@
   .stage { flex: 1; position: relative; min-height: 0; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
   #cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   .cnt { position: absolute; left: 50%; transform: translateX(-50%); z-index: 3; pointer-events: none; text-align: center; color: #fff; font: 400 2.6rem/1 'Dela Gothic One', sans-serif; -webkit-text-stroke: 2px #1f4a6a; text-shadow: 0 4px 0 rgba(0,0,0,.2); }
-  .cnt small { display: block; font: 900 .85rem 'Zen Maru Gothic', sans-serif; -webkit-text-stroke: 0; color: #1f4a6a; text-shadow: none; }
+  .cnt small { display: block; font: 900 .85rem 'Zen Maru Gothic', sans-serif; -webkit-text-stroke: 0; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
   .cnt[hidden] { display: none; }
   .jb { position: absolute; z-index: 4; appearance: none; border: 4px solid #fff; border-radius: 24px; color: #fff; font: 900 1.25rem 'Zen Maru Gothic', sans-serif; box-shadow: 0 5px 0 rgba(0,0,0,.25); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; touch-action: none; }
   .jb big { font-size: 2rem; }
@@ -357,12 +357,14 @@ function frame(now) {
 const D2R = Math.PI / 180;
 let RD = null;
 try { RD = new THREE.WebGLRenderer({ canvas: cv, antialias: true, powerPreference: 'high-performance' }); } catch (e) { RD = null; }
-if (RD) { RD.shadowMap.enabled = true; RD.shadowMap.type = THREE.PCFSoftShadowMap; RD.outputColorSpace = THREE.SRGBColorSpace; RD.toneMapping = THREE.ACESFilmicToneMapping; RD.toneMappingExposure = 1.08; }
-const scene = new THREE.Scene(); scene.fog = new THREE.Fog(0xd6efff, 22, 70);
+if (RD) { RD.shadowMap.enabled = true; RD.shadowMap.type = THREE.PCFSoftShadowMap; RD.outputColorSpace = THREE.SRGBColorSpace; RD.toneMapping = THREE.ACESFilmicToneMapping; RD.toneMappingExposure = .95; }
+const scene = new THREE.Scene(); scene.fog = new THREE.Fog(0xf2a98e, 26, 85);
+const RIG = -.8;   // なわの じくを ななめに（左おくの くま → 右てまえの くま）
+const rig = new THREE.Group(); rig.rotation.y = RIG; scene.add(rig);
 const cam = new THREE.PerspectiveCamera(40, 1, .1, 300);
-scene.add(new THREE.HemisphereLight(0xffffff, 0x5a7a3a, 1.15));
-const sun = new THREE.DirectionalLight(0xfff2dc, 2.7);
-sun.position.set(-3.5, 10, 5); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+scene.add(new THREE.HemisphereLight(0xc8b8ff, 0x2a3a2a, .75));
+const sun = new THREE.DirectionalLight(0xffc090, 1.8);
+sun.position.set(-6, 8, 4); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
 { const s = sun.shadow.camera; s.left = -7; s.right = 7; s.top = 7; s.bottom = -7; s.near = 1; s.far = 30; }
 sun.shadow.bias = -.0004; sun.shadow.normalBias = .02; scene.add(sun, sun.target);
 const STD = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: .75, metalness: 0 }, o));
@@ -372,14 +374,14 @@ const SPH = (r, w = 16, h = 12) => new THREE.SphereGeometry(r, w, h);
 const CAP = (r, l) => new THREE.CapsuleGeometry(r, l, 6, 12);
 
 // 空
-const skyMat = new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, fog: false, uniforms: { top: { value: new THREE.Color('#3f9ff2') }, bot: { value: new THREE.Color('#d9f2ff') } },
+const skyMat = new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, fog: false, uniforms: { top: { value: new THREE.Color('#2a1c6e') }, bot: { value: new THREE.Color('#ffa77e') } },
   vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }',
   fragmentShader: 'uniform vec3 top; uniform vec3 bot; varying vec3 vP; void main(){ float h = clamp(vP.y*1.7+.12,0.,1.); gl_FragColor = vec4(mix(bot, top, pow(h,.8)),1.); }' });
 scene.add(new THREE.Mesh(new THREE.SphereGeometry(200, 24, 16), skyMat));
 const glowTex = canvasTex(128, 128, (g, w) => { const r = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(.2, 'rgba(255,250,220,1)'); r.addColorStop(.32, 'rgba(255,240,200,.4)'); r.addColorStop(1, 'rgba(255,240,200,0)'); g.fillStyle = r; g.fillRect(0, 0, w, w); });
-const sunDisc = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, fog: false, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending })); sunDisc.scale.set(30, 30, 1); sunDisc.position.set(-40, 55, -120); scene.add(sunDisc);
+const sunDisc = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, fog: false, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending })); sunDisc.scale.set(40, 40, 1); sunDisc.material.color.set('#ffb070'); sunDisc.position.set(-60, 14, -120); scene.add(sunDisc);
 // くも
-const cloudMat = STD('#ffffff', { roughness: 1, emissive: '#ffffff', emissiveIntensity: .35 });
+const cloudMat = STD('#ffd6e4', { roughness: 1, emissive: '#ff9ab8', emissiveIntensity: .3 });
 const clouds = [];
 for (let i = 0; i < 7; i++) {
   const g = new THREE.Group();
@@ -389,7 +391,7 @@ for (let i = 0; i < 7; i++) {
 }
 // じめん
 const grassTex = canvasTex(256, 256, (g, w, h) => {
-  g.fillStyle = '#6cc24f'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#4e9a46'; g.fillRect(0, 0, w, h);
   for (let i = 0; i < 2600; i++) { const v = Math.random(); g.fillStyle = v < .5 ? 'rgba(40,120,30,.22)' : 'rgba(170,230,120,.25)'; g.fillRect(Math.random() * w, Math.random() * h, 2, 4 + Math.random() * 4); }
 }, [24, 24]);
 const ground = new THREE.Mesh(new THREE.CircleGeometry(80, 48), new THREE.MeshStandardMaterial({ map: grassTex, roughness: 1 }));
@@ -400,7 +402,7 @@ const dirtTex = canvasTex(256, 256, (g, w, h) => {
   for (let i = 0; i < 900; i++) { g.fillStyle = Math.random() < .5 ? 'rgba(160,120,70,.25)' : 'rgba(255,240,200,.3)'; const x = Math.random() * w, y = Math.random() * h; if (Math.hypot(x - w / 2, y - h / 2) < w * .42) g.fillRect(x, y, 2, 2); }
 });
 const dirt = new THREE.Mesh(new THREE.CircleGeometry(1, 40), new THREE.MeshStandardMaterial({ map: dirtTex, transparent: true, roughness: 1, depthWrite: false }));
-dirt.rotation.x = -Math.PI / 2; dirt.scale.set(4.6, 2.6, 1); dirt.position.y = .01; dirt.receiveShadow = true; scene.add(dirt);
+dirt.rotation.x = -Math.PI / 2; dirt.scale.set(4.6, 2.6, 1); dirt.position.y = .01; dirt.receiveShadow = true; dirt.scale.set(4.8, 2.4, 1); rig.add(dirt);
 // おか・木・はな
 [['#86cf68', -22, -38, 16], ['#74c25a', 8, -46, 20], ['#93d872', 30, -36, 14], ['#7fca63', -40, -30, 12]].forEach(([c, x, z, r]) => { const h = new THREE.Mesh(SPH(r, 24, 12), STD(c, { roughness: 1 })); h.position.set(x, -r * .55, z); h.scale.y = .6; h.receiveShadow = true; scene.add(h); });
 const trunkM = STD('#8a5a34'), leafMs = ['#3f9e45', '#4fb34f', '#5cbf5a'].map(c => STD(c, { roughness: .9 }));
@@ -451,7 +453,8 @@ function makeAnimal(i) {
   const ring = new THREE.Mesh(new THREE.RingGeometry(.28, .36, 28), new THREE.MeshBasicMaterial({ color: k.c, transparent: true, opacity: .85, depthWrite: false }));
   ring.rotation.x = -Math.PI / 2; ring.position.y = .015;
   const label = makeLabel();
-  scene.add(root, ring, label); root.visible = ring.visible = label.visible = false;
+  root.rotation.order = 'YXZ';
+  rig.add(root, ring, label); root.visible = ring.visible = label.visible = false;
   return { root, body, legs, arms, head, ring, label };
 }
 function makeLabel() {
@@ -474,7 +477,7 @@ const ANIMALS = [0, 1, 2, 3].map(makeAnimal);
 const HX = 3.35, HAND_IN = .55, AY = 1.3, RR = 1.3, HR = .28;
 function makeBear(k) {
   const s = k ? 1 : -1, fur = STD(k ? '#f1ebe0' : '#b5794a'), dk = STD(k ? '#cfc3b0' : '#7d4f2c'), belly = STD(k ? '#ffffff' : '#e8c49a'), black = STD('#1e1612', { roughness: .4 });
-  const root = new THREE.Group(); root.position.set(s * (HX + .55), 0, -.15); root.rotation.y = -s * .75;
+  const root = new THREE.Group(); root.position.set(s * (HX + .55), 0, -.15); root.rotation.y = -s * .75 - RIG;
   const b = mesh(CAP(.62, .55), fur, 0, 1.05, 0); b.scale.z = .85; root.add(b);
   const bl = mesh(SPH(.45, 16, 12), belly, 0, 1.0, .32); bl.scale.set(1, 1.15, .5); root.add(bl);
   [-1, 1].forEach(q => root.add(mesh(SPH(.26, 12, 10), dk, q * .3, .16, .1)));
@@ -485,23 +488,41 @@ function makeBear(k) {
   head.add(mesh(SPH(.075, 10, 8), black, 0, -.03, .58));
   // そとがわの うでは こしに
   const other = mesh(CAP(.15, .5), fur, s * -.0 + .62, 1.2, 0); other.rotation.z = .5; root.add(other);
-  scene.add(root);
+  rig.add(root);
   // うち がわの うで（手は なわの はし）
   const arm = mesh(CAP(.15, 1), fur); const paw = mesh(SPH(.18, 12, 10), dk);
-  scene.add(arm, paw);
+  rig.add(arm, paw);
   return { root, head, arm, paw, s };
 }
 const BEARS = [makeBear(0), makeBear(1)];
-const ROPE_MATS = ['#ff4d6d', '#2fa6ff'].map(c => STD(c, { roughness: .45 }));
-const ropeMeshes = ROPE_MATS.map(m => { const o = new THREE.Mesh(new THREE.BufferGeometry(), m); o.castShadow = true; o.frustumCulled = false; scene.add(o); return o; });
-function handPos(phi, k) { const s = k ? 1 : -1; return new THREE.Vector3(s * (HX - HAND_IN) * 1, AY + HR * Math.cos(phi), HR * Math.sin(phi)); }
-function setRope(o, phi) {
+// ネオンの なわ：しんの ひかり＋まわりの ひかり＋ざんぞう
+const NEON = ['#ff3d9a', '#33e8ff'], RROPE = 1.55, TRAILS = 5;
+const ADD = (c, o) => new THREE.MeshBasicMaterial(Object.assign({ color: c, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, fog: false }, o));
+const ropes = NEON.map(col => {
+  const c = new THREE.Color(col), mk = (m, cast) => { const o = new THREE.Mesh(new THREE.BufferGeometry(), m); o.frustumCulled = false; o.castShadow = !!cast; rig.add(o); return o; };
+  const core = mk(new THREE.MeshBasicMaterial({ color: c.clone().lerp(new THREE.Color('#ffffff'), .6), toneMapped: false, fog: false }), true);
+  const mid = mk(ADD(c, { opacity: .75 })), glow = mk(ADD(c, { opacity: .13 }));
+  const trails = Array.from({ length: TRAILS }, (_, k) => mk(ADD(c, { opacity: .2 * (1 - k / TRAILS) })));
+  const light = new THREE.PointLight(c, 3.5, 5, 1.5); rig.add(light);
+  return { core, mid, glow, trails, light };
+});
+function handPos(phi, k) { const s = k ? 1 : -1; return new THREE.Vector3(s * (HX - HAND_IN), AY + HR * Math.cos(phi), HR * Math.sin(phi)); }
+function ropeCurve(phi) {
   const a = handPos(phi, 0), b = handPos(phi, 1), pts = [];
-  for (let i = 0; i <= 40; i++) {
-    const u = i / 40, s = Math.min(1, 1.8 * Math.sin(Math.PI * u));
-    pts.push(new THREE.Vector3(a.x + (b.x - a.x) * u, a.y + (RR - HR) * Math.cos(phi) * s + .035, a.z + (RR - HR) * Math.sin(phi) * s));
+  for (let i = 0; i <= 32; i++) {
+    const u = i / 32, s = Math.pow(Math.sin(Math.PI * u), .7);   // しぜんな ゆみなり
+    const y = a.y + (b.y - a.y) * u + (RROPE - HR) * Math.cos(phi) * s;
+    pts.push(new THREE.Vector3(a.x + (b.x - a.x) * u, Math.max(.04, y), a.z + (b.z - a.z) * u + (RROPE - HR) * Math.sin(phi) * s));
   }
-  const old = o.geometry; o.geometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 60, .055, 8, false); old.dispose();
+  return new THREE.CatmullRomCurve3(pts);
+}
+function setTube(o, curve, r, seg, rad) { const old = o.geometry; o.geometry = new THREE.TubeGeometry(curve, seg, r, rad, false); old.dispose(); }
+const phiHist = [];
+function setRope(R, phi, k) {
+  const cv3 = ropeCurve(phi);
+  setTube(R.core, cv3, .03, 64, 8); setTube(R.mid, cv3, .06, 64, 8); setTube(R.glow, cv3, .15, 48, 8);
+  R.light.position.copy(cv3.getPoint(.5));
+  R.trails.forEach((o, j) => { const h = phiHist[phiHist.length - 1 - (j + 1) * 2]; o.visible = h != null; if (h != null) setTube(o, ropeCurve(h + k * Math.PI), .075, 32, 6); });
 }
 const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 function poseBear(B, phi, t) {
@@ -515,17 +536,26 @@ function poseBear(B, phi, t) {
 }
 
 /* ---------- カメラ ---------- */
-const TARGET = new THREE.Vector3(0, 1.75, 0);
+const TARGET = new THREE.Vector3(0, 1.0, 0);
+const FIT = [];
+[-1, 1].forEach(q => FIT.push(new THREE.Vector3(q * (HX + 1.0), 0, 0), new THREE.Vector3(q * (HX + .55), 2.8, 0)));
+FIT.push(new THREE.Vector3(0, 2.9, 0), new THREE.Vector3(0, 0, 1.7), new THREE.Vector3(0, 0, -2.5));
+const _p = new THREE.Vector3();
 function fitCam(w, h) {
   if (!RD) return;
   RD.setPixelRatio(Math.min(2, devicePixelRatio || 1)); RD.setSize(w, h, false);
-  cam.aspect = w / h; cam.fov = 40;
-  const tanV = Math.tan(cam.fov / 2 * D2R), tanH = tanV * cam.aspect, regionH = Math.max(120, h - topPad - botPad), f = regionH / h;
-  const dist = Math.max(3.95 / tanH, 1.7 / (tanV * f), 8);
-  const el = 17 * D2R;
-  cam.position.set(0, TARGET.y + Math.sin(el) * dist, Math.cos(el) * dist); cam.lookAt(TARGET);
-  const shift = h / 2 - (topPad + regionH / 2);
-  cam.setViewOffset(w, h, 0, shift, w, h); cam.updateProjectionMatrix();
+  cam.aspect = w / h; cam.fov = 40; cam.clearViewOffset();
+  rig.updateMatrixWorld(true);
+  const regionH = Math.max(120, h - topPad - botPad), el = 34 * D2R, regN = 2 * regionH / h * .94;
+  let ymin = 0, ymax = 0;
+  for (let d = 6; d < 40; d += .2) {
+    cam.position.set(0, TARGET.y + Math.sin(el) * d, Math.cos(el) * d); cam.lookAt(TARGET); cam.updateProjectionMatrix(); cam.updateMatrixWorld(true);
+    let ok = true; ymin = 9; ymax = -9;
+    for (const v of FIT) { _p.copy(v).applyMatrix4(rig.matrixWorld).project(cam); if (Math.abs(_p.x) > .96) ok = false; ymin = Math.min(ymin, _p.y); ymax = Math.max(ymax, _p.y); }
+    if (ok && ymax - ymin <= regN) break;
+  }
+  const py = (1 - (ymin + ymax) / 2) / 2 * h, want = topPad + regionH / 2;
+  cam.setViewOffset(w, h, 0, py - want, w, h); cam.updateProjectionMatrix();
 }
 
 /* ---------- まいフレーム えがく ---------- */
@@ -536,7 +566,8 @@ function render3D(t, dt) {
   clouds.forEach((c, i) => { c.position.x += dt * (.4 + i * .05); if (c.position.x > 70) c.position.x = -70; });
   const phi = G ? G.phi : .4 + t * 2.4;
   const angs = G ? ropeAngles() : [phi];
-  ropeMeshes.forEach((o, k) => { o.visible = k < angs.length; if (o.visible) setRope(o, angs[k]); });
+  phiHist.push(phi); if (phiHist.length > 16) phiHist.shift();
+  ropes.forEach((Rp, k) => { const on = k < angs.length; [Rp.core, Rp.mid, Rp.glow, Rp.light, ...Rp.trails].forEach(o => { o.visible = on; }); if (on) setRope(Rp, phi, k); });
   BEARS.forEach(B => poseBear(B, phi, t));
   const ps = G ? G.ps : [0, 1, 2, 3].map(i => ({ i, kind: 'idle', alive: true, h: 0, air: false, squash: 0, fallT: 0, name: '' }));
   const n = ps.length, many = n > 1 && G;
@@ -550,7 +581,7 @@ function render3D(t, dt) {
       if (p.fallT < .5) { const k = Math.min(1, p.fallT / .3); rx = -k * 1.2; y = 0; }
       else { sit = 1; z = -2.1; y = 0; }
     }
-    A.root.position.set(x, y, z); A.root.rotation.set(rx, 0, rz);
+    A.root.position.set(x, y, z); A.root.rotation.set(rx, -RIG, rz);
     const sq = p.squash || 0; A.body.scale.set(1.15 * (1 + sq * .5), 1.15 * (1 - sq), 1.15 * (1 + sq * .5));
     const bob = p.air ? 0 : Math.sin(t * 6 + i) * .015;
     A.body.position.y = bob - sit * .26;
