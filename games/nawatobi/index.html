@@ -106,7 +106,7 @@ const CPU_LV = [
 ];
 const STEP = 1 / 120;
 const V0 = 430, GRAV = 2000, TAIR = 2 * V0 / GRAV, CLEAR = 14;
-const P0 = 1.7, PMIN = .7;           // なわ 1しゅうの じかん（はじめ／いちばん はやい）
+const P0 = 1.1, PMIN = .66;          // なわ 1しゅうの じかん（はじめ／いちばん はやい）
 const R = 150;                       // なわの まわる 大きさ
 const TWIN = [[20, 10], [45, 12], [75, 14], [110, 16]];   // [なんかいめで, なんかい] 2本に なる
 
@@ -240,7 +240,7 @@ function onBottom() {
   // はやさ と 2本なわ
   if (G.ropes > 1) { if (--G.twinLeft <= 0) { G.ropes = 1; banner('1本に もどった！', 900); } }
   else {
-    G.P = Math.max(PMIN, G.P * .975);
+    G.P = Math.max(PMIN, G.P * .986);
     const tw = TWIN[G.twinI];
     if (tw && G.count === tw[0]) { G.ropes = 2; G.twinLeft = tw[1]; G.twinI++; G.ev = null; banner('なわが 2本！', 1100); if (snd()) Kit.sfx('select'); }
   }
@@ -357,13 +357,13 @@ function frame(now) {
 const D2R = Math.PI / 180;
 let RD = null;
 try { RD = new THREE.WebGLRenderer({ canvas: cv, antialias: true, powerPreference: 'high-performance' }); } catch (e) { RD = null; }
-if (RD) { RD.shadowMap.enabled = true; RD.shadowMap.type = THREE.PCFSoftShadowMap; RD.outputColorSpace = THREE.SRGBColorSpace; RD.toneMapping = THREE.ACESFilmicToneMapping; RD.toneMappingExposure = .95; }
-const scene = new THREE.Scene(); scene.fog = new THREE.Fog(0xf2a98e, 26, 85);
+if (RD) { RD.shadowMap.enabled = true; RD.shadowMap.type = THREE.PCFSoftShadowMap; RD.outputColorSpace = THREE.SRGBColorSpace; RD.toneMapping = THREE.ACESFilmicToneMapping; RD.toneMappingExposure = 1.05; }
+const scene = new THREE.Scene(); scene.fog = new THREE.Fog(0xd6efff, 26, 85);
 const RIG = -.8;   // なわの じくを ななめに（左おくの くま → 右てまえの くま）
 const rig = new THREE.Group(); rig.rotation.y = RIG; scene.add(rig);
 const cam = new THREE.PerspectiveCamera(40, 1, .1, 300);
-scene.add(new THREE.HemisphereLight(0xc8b8ff, 0x2a3a2a, .75));
-const sun = new THREE.DirectionalLight(0xffc090, 1.8);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x5a7a3a, 1.15));
+const sun = new THREE.DirectionalLight(0xfff2dc, 2.6);
 sun.position.set(-6, 8, 4); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
 { const s = sun.shadow.camera; s.left = -7; s.right = 7; s.top = 7; s.bottom = -7; s.near = 1; s.far = 30; }
 sun.shadow.bias = -.0004; sun.shadow.normalBias = .02; scene.add(sun, sun.target);
@@ -374,14 +374,14 @@ const SPH = (r, w = 16, h = 12) => new THREE.SphereGeometry(r, w, h);
 const CAP = (r, l) => new THREE.CapsuleGeometry(r, l, 6, 12);
 
 // 空
-const skyMat = new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, fog: false, uniforms: { top: { value: new THREE.Color('#2a1c6e') }, bot: { value: new THREE.Color('#ffa77e') } },
+const skyMat = new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, fog: false, uniforms: { top: { value: new THREE.Color('#3f9ff2') }, bot: { value: new THREE.Color('#d9f2ff') } },
   vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }',
   fragmentShader: 'uniform vec3 top; uniform vec3 bot; varying vec3 vP; void main(){ float h = clamp(vP.y*1.7+.12,0.,1.); gl_FragColor = vec4(mix(bot, top, pow(h,.8)),1.); }' });
 scene.add(new THREE.Mesh(new THREE.SphereGeometry(200, 24, 16), skyMat));
 const glowTex = canvasTex(128, 128, (g, w) => { const r = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(.2, 'rgba(255,250,220,1)'); r.addColorStop(.32, 'rgba(255,240,200,.4)'); r.addColorStop(1, 'rgba(255,240,200,0)'); g.fillStyle = r; g.fillRect(0, 0, w, w); });
-const sunDisc = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, fog: false, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending })); sunDisc.scale.set(40, 40, 1); sunDisc.material.color.set('#ffb070'); sunDisc.position.set(-60, 14, -120); scene.add(sunDisc);
+const sunDisc = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, fog: false, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending })); sunDisc.scale.set(40, 40, 1); sunDisc.position.set(-50, 50, -120); scene.add(sunDisc);
 // くも
-const cloudMat = STD('#ffd6e4', { roughness: 1, emissive: '#ff9ab8', emissiveIntensity: .3 });
+const cloudMat = STD('#ffffff', { roughness: 1, emissive: '#ffffff', emissiveIntensity: .35 });
 const clouds = [];
 for (let i = 0; i < 7; i++) {
   const g = new THREE.Group();
@@ -391,7 +391,7 @@ for (let i = 0; i < 7; i++) {
 }
 // じめん
 const grassTex = canvasTex(256, 256, (g, w, h) => {
-  g.fillStyle = '#4e9a46'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#62b84a'; g.fillRect(0, 0, w, h);
   for (let i = 0; i < 2600; i++) { const v = Math.random(); g.fillStyle = v < .5 ? 'rgba(40,120,30,.22)' : 'rgba(170,230,120,.25)'; g.fillRect(Math.random() * w, Math.random() * h, 2, 4 + Math.random() * 4); }
 }, [24, 24]);
 const ground = new THREE.Mesh(new THREE.CircleGeometry(80, 48), new THREE.MeshStandardMaterial({ map: grassTex, roughness: 1 }));
@@ -474,7 +474,7 @@ function setLabel(s, txt, col) {
 const ANIMALS = [0, 1, 2, 3].map(makeAnimal);
 
 // なわを まわす くま
-const HX = 3.35, HAND_IN = .55, AY = 1.3, RR = 1.3, HR = .28;
+const HX = 4.1, HAND_IN = .55, AY = 1.3, RR = 1.3, HR = .28;
 function makeBear(k) {
   const s = k ? 1 : -1, fur = STD(k ? '#f1ebe0' : '#b5794a'), dk = STD(k ? '#cfc3b0' : '#7d4f2c'), belly = STD(k ? '#ffffff' : '#e8c49a'), black = STD('#1e1612', { roughness: .4 });
   const root = new THREE.Group(); root.position.set(s * (HX + .55), 0, -.15); root.rotation.y = -s * .75 - RIG;
@@ -496,12 +496,12 @@ function makeBear(k) {
 }
 const BEARS = [makeBear(0), makeBear(1)];
 // ネオンの なわ：しんの ひかり＋まわりの ひかり＋ざんぞう
-const NEON = ['#ff3d9a', '#33e8ff'], RROPE = 1.55, TRAILS = 5;
+const NEON = ['#ff3d9a', '#33e8ff'], RROPE = 1.8, TRAILS = 5;
 const ADD = (c, o) => new THREE.MeshBasicMaterial(Object.assign({ color: c, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, fog: false }, o));
 const ropes = NEON.map(col => {
   const c = new THREE.Color(col), mk = (m, cast) => { const o = new THREE.Mesh(new THREE.BufferGeometry(), m); o.frustumCulled = false; o.castShadow = !!cast; rig.add(o); return o; };
   const core = mk(new THREE.MeshBasicMaterial({ color: c.clone().lerp(new THREE.Color('#ffffff'), .6), toneMapped: false, fog: false }), true);
-  const mid = mk(ADD(c, { opacity: .75 })), glow = mk(ADD(c, { opacity: .13 }));
+  const mid = mk(ADD(c, { opacity: .85 })), glow = mk(ADD(c, { opacity: .16 }));
   const trails = Array.from({ length: TRAILS }, (_, k) => mk(ADD(c, { opacity: .2 * (1 - k / TRAILS) })));
   const light = new THREE.PointLight(c, 3.5, 5, 1.5); rig.add(light);
   return { core, mid, glow, trails, light };
