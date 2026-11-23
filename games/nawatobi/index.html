@@ -79,7 +79,7 @@
   <div class="nogl" id="noGL" hidden>この きかいでは 3Dが うごきません</div>
   <div class="over" id="menuOv"><div class="card">
     <h2>ぐるぐる なわとび</h2>
-    <p>ふたりが まわす 大なわを、みんなで ジャンプ！ ひっかかると 池に ドボン！ さいごまで のこった 人の かち。だれも おちずに みんなで なんかい とべたかも きろくするよ。</p>
+    <p>ふたりが まわす 大なわを、みんなで ジャンプ！ ひっかかると 川に ドボン！ さいごまで のこった 人の かち。だれも おちずに みんなで なんかい とべたかも きろくするよ。</p>
     <ul class="how">
       <li>なわが 足もとに くる ちょっと まえに ボタンを おす。はやすぎたら 空中で もう一回 おすと、くるっと まわって 二だんジャンプ！</li>
       <li>なわは だんだん はやく なる。とちゅうで とまったり、きゅうに はやく なったり、2本に なったりするよ</li>
@@ -589,14 +589,23 @@ for (let i = 0; i < 70; i++) {
   const f = mesh(SPH(.07, 6, 4), flowerMs[i % 4], x, .07, z); f.castShadow = false; scene.add(f);
 }
 
-/* ---------- 池（ひっかかると ここに ドボン） ---------- */
-const POND = { x: 0, z: -4.9, rx: 3.6, rz: 1.35 };   // なわは 足もとを おくへ ぬけるので、池も おく
+/* ---------- 川（ひっかかると ここに ドボン） ---------- */
+const POND = { x: 0, z: -4.9, rx: 4.6, rz: 1.3 };   // なわは 足もとを おくへ ぬけるので、川も おく
+const riverTex = canvasTex(128, 256, (g, w, h) => {
+  g.fillStyle = '#2f9fe0'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 70; i++) { g.fillStyle = `rgba(255,255,255,${.12 + Math.random() * .25})`; const x = Math.random() * w, y = Math.random() * h; g.fillRect(x, y, 2 + Math.random() * 3, 14 + Math.random() * 30); }
+  for (let i = 0; i < 40; i++) { g.fillStyle = 'rgba(10,80,150,.25)'; g.fillRect(Math.random() * w, Math.random() * h, 3, 20 + Math.random() * 30); }
+}, [6, 40]);
 {
-  const sand = new THREE.Mesh(new THREE.CircleGeometry(1, 48), STD('#e9d9a6', { roughness: 1 })); sand.rotation.x = -Math.PI / 2; sand.scale.set(POND.rx + .35, POND.rz + .3, 1); sand.position.set(POND.x, .012, POND.z); sand.receiveShadow = true; rig.add(sand);
-  const water = new THREE.Mesh(new THREE.CircleGeometry(1, 48), STD('#2fa8e6', { roughness: .12, metalness: .1, emissive: '#0a5a9a', emissiveIntensity: .25 })); water.rotation.x = -Math.PI / 2; water.scale.set(POND.rx, POND.rz, 1); water.position.set(POND.x, .03, POND.z); water.receiveShadow = true; rig.add(water);
+  const L = 70;
+  const bank = new THREE.Mesh(new THREE.PlaneGeometry(L, POND.rz * 2 + 1.1), STD('#e6d3a0', { roughness: 1 })); bank.rotation.x = -Math.PI / 2; bank.position.set(0, .012, POND.z); bank.receiveShadow = true; rig.add(bank);
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(L, POND.rz * 2), new THREE.MeshStandardMaterial({ map: riverTex, roughness: .15, metalness: .1, emissive: '#0a5a9a', emissiveIntensity: .25 }));
+  water.rotation.set(-Math.PI / 2, 0, Math.PI / 2); water.scale.set(POND.rz * 2 / L, L / (POND.rz * 2), 1); water.position.set(0, .03, POND.z); water.receiveShadow = true; rig.add(water);
+  POND.tex = riverTex;
   const rockM = STD('#a9a59a', { roughness: .9 });
-  for (let i = 0; i < 26; i++) { const a = i / 26 * TAU + Math.random() * .1, r = mesh(new THREE.DodecahedronGeometry(.13 + Math.random() * .1, 0), rockM, POND.x + Math.cos(a) * (POND.rx + .25), .05, POND.z + Math.sin(a) * (POND.rz + .22)); r.scale.y = .6; r.rotation.y = Math.random() * 3; rig.add(r); }
-  [[-2.2, .3], [2.4, -.2], [.9, .6]].forEach(([x, z]) => { const lp = new THREE.Mesh(new THREE.CircleGeometry(.22, 16, .3, 5.6), STD('#4caf50', { roughness: .7 })); lp.rotation.x = -Math.PI / 2; lp.position.set(POND.x + x, .04, POND.z + z); rig.add(lp); });
+  for (let i = 0; i < 70; i++) { const side = i % 2 ? 1 : -1, x = (Math.random() - .5) * 34, r = mesh(new THREE.DodecahedronGeometry(.12 + Math.random() * .14, 0), rockM, x, .05, POND.z + side * (POND.rz + .15 + Math.random() * .35)); r.scale.y = .6; r.rotation.y = Math.random() * 3; rig.add(r); }
+  const reedM = STD('#3f8f3a', { roughness: .8 });
+  for (let i = 0; i < 40; i++) { const x = (Math.random() - .5) * 34; if (Math.abs(x) < 5.5) continue; const rd = mesh(new THREE.ConeGeometry(.05, .7 + Math.random() * .4, 5), reedM, x, .35, POND.z - POND.rz - .5 - Math.random() * .4); rig.add(rd); }
 }
 const dropM = new THREE.MeshBasicMaterial({ color: '#e8f8ff' });
 const drops = Array.from({ length: 50 }, () => { const m = new THREE.Mesh(SPH(1, 6, 4), dropM); m.visible = false; rig.add(m); return { m, v: new THREE.Vector3(), life: 0 }; });
@@ -784,11 +793,11 @@ function render3D(t, dt) {
     const x = kidX(p, n);
     let y = p.h * PX2M, z = 0, rx = 0, rz = 0, X = x, swim = 0;
     if (!p.alive) {
-      // はじきとばされて 池へ ドボン
+      // はじきとばされて 川へ ドボン
       const ft = p.fallT, tx = POND.x + x * .75, tz = POND.z + ((i % 2) ? .25 : -.2);
       if (ft < .12) { rx = -ft / .12 * .5; y = 0; if (!p.boinged) { p.boinged = true; boing(); } }
       else if (ft < .95) { const k = (ft - .12) / .83; X = x + (tx - x) * k; z = tz * k; y = Math.sin(Math.PI * k) * 2.3 + (1 - k) * .0 - k * .4; rx = -.5 - k * TAU * 1.25; rz = (i % 2 ? 1 : -1) * k * 1.5; }
-      else { if (!p.splashed) { p.splashed = true; splash(tx, tz); } swim = 1; X = tx; z = tz; y = -.62 + Math.sin(t * 2.4 + i) * .05; }
+      else { if (!p.splashed) { p.splashed = true; splash(tx, tz); } swim = 1; X = tx + Math.min(2.2, (ft - .95) * .35); z = tz; y = -.62 + Math.sin(t * 2.4 + i) * .05; }
     }
     A.root.position.set(X, y, z); A.root.rotation.set(rx, -RIG + (p.spin > 0 && p.spin < TAU ? p.spin : 0), rz);
     const sq = p.squash || 0; A.body.scale.set(1.15 * (1 + sq * .5), 1.15 * (1 - sq), 1.15 * (1 + sq * .5));
@@ -808,7 +817,7 @@ function render3D(t, dt) {
       A.label.position.set(X, y + 2.05, z);
     }
   });
-  stepFx(dt);
+  stepFx(dt); POND.tex.offset.y -= dt * .35;
   RD.render(scene, cam);
 }
 
@@ -852,7 +861,7 @@ function onNet(m, from) {
 }
 
 Kit.bar({ id: 'nawatobi', title: '🪢 ぐるぐる なわとび', help: `
-  <p>ふたりが まわす 大なわを みんなで ジャンプ！ ひっかかると はじきとばされて 池に ドボン。</p>
+  <p>ふたりが まわす 大なわを みんなで ジャンプ！ ひっかかると はじきとばされて 川に ドボン。</p>
   <ul><li>ひっかかった 人から ぬけて、さいごまで のこった 人の かち</li><li>🤝 だれかが おちるまでに みんなで なんかい とべたかを 人数ごとに きろく</li></ul>
   <ul>
     <li>なわが 足もとに くる ちょっと まえに、じぶんの ボタンを おす（キーボードは スペース）</li>
