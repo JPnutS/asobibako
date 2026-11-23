@@ -590,7 +590,7 @@ for (let i = 0; i < 70; i++) {
 }
 
 /* ---------- 川（ひっかかると ここに ドボン） ---------- */
-const POND = { x: 0, z: -4.9, rx: 4.6, rz: 1.3 };   // なわは 足もとを おくへ ぬけるので、川も おく
+const POND = { x: 0, z: -3.9, rx: 4.6, rz: 1.3 };   // なわは 足もとを おくへ ぬけるので、川も おく
 const riverTex = canvasTex(128, 256, (g, w, h) => {
   g.fillStyle = '#2f9fe0'; g.fillRect(0, 0, w, h);
   for (let i = 0; i < 70; i++) { g.fillStyle = `rgba(255,255,255,${.12 + Math.random() * .25})`; const x = Math.random() * w, y = Math.random() * h; g.fillRect(x, y, 2 + Math.random() * 3, 14 + Math.random() * 30); }
@@ -752,9 +752,9 @@ function poseBear(B, phi, t) {
 
 /* ---------- カメラ ---------- */
 const TARGET = new THREE.Vector3(0, 1.0, 0);
-const FIT = [];
-[-1, 1].forEach(q => FIT.push(new THREE.Vector3(q * (HX + 1.0), 0, 0), new THREE.Vector3(q * (HX + .55), 2.8, 0)));
-FIT.push(new THREE.Vector3(0, AY + RROPE + .1, 0), new THREE.Vector3(0, 0, 2.3), new THREE.Vector3(0, 1.2, -2.3), new THREE.Vector3(-POND.rx, 0, POND.z), new THREE.Vector3(POND.rx, 0, POND.z), new THREE.Vector3(0, .6, POND.z - POND.rz - .3));
+const FIT = [];   // なわとびに よった 画角（まわす人は 画面の はしに すこし はみでて OK）
+[-1, 1].forEach(q => FIT.push(new THREE.Vector3(q * (HX + .3), .2, 0), new THREE.Vector3(q * (HX + .1), 2.3, 0)));
+FIT.push(new THREE.Vector3(0, AY + RROPE + .1, 0), new THREE.Vector3(0, 0, RROPE - .3), new THREE.Vector3(0, 0, POND.z));
 const _p = new THREE.Vector3();
 function fitCam(w, h) {
   if (!RD) return;
@@ -794,10 +794,10 @@ function render3D(t, dt) {
     let y = p.h * PX2M, z = 0, rx = 0, rz = 0, X = x, swim = 0;
     if (!p.alive) {
       // はじきとばされて 川へ ドボン
-      const ft = p.fallT, tx = POND.x + x * .75, tz = POND.z + ((i % 2) ? .25 : -.2);
+      const ft = p.fallT, tx = POND.x + x * .5, tz = POND.z + ((i % 2) ? .25 : -.2);
       if (ft < .12) { rx = -ft / .12 * .5; y = 0; if (!p.boinged) { p.boinged = true; boing(); } }
       else if (ft < .95) { const k = (ft - .12) / .83; X = x + (tx - x) * k; z = tz * k; y = Math.sin(Math.PI * k) * 2.3 + (1 - k) * .0 - k * .4; rx = -.5 - k * TAU * 1.25; rz = (i % 2 ? 1 : -1) * k * 1.5; }
-      else { if (!p.splashed) { p.splashed = true; splash(tx, tz); } swim = 1; X = tx + Math.min(2.2, (ft - .95) * .35); z = tz; y = -.62 + Math.sin(t * 2.4 + i) * .05; }
+      else { if (!p.splashed) { p.splashed = true; splash(tx, tz); } swim = 1; X = tx + Math.min(1.2, (ft - .95) * .3); z = tz; y = -.62 + Math.sin(t * 2.4 + i) * .05; }
     }
     A.root.position.set(X, y, z); A.root.rotation.set(rx, -RIG + (p.spin > 0 && p.spin < TAU ? p.spin : 0), rz);
     const sq = p.squash || 0; A.body.scale.set(1.15 * (1 + sq * .5), 1.15 * (1 - sq), 1.15 * (1 + sq * .5));
