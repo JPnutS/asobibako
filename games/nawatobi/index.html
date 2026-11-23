@@ -79,7 +79,7 @@
   <div class="nogl" id="noGL" hidden>この きかいでは 3Dが うごきません</div>
   <div class="over" id="menuOv"><div class="card">
     <h2>ぐるぐる なわとび</h2>
-    <p>くまの きょうだいが まわす 大なわを、いぬ・ねこ・うさぎ・パンダの みんなで ジャンプ！ さいごまで のこった 人の かち。</p>
+    <p>ふたりが まわす 大なわを、みんなで ジャンプ！ ひっかかると 池に ドボン！ さいごまで のこった 人の かち。だれも おちずに みんなで なんかい とべたかも きろくするよ。</p>
     <ul class="how">
       <li>なわが 足もとに くる ちょっと まえに ボタンを おす。はやすぎたら 空中で もう一回 おすと、くるっと まわって 二だんジャンプ！</li>
       <li>なわは だんだん はやく なる。とちゅうで とまったり、きゅうに はやく なったり、2本に なったりするよ</li>
@@ -114,10 +114,10 @@ const snd = () => Kit.settings.sound;
 
 /* ---------- きまり ---------- */
 const KIDS = [
-  { icon: '🐶', c: '#ff8a1f', d: '#c25a00' },
-  { icon: '🐱', c: '#3a9cf0', d: '#1a64b0' },
-  { icon: '🐰', c: '#3cc46a', d: '#1d8a44' },
-  { icon: '🐼', c: '#9a5ae0', d: '#6a2ab0' },
+  { icon: '🟠', n: 'オレンジさん', c: '#ff8a1f', d: '#c25a00' },
+  { icon: '🔵', n: 'ブルーさん', c: '#3a9cf0', d: '#1a64b0' },
+  { icon: '🟢', n: 'グリーンさん', c: '#3cc46a', d: '#1d8a44' },
+  { icon: '🟣', n: 'パープルさん', c: '#9a5ae0', d: '#6a2ab0' },
 ];
 const CPU_LV = [
   null,
@@ -152,13 +152,13 @@ function newGame(cfg) {
   if (cfg.mode === 'net') {
     cfg.names.forEach((n, i) => ps.push(mkP(i, i === cfg.me ? 'human' : 'net', n, i === cfg.me ? 0 : -1)));
   } else {
-    for (let i = 0; i < cfg.np; i++) ps.push(mkP(i, 'human', cfg.np > 1 ? ['いぬさん', 'ねこさん', 'うさぎさん', 'パンダさん'][i] : 'じぶん', i));
+    for (let i = 0; i < cfg.np; i++) ps.push(mkP(i, 'human', cfg.np > 1 ? KIDS[i].n : 'じぶん', i));
     if (cfg.cpu) for (let i = cfg.np; i < 4; i++) ps.push(mkP(i, 'cpu', 'CPU', -1, cfg.cpu));
   }
   const n = ps.length;
   ps.forEach((p, i) => { p.x = 200 + (i - (n - 1) / 2) * (n > 3 ? 52 : 60); });
   G = {
-    mode: cfg.mode, ps, solo: n === 1, rng: cfg.seed != null ? mulberry(cfg.seed) : Math.random,
+    mode: cfg.mode, ps, solo: n === 1, n, rng: cfg.seed != null ? mulberry(cfg.seed) : Math.random,
     t: -3.2, acc: 0, phi: .35, P: P0, ropes: 1, twinLeft: 0, twinI: 0, ev: null, evId: 0, count: 0, spin: 0,
     over: false, ff: 1, cpuOnlyAt: -1, lastCd: 4,
   };
@@ -167,7 +167,7 @@ function newGame(cfg) {
   Kit.audio();
 }
 function mkP(i, kind, name, btn, lv) {
-  return { i, kind, name, kid: KIDS[i], btn, lv: lv ? CPU_LV[lv] : null, h: 0, vy: 0, air: false, alive: true, outAt: Infinity, jumps: 0, fallT: 0, squash: 0, plan: null, dj: false, djDone: false, rescue: false, spin: 0 };
+  return { splashed: false, i, kind, name, kid: KIDS[i], btn, lv: lv ? CPU_LV[lv] : null, h: 0, vy: 0, air: false, alive: true, outAt: Infinity, jumps: 0, fallT: 0, squash: 0, plan: null, dj: false, djDone: false, rescue: false, spin: 0 };
 }
 
 /* ---------- ボタン ---------- */
@@ -341,16 +341,17 @@ function checkEnd() {
 }
 function finish() {
   G.over = true;
-  const g = G; setTimeout(() => { if (G === g) showResult(); }, 1100);
+  const g = G; setTimeout(() => { if (G === g) showResult(); }, 2300);
 }
 function showResult() {
   if (!G) return;
   $('cnt').hidden = true;
   const ps = G.ps, myH = ps.filter(p => p.kind === 'human');
+  const sc = teamCount(), best = teamBest(G.n), isBest = sc > best; if (isBest) Kit.store.set('nawa:team' + G.n, sc);
   if (G.solo) {
-    const sc = ps[0].jumps, best = Kit.store.get('nawa:best', 0), isBest = sc > best; if (isBest) Kit.store.set('nawa:best', sc);
     const title = sc >= 60 ? 'なわとび めいじん！' : sc >= 30 ? 'すごい！' : sc >= 12 ? 'いい かんじ！' : 'もう一回 ちょうせん！';
-    $('resCard').innerHTML = `<div class="ttl">${title}</div><div class="big">${sc}<small> かい${isBest ? '　ベスト！' : ''}</small></div><div class="best">ベスト ${Math.max(best, sc)} かい</div>
+    $('resCard').innerHTML = `<div class="ttl">${title}</div><div class="big">${sc}<small> かい${isBest ? '　ベスト！' : ''}</small></div>
+      <div class="best">ひとりの ベスト ${Math.max(best, sc)} かい</div>
       <div class="row"><button class="btn main" id="rAgain">もう一回</button><button class="btn" id="rMenu">もどる</button></div>`;
     if (isBest && sc > 0) setTimeout(() => { Kit.sfx('win'); Kit.confetti(); }, 200);
   } else {
@@ -359,9 +360,11 @@ function showResult() {
     const winners = order.filter(p => rankOf(p) === 1);
     const meWin = winners.some(p => p.kind === 'human');
     const title = winners.length > 1 ? 'ひきわけ！' : `${winners[0].kid.icon} ${winners[0].name}の かち！`;
-    $('resCard').innerHTML = `<div class="ttl">${Kit.esc(title)}</div><div class="rank">${order.map(p => { const r = rankOf(p); return `<div class="${r === 1 ? 'top' : ''}"><i>${['🥇', '🥈', '🥉', '4️⃣'][r - 1]}</i><span>${p.kid.icon} ${Kit.esc(p.name)}</span><b>${p.jumps}かい</b></div>`; }).join('')}</div>
+    $('resCard').innerHTML = `<div class="ttl">${Kit.esc(title)}</div>
+      <div class="team" style="text-align:center;background:#fff;border-radius:16px;padding:8px;box-shadow:0 2px 0 #d6e8f6"><div class="best">🤝 みんなで とべた かず</div><div class="big" style="font-size:2.6rem">${sc}<small> かい${isBest ? '　ベスト！' : ''}</small></div><div class="best">${G.n}人の ベスト ${Math.max(best, sc)} かい</div></div>
+      <div class="rank">${order.map(p => { const r = rankOf(p); return `<div class="${r === 1 ? 'top' : ''}"><i>${['🥇', '🥈', '🥉', '4️⃣'][r - 1]}</i><span>${p.kid.icon} ${Kit.esc(p.name)}</span><b>${p.jumps}かい</b></div>`; }).join('')}</div>
       <div class="row"><button class="btn main" id="rAgain">もう一回</button><button class="btn" id="rMenu">もどる</button></div>`;
-    if (meWin || (G.mode === 'local' && myH.length > 1)) setTimeout(() => { Kit.sfx('win'); Kit.confetti(); }, 200); else Kit.sfx('tap');
+    if (meWin || isBest || (G.mode === 'local' && myH.length > 1)) setTimeout(() => { Kit.sfx('win'); Kit.confetti(); }, 200); else Kit.sfx('tap');
   }
   $('resOv').hidden = false;
   $('rAgain').onclick = () => {
@@ -495,10 +498,13 @@ $('mRec').onclick = async () => { Kit.sfx('tap'); renderRecs(); $('recOv').hidde
 $('recClose').onclick = () => { if (mrec && mrec.state === 'recording') mrec.stop(); $('recOv').hidden = true; };
 
 /* ---------- HUD・えんしゅつ ---------- */
+function teamCount() { const o = Math.min(...G.ps.map(p => p.outAt)); return o === Infinity ? G.count : o - 1; }
+function teamBest(n) { const b = Kit.store.get('nawa:team' + n, 0); return n === 1 ? Math.max(b, Kit.store.get('nawa:best', 0)) : b; }
 function hud() {
   const e = $('cnt'); e.hidden = false;
   const alive = G.ps.filter(p => p.alive).length;
-  e.innerHTML = `${G.count}<small>${G.solo ? `かい（ベスト ${Kit.store.get('nawa:best', 0)}）` : `かい・のこり ${alive}人`}</small>`;
+  const tc = teamCount(), allIn = alive === G.ps.length;
+  e.innerHTML = G.solo ? `${G.count}<small>かい（ベスト ${teamBest(1)}）</small>` : `${G.count}<small>${allIn ? `🤝 みんなで れんぞく中！（ベスト ${teamBest(G.n)}）` : `🤝 みんなで ${tc}かい・のこり ${alive}人`}</small>`;
 }
 let bnT = 0;
 function banner(s, ms) { $('bnA').textContent = s; $('banner').classList.add('on'); clearTimeout(bnT); bnT = setTimeout(() => $('banner').classList.remove('on'), ms); }
@@ -583,41 +589,81 @@ for (let i = 0; i < 70; i++) {
   const f = mesh(SPH(.07, 6, 4), flowerMs[i % 4], x, .07, z); f.castShadow = false; scene.add(f);
 }
 
-/* ---------- キャラクター ---------- */
-const FUR = ['#e7b27c', '#b9c0cc', '#ffffff', '#ffffff'];
-const EAR = ['dog', 'cat', 'bunny', 'panda'];
-function makeAnimal(i) {
-  const k = KIDS[i], fur = STD(FUR[i]), shirt = STD(k.c, { roughness: .6 }), pants = STD(k.d, { roughness: .7 }), black = STD('#1e1612', { roughness: .4 }), pink = STD('#ff9aa8'), white = STD('#ffffff', { roughness: .3 }), light = STD(i === 0 ? '#fbe2c4' : '#ffffff');
-  const earM = i === 0 ? STD('#a0663a') : i === 3 ? black : fur;
-  const root = new THREE.Group(), body = new THREE.Group(); root.add(body); body.scale.setScalar(1.15);
-  const legs = [-1, 1].map(s => { const pv = new THREE.Group(); pv.position.set(s * .12, .42, 0); pv.add(mesh(CAP(.1, .18), pants, 0, -.18, 0)); pv.add(mesh(new THREE.BoxGeometry(.2, .12, .3), STD('#ffffff', { roughness: .5 }), 0, -.36, .04)); body.add(pv); return pv; });
-  const torso = mesh(CAP(.25, .2), shirt, 0, .72, 0); torso.scale.z = .9; body.add(torso);
-  body.add(mesh(new THREE.TorusGeometry(.17, .03, 6, 16), STD('#ffffff', { roughness: .5 }), 0, .9, .1));
-  const armM = i === 3 ? black : shirt;
-  const arms = [-1, 1].map(s => { const pv = new THREE.Group(); pv.position.set(s * .29, .86, 0); pv.add(mesh(CAP(.075, .24), armM, 0, -.17, 0)); pv.add(mesh(SPH(.085, 10, 8), i === 3 ? black : fur, 0, -.33, 0)); body.add(pv); return pv; });
+/* ---------- 池（ひっかかると ここに ドボン） ---------- */
+const POND = { x: 0, z: 4.15, rx: 3.3, rz: 1.25 };
+{
+  const sand = new THREE.Mesh(new THREE.CircleGeometry(1, 48), STD('#e9d9a6', { roughness: 1 })); sand.rotation.x = -Math.PI / 2; sand.scale.set(POND.rx + .35, POND.rz + .3, 1); sand.position.set(POND.x, .012, POND.z); sand.receiveShadow = true; rig.add(sand);
+  const water = new THREE.Mesh(new THREE.CircleGeometry(1, 48), STD('#2fa8e6', { roughness: .12, metalness: .1, emissive: '#0a5a9a', emissiveIntensity: .25 })); water.rotation.x = -Math.PI / 2; water.scale.set(POND.rx, POND.rz, 1); water.position.set(POND.x, .03, POND.z); water.receiveShadow = true; rig.add(water);
+  const rockM = STD('#a9a59a', { roughness: .9 });
+  for (let i = 0; i < 26; i++) { const a = i / 26 * TAU + Math.random() * .1, r = mesh(new THREE.DodecahedronGeometry(.13 + Math.random() * .1, 0), rockM, POND.x + Math.cos(a) * (POND.rx + .25), .05, POND.z + Math.sin(a) * (POND.rz + .22)); r.scale.y = .6; r.rotation.y = Math.random() * 3; rig.add(r); }
+  [[-2.2, .3], [2.4, -.2], [.9, .6]].forEach(([x, z]) => { const lp = new THREE.Mesh(new THREE.CircleGeometry(.22, 16, .3, 5.6), STD('#4caf50', { roughness: .7 })); lp.rotation.x = -Math.PI / 2; lp.position.set(POND.x + x, .04, POND.z + z); rig.add(lp); });
+}
+const dropM = new THREE.MeshBasicMaterial({ color: '#e8f8ff' });
+const drops = Array.from({ length: 50 }, () => { const m = new THREE.Mesh(SPH(1, 6, 4), dropM); m.visible = false; rig.add(m); return { m, v: new THREE.Vector3(), life: 0 }; });
+const rings = Array.from({ length: 4 }, () => { const m = new THREE.Mesh(new THREE.RingGeometry(.8, 1, 32), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .8, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.visible = false; rig.add(m); return { m, t: 9 }; });
+function splash(x, z) {
+  let k = 0;
+  for (const d of drops) { if (k >= 24) break; if (d.life > 0) continue; k++; d.life = .6 + Math.random() * .5; d.m.visible = true; d.m.position.set(x + (Math.random() - .5) * .3, .1, z + (Math.random() - .5) * .3); const a = Math.random() * TAU, r = Math.random() * 1.8; d.v.set(Math.cos(a) * r, 3 + Math.random() * 4, Math.sin(a) * r); d.m.scale.setScalar(.05 + Math.random() * .07); }
+  const r = rings.find(q => q.t > 1) || rings[0]; r.t = 0; r.m.position.set(x, .05, z); r.m.visible = true;
+  splashSound();
+}
+function stepFx(dt) {
+  for (const d of drops) { if (d.life <= 0) continue; d.life -= dt; d.v.y -= 12 * dt; d.m.position.addScaledVector(d.v, dt); if (d.life <= 0 || d.m.position.y < 0) { d.life = 0; d.m.visible = false; } }
+  for (const r of rings) { if (r.t > 1) continue; r.t += dt; const k = r.t; r.m.scale.setScalar(.2 + k * .9); r.m.material.opacity = .8 * (1 - k); if (r.t > 1) r.m.visible = false; }
+}
+function splashSound() {
+  if (!snd()) return; const a = Kit.audio(); if (!a) return;
+  const t0 = a.currentTime, out = a.createGain(); out.gain.value = .8; out.connect(a.destination);
+  const nbuf = dur => { const len = Math.floor(a.sampleRate * dur), b = a.createBuffer(1, len, a.sampleRate), d = b.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1; return b; };
+  { const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(); s.buffer = nbuf(1.2); f.type = 'lowpass'; f.frequency.setValueAtTime(6000, t0); f.frequency.exponentialRampToValueAtTime(500, t0 + 1); g.gain.setValueAtTime(.0001, t0); g.gain.exponentialRampToValueAtTime(.9, t0 + .015); g.gain.exponentialRampToValueAtTime(.2, t0 + .25); g.gain.exponentialRampToValueAtTime(.0001, t0 + 1.15); s.connect(f); f.connect(g); g.connect(out); s.start(t0); }
+  { const o = a.createOscillator(), g = a.createGain(); o.frequency.setValueAtTime(150, t0); o.frequency.exponentialRampToValueAtTime(45, t0 + .35); g.gain.setValueAtTime(.0001, t0); g.gain.exponentialRampToValueAtTime(.7, t0 + .02); g.gain.exponentialRampToValueAtTime(.0001, t0 + .45); o.connect(g); g.connect(out); o.start(t0); o.stop(t0 + .5); }
+  for (let i = 0; i < 10; i++) { const t = t0 + .25 + Math.random() * .9, s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(); s.buffer = nbuf(.05); f.type = 'bandpass'; f.frequency.value = 1500 + Math.random() * 3500; f.Q.value = 4; g.gain.setValueAtTime(.3 * Math.random() + .1, t); g.gain.exponentialRampToValueAtTime(.0001, t + .05); s.connect(f); f.connect(g); g.connect(out); s.start(t); }
+  setTimeout(() => out.disconnect(), 2000);
+}
+function boing() { if (!snd()) return; Kit.tone(220, .25, { type: 'sine', vol: .18, slide: 500 }); }
+
+/* ---------- キャラクター（人） ---------- */
+const KIDCOL = [
+  { top: '#ff7a1a', topD: '#e0600a', pants: '#24407a', shoe: '#ff3b3b', cap: '#e8262a', hair: '#2a1a10' },
+  { top: '#3fa8ff', topD: '#1f84d8', pants: '#2e2e44', shoe: '#22c55e', cap: '#16a34a', hair: '#4a2a14', pony: 1 },
+  { top: '#4fc860', topD: '#33a044', pants: '#5a3a1a', shoe: '#ffffff', cap: '#ffd23f', hair: '#1a1210' },
+  { top: '#a46cf5', topD: '#7e48d8', pants: '#24304a', shoe: '#ffb13d', cap: '#ff5aa8', hair: '#6a3a1a', pony: 1 },
+];
+function makePerson(c, o = {}) {
+  const skin = STD(o.skin || '#ffd2ad'), top = STD(c.top, { roughness: .7 }), topD = STD(c.topD), pants = STD(c.pants), shoe = STD(c.shoe, { roughness: .5 }), sole = STD('#ffffff'), hair = STD(c.hair, { roughness: .6 }), black = STD('#1e1612', { roughness: .35 }), white = STD('#ffffff', { roughness: .3 }), capM = STD(c.cap, { roughness: .5 });
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body); root.rotation.order = 'YXZ';
+  const legs = [-1, 1].map(s => { const pv = new THREE.Group(); pv.position.set(s * .12, .42, 0); pv.add(mesh(CAP(.095, .2), pants, 0, -.17, 0)); pv.add(mesh(new THREE.BoxGeometry(.18, .11, .3), shoe, 0, -.36, .05)); pv.add(mesh(new THREE.BoxGeometry(.19, .03, .31), sole, 0, -.42, .05)); body.add(pv); return pv; });
+  const torso = mesh(CAP(.24, .22), top, 0, .72, 0); torso.scale.z = .85; body.add(torso);
+  { const col = mesh(new THREE.TorusGeometry(.13, .035, 6, 16), topD, 0, .93, 0); col.rotation.x = Math.PI / 2; body.add(col); }
+  const hood = mesh(SPH(.2, 12, 8), topD, 0, .9, -.17); hood.scale.set(1.1, .6, .6); body.add(hood);
+  body.add(mesh(new THREE.BoxGeometry(.2, .1, .02), topD, 0, .62, .2));
+  const arms = [-1, 1].map(s => { const pv = new THREE.Group(); pv.position.set(s * .29, .88, 0); pv.add(mesh(CAP(.075, .24), top, 0, -.17, 0)); pv.add(mesh(SPH(.075, 10, 8), skin, 0, -.33, 0)); body.add(pv); return pv; });
   const head = new THREE.Group(); head.position.y = 1.2; body.add(head);
-  const hd = mesh(SPH(.34, 20, 16), fur); hd.scale.set(1.06, 1, 1); head.add(hd);
-  const mz = mesh(SPH(.15, 14, 10), light, 0, -.09, .26); mz.scale.set(1.2, .85, 1); head.add(mz);
-  head.add(mesh(SPH(.055, 10, 8), i === 2 ? pink : black, 0, -.03, .4));
+  head.add(mesh(SPH(.3, 20, 16), skin));
+  const hr = mesh(new THREE.SphereGeometry(.315, 20, 14, 0, TAU, 0, 1.3), hair); hr.position.set(0, .03, -.035); head.add(hr);
+  const back = mesh(SPH(.3, 16, 12), hair, 0, -.02, -.07); back.scale.set(1.02, .95, .9); head.add(back);
+  if (c.pony) { head.add(mesh(SPH(.12, 12, 10), hair, 0, -.02, -.34)); const band = mesh(new THREE.TorusGeometry(.315, .035, 6, 24, Math.PI), capM, 0, .03, 0); band.rotation.set(-.35, Math.PI / 2, 0); head.add(band); }
+  else {
+    const cp = mesh(new THREE.SphereGeometry(.33, 18, 10, 0, TAU, 0, Math.PI / 2), capM, 0, .07, -.01); cp.scale.y = .78; head.add(cp);
+    const brim = mesh(new THREE.CylinderGeometry(.22, .22, .035, 18, 1, false, 0, Math.PI), capM, 0, .09, .2); brim.rotation.y = -Math.PI / 2; brim.scale.set(1, 1, 1.25); head.add(brim);
+  }
   [-1, 1].forEach(s => {
-    if (i === 3) { const pt = mesh(SPH(.09, 12, 8), black, s * .13, .04, .27); pt.scale.set(.9, 1.2, .6); pt.rotation.z = s * .5; head.add(pt); }
-    head.add(mesh(SPH(.05, 10, 8), i === 3 ? white : black, s * .13, .05, .31));
-    head.add(mesh(SPH(.018, 6, 4), i === 3 ? black : white, s * .13 + .015, .07, .355));
-    const ck = mesh(SPH(.05, 8, 6), pink, s * .22, -.07, .25); ck.scale.z = .3; ck.material = STD('#ffb0b8', { transparent: true, opacity: .8 }); head.add(ck);
-    let e;
-    if (EAR[i] === 'dog') { e = mesh(SPH(.13, 12, 8), earM, s * .31, -.02, 0); e.scale.set(.55, 1.25, .45); e.rotation.z = s * .35; }
-    else if (EAR[i] === 'cat') { e = mesh(new THREE.ConeGeometry(.11, .22, 4), earM, s * .2, .32, 0); e.rotation.z = -s * .35; const inn = mesh(new THREE.ConeGeometry(.06, .13, 4), pink, 0, -.02, .04); e.add(inn); }
-    else if (EAR[i] === 'bunny') { e = mesh(CAP(.07, .34), earM, s * .12, .52, -.02); e.rotation.z = -s * .14; const inn = mesh(CAP(.04, .26), pink, 0, 0, .04); e.add(inn); }
-    else { e = mesh(SPH(.1, 12, 8), earM, s * .24, .27, 0); e.scale.z = .6; }
-    head.add(e);
+    head.add(mesh(SPH(.058, 8, 6), skin, s * .3, -.02, 0));
+    const e = mesh(SPH(.042, 10, 8), black, s * .105, -.01, .265); e.scale.set(1, 1.25, .7); head.add(e);
+    head.add(mesh(SPH(.014, 6, 4), white, s * .105 + .012, .015, .295));
+    const ck = mesh(SPH(.045, 8, 6), STD('#ff9aa8', { transparent: true, opacity: .7 }), s * .17, -.08, .24); ck.scale.z = .3; head.add(ck);
   });
-  // あしもとの いろの わ（ボタンの いろ）
+  const mouth = mesh(new THREE.TorusGeometry(.045, .012, 6, 12, Math.PI), STD('#b8432a'), 0, -.1, .275); mouth.rotation.z = Math.PI; head.add(mouth);
+  return { root, body, legs, arms, head, mouth };
+}
+function makeKid(i) {
+  const k = KIDS[i], P = makePerson(KIDCOL[i]);
+  P.body.scale.setScalar(1.15);
   const ring = new THREE.Mesh(new THREE.RingGeometry(.28, .36, 28), new THREE.MeshBasicMaterial({ color: k.c, transparent: true, opacity: .85, depthWrite: false }));
   ring.rotation.x = -Math.PI / 2; ring.position.y = .015;
   const label = makeLabel();
-  root.rotation.order = 'YXZ';
-  rig.add(root, ring, label); root.visible = ring.visible = label.visible = false;
-  return { root, body, legs, arms, head, ring, label };
+  rig.add(P.root, ring, label); P.root.visible = ring.visible = label.visible = false;
+  return Object.assign(P, { ring, label });
 }
 function makeLabel() {
   const c = document.createElement('canvas'); c.width = 256; c.height = 64;
@@ -633,28 +679,27 @@ function setLabel(s, txt, col) {
   g.fillStyle = 'rgba(255,255,255,.92)'; g.beginPath(); g.roundRect(128 - w / 2, 8, w, 48, 24); g.fill();
   g.fillStyle = col; g.fillText(txt, 128, 33); t.needsUpdate = true;
 }
-const ANIMALS = [0, 1, 2, 3].map(makeAnimal);
+const ANIMALS = [0, 1, 2, 3].map(makeKid);
 
 // なわを まわす くま
 const HX = 4.1, HAND_IN = .55, AY = 1.3, RR = 1.3, HR = .28;
+// なわを まわす ふたり（大きめ）
+const TURNCOL = [
+  { top: '#ff4d6d', topD: '#d02a4a', pants: '#2a2a3a', shoe: '#ffffff', cap: '#ffffff', hair: '#2a1a10' },
+  { top: '#ffc93a', topD: '#e0a000', pants: '#3a2a5a', shoe: '#ff6a2c', cap: '#ff6a2c', hair: '#5a3418', pony: 1 },
+];
 function makeBear(k) {
-  const s = k ? 1 : -1, fur = STD(k ? '#f1ebe0' : '#b5794a'), dk = STD(k ? '#cfc3b0' : '#7d4f2c'), belly = STD(k ? '#ffffff' : '#e8c49a'), black = STD('#1e1612', { roughness: .4 });
-  const root = new THREE.Group(); root.position.set(s * (HX + .55), 0, -.15); root.rotation.y = -s * .75 - RIG;
-  const b = mesh(CAP(.62, .55), fur, 0, 1.05, 0); b.scale.z = .85; root.add(b);
-  const bl = mesh(SPH(.45, 16, 12), belly, 0, 1.0, .32); bl.scale.set(1, 1.15, .5); root.add(bl);
-  [-1, 1].forEach(q => root.add(mesh(SPH(.26, 12, 10), dk, q * .3, .16, .1)));
-  const head = new THREE.Group(); head.position.y = 2.15; root.add(head);
-  head.add(mesh(SPH(.5, 20, 16), fur));
-  [-1, 1].forEach(q => { const e = mesh(SPH(.17, 12, 8), fur, q * .38, .38, -.02); head.add(e); head.add(mesh(SPH(.1, 10, 8), dk, q * .38, .38, .06)); head.add(mesh(SPH(.06, 10, 8), black, q * .17, .08, .44)); head.add(mesh(SPH(.022, 6, 4), STD('#ffffff'), q * .17 + .02, .11, .5)); });
-  const mz = mesh(SPH(.22, 14, 10), belly, 0, -.1, .38); mz.scale.set(1.2, .85, .9); head.add(mz);
-  head.add(mesh(SPH(.075, 10, 8), black, 0, -.03, .58));
-  // そとがわの うでは こしに
-  const other = mesh(CAP(.15, .5), fur, s * -.0 + .62, 1.2, 0); other.rotation.z = .5; root.add(other);
-  rig.add(root);
-  // うち がわの うで（手は なわの はし）
-  const arm = mesh(CAP(.15, 1), fur); const paw = mesh(SPH(.18, 12, 10), dk);
+  const s = k ? 1 : -1, P = makePerson(TURNCOL[k]);
+  const root = P.root; root.scale.setScalar(1.55); root.position.set(s * (HX + .45), 0, -.1); root.rotation.y = -s * .75 - RIG;
+  rig.add(root); rig.updateMatrixWorld(true);
+  // なかがわの うでは べつに うごかす
+  const v0 = new THREE.Vector3(), v1 = new THREE.Vector3();
+  P.arms[0].getWorldPosition(v0); P.arms[1].getWorldPosition(v1); rig.worldToLocal(v0); rig.worldToLocal(v1);
+  const innerI = Math.abs(v0.x) < Math.abs(v1.x) ? 0 : 1, inner = P.arms[innerI];
+  inner.visible = false; P.arms[1 - innerI].rotation.z = (innerI ? -1 : 1) * .5;
+  const arm = mesh(CAP(.11, 1), STD(TURNCOL[k].top, { roughness: .7 })), paw = mesh(SPH(.12, 12, 10), STD('#ffd2ad'));
   rig.add(arm, paw);
-  return { root, head, arm, paw, s };
+  return { root, head: P.head, arm, paw, s, inner };
 }
 const BEARS = [makeBear(0), makeBear(1)];
 // ネオンの なわ：しんの ひかり＋まわりの ひかり
@@ -685,21 +730,22 @@ function setRope(R, phi, k) {
   R.light.position.copy(cv3.getPoint(.5));
 }
 const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
+const _sh = new THREE.Vector3();
 function poseBear(B, phi, t) {
-  const sh = new THREE.Vector3(B.s * (HX + .1), 1.55, 0);
+  B.inner.getWorldPosition(_sh); rig.worldToLocal(_sh); const sh = _sh;
   const hand = handPos(phi, B.s > 0 ? 1 : 0);
   _v.subVectors(hand, sh); const len = _v.length();
   B.arm.position.copy(sh).addScaledVector(_v, .5); B.arm.quaternion.setFromUnitVectors(_up, _v.clone().normalize()); B.arm.scale.set(1, len / 1.3, 1);
   B.paw.position.copy(hand);
   B.root.position.y = Math.max(0, Math.sin(phi * 2)) * .03;
-  B.head.rotation.z = Math.sin(phi) * .06 * B.s; B.head.rotation.y = B.s * .35;
+  B.head.rotation.z = Math.sin(phi) * .06 * B.s;
 }
 
 /* ---------- カメラ ---------- */
 const TARGET = new THREE.Vector3(0, 1.0, 0);
 const FIT = [];
 [-1, 1].forEach(q => FIT.push(new THREE.Vector3(q * (HX + 1.0), 0, 0), new THREE.Vector3(q * (HX + .55), 2.8, 0)));
-FIT.push(new THREE.Vector3(0, 2.9, 0), new THREE.Vector3(0, 0, 1.7), new THREE.Vector3(0, 0, -2.5));
+FIT.push(new THREE.Vector3(0, 2.9, 0), new THREE.Vector3(0, 0, -2.5), new THREE.Vector3(-POND.rx, 0, POND.z), new THREE.Vector3(POND.rx, 0, POND.z), new THREE.Vector3(0, 0, POND.z + POND.rz + .3));
 const _p = new THREE.Vector3();
 function fitCam(w, h) {
   if (!RD) return;
@@ -736,34 +782,40 @@ function render3D(t, dt) {
     A.root.visible = A.ring.visible = !!p; A.label.visible = !!(p && many);
     if (!p) return;
     const x = kidX(p, n);
-    let y = p.h * PX2M, z = 0, rx = 0, rz = 0, sit = 0;
+    let y = p.h * PX2M, z = 0, rx = 0, rz = 0, X = x, swim = 0;
     if (!p.alive) {
-      if (p.fallT < .5) { const k = Math.min(1, p.fallT / .3); rx = -k * 1.2; y = 0; }
-      else { sit = 1; z = -2.1; y = 0; }
+      // はじきとばされて 池へ ドボン
+      const ft = p.fallT, tx = POND.x + x * .75, tz = POND.z + ((i % 2) ? .25 : -.2);
+      if (ft < .12) { rx = -ft / .12 * .5; y = 0; if (!p.boinged) { p.boinged = true; boing(); } }
+      else if (ft < .95) { const k = (ft - .12) / .83; X = x + (tx - x) * k; z = tz * k; y = Math.sin(Math.PI * k) * 2.3 + (1 - k) * .0 - k * .4; rx = -.5 - k * TAU * 1.25; rz = (i % 2 ? 1 : -1) * k * 1.5; }
+      else { if (!p.splashed) { p.splashed = true; splash(tx, tz); } swim = 1; X = tx; z = tz; y = -.62 + Math.sin(t * 2.4 + i) * .05; }
     }
-    A.root.position.set(x, y, z); A.root.rotation.set(rx, -RIG + (p.spin > 0 && p.spin < TAU ? p.spin : 0), rz);
+    A.root.position.set(X, y, z); A.root.rotation.set(rx, -RIG + (p.spin > 0 && p.spin < TAU ? p.spin : 0), rz);
     const sq = p.squash || 0; A.body.scale.set(1.15 * (1 + sq * .5), 1.15 * (1 - sq), 1.15 * (1 + sq * .5));
     const bob = p.air ? 0 : Math.sin(t * 6 + i) * .015;
-    A.body.position.y = bob - sit * .26;
-    A.legs.forEach((l, s) => { l.rotation.x = sit ? -1.45 : p.air ? (s ? .5 : -.35) : 0; });
-    A.arms.forEach((a, s) => { a.rotation.z = (s ? 1 : -1) * (p.air ? 2.3 : sit ? .25 : .35 + Math.sin(t * 6 + i) * .05); a.rotation.x = sit ? -.6 : 0; });
-    A.head.rotation.x = sit ? .15 : p.air ? -.15 : 0;
-    A.head.rotation.z = sit ? Math.sin(t * 2 + i) * .1 : 0;
+    A.body.position.y = bob;
+    const flying = !p.alive && !swim;
+    A.legs.forEach((l, s) => { l.rotation.x = flying ? (s ? .9 : -.9) : p.air ? (s ? .5 : -.35) : 0; });
+    A.arms.forEach((a, s) => { a.rotation.z = (s ? 1 : -1) * (swim ? 2.5 + Math.sin(t * 8 + s * 3) * .35 : flying ? 2.6 : p.air ? 2.3 : .35 + Math.sin(t * 6 + i) * .05); a.rotation.x = 0; });
+    A.head.rotation.x = p.air ? -.15 : 0;
+    A.head.rotation.z = swim ? Math.sin(t * 2 + i) * .15 : 0;
+    A.mouth.rotation.z = p.alive ? Math.PI : 0;
     A.ring.visible = p.alive; A.ring.position.set(x, .015, 0);
     if (A.label.visible) {
       const humans = G.ps.filter(q => q.kind === 'human').length;
-      const txt = !p.alive ? 'アウト' : p.kind === 'cpu' ? 'CPU' : p.kind === 'net' ? (p.name || 'あいて').slice(0, 6) : humans > 1 ? `${p.kid.icon}` : 'じぶん';
+      const txt = !p.alive ? 'ドボン' : p.kind === 'cpu' ? 'CPU' : p.kind === 'net' ? (p.name || 'あいて').slice(0, 6) : humans > 1 ? `${p.kid.icon}` : 'じぶん';
       setLabel(A.label, txt, !p.alive ? '#c0392b' : p.kid.d);
-      A.label.position.set(x, y + (sit ? 1.45 : 2.05), z);
+      A.label.position.set(X, y + 2.05, z);
     }
   });
+  stepFx(dt);
   RD.render(scene, cam);
 }
 
 /* ---------- メニュー ---------- */
 function showMenu() {
   leaveNet(); G = null; $('btns').innerHTML = ''; $('cnt').hidden = true; $('resOv').hidden = true; tip('');
-  const b = Kit.store.get('nawa:best', 0); $('mBest').textContent = b ? `ひとりの ベスト ${b} かい` : '';
+  $('mBest').textContent = [1, 2, 3, 4].map(n => [n, teamBest(n)]).filter(a => a[1]).map(([n, b]) => `${n === 1 ? 'ひとり' : n + '人'} ${b}かい`).join('　') ; if ($('mBest').textContent) $('mBest').textContent = 'ベスト：' + $('mBest').textContent;
   renderMenu(); $('menuOv').hidden = false; layout();
 }
 function renderMenu() {
@@ -800,7 +852,8 @@ function onNet(m, from) {
 }
 
 Kit.bar({ id: 'nawatobi', title: '🪢 ぐるぐる なわとび', help: `
-  <p>くまの きょうだいが まわす 大なわを ジャンプして、さいごまで のこった 人の かち！</p>
+  <p>ふたりが まわす 大なわを みんなで ジャンプ！ ひっかかると はじきとばされて 池に ドボン。</p>
+  <ul><li>ひっかかった 人から ぬけて、さいごまで のこった 人の かち</li><li>🤝 だれかが おちるまでに みんなで なんかい とべたかを 人数ごとに きろく</li></ul>
   <ul>
     <li>なわが 足もとに くる ちょっと まえに、じぶんの ボタンを おす（キーボードは スペース）</li>
     <li>はやく とびすぎた ときは、空中で もう一回 おすと くるっと まわって 二だんジャンプ（1かいの ジャンプで 1かいだけ）</li>
