@@ -25,6 +25,19 @@
   .banner b { font: 400 clamp(2rem, 12vw, 3.2rem) 'Dela Gothic One', sans-serif; color: #ffd23a; -webkit-text-stroke: 2px #5a3a00; text-shadow: 0 4px 0 rgba(0,0,0,.25); }
   .tip { position: absolute; left: 50%; top: 52%; transform: translateX(-50%); z-index: 3; pointer-events: none; background: rgba(31,74,106,.85); color: #fff; font: 900 .95rem 'Zen Maru Gothic', sans-serif; border-radius: 99px; padding: 7px 16px; white-space: nowrap; transition: opacity .3s; }
   .tip.off { opacity: 0; }
+  .say { position: absolute; left: 50%; top: 24%; transform: translate(-50%, 0) scale(.6); z-index: 4; pointer-events: none; background: #fff; color: #1f4a6a; font: 900 1.25rem 'Zen Maru Gothic', sans-serif; padding: 8px 16px; border-radius: 18px; border: 3px solid #1f4a6a; white-space: nowrap; opacity: 0; transition: opacity .15s, transform .2s cubic-bezier(.3,1.6,.5,1); }
+  .say::after { content: ''; position: absolute; left: 50%; bottom: -12px; margin-left: -8px; border: 8px solid transparent; border-top-color: #1f4a6a; border-bottom: 0; }
+  .say.on { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  .say.laugh { top: 16%; left: 30%; background: #ffe066; font-size: 1.05rem; }
+  .recs { display: grid; gap: 6px; max-height: 50vh; overflow: auto; }
+  .rc { display: grid; grid-template-columns: 1fr auto auto auto; gap: 6px; align-items: center; background: #fff; border-radius: 12px; padding: 6px 8px; box-shadow: 0 2px 0 #c4dcef; }
+  .rc b { font: 900 1rem 'Zen Maru Gothic', sans-serif; }
+  .rc small { display: block; font-size: .72rem; color: #5b7a96; }
+  .rc button { appearance: none; border: none; border-radius: 10px; width: 42px; height: 38px; font-size: 1.1rem; background: #eef6fd; cursor: pointer; }
+  .rc button.on { background: #ff3d3d; color: #fff; animation: rpulse .5s infinite alternate; }
+  .rc button:disabled { opacity: .3; }
+  .rc .ok { color: #16a34a; font-weight: 900; font-size: .8rem; }
+  @keyframes rpulse { to { opacity: .6; } }
   .nogl { position: absolute; left: 50%; top: 40%; transform: translateX(-50%); z-index: 7; background: #fff; color: #c0392b; font-weight: 900; padding: 10px 16px; border-radius: 14px; }
   .nogl[hidden] { display: none; }
   .over { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; padding: 14px; overflow: auto; background: rgba(31,74,106,.45); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
@@ -62,6 +75,7 @@
   <div id="btns"></div>
   <div class="banner" id="banner"><b id="bnA"></b></div>
   <div class="tip off" id="tip"></div>
+  <div class="say" id="say"></div><div class="say laugh" id="laugh"></div>
   <div class="nogl" id="noGL" hidden>この きかいでは 3Dが うごきません</div>
   <div class="over" id="menuOv"><div class="card">
     <h2>ぐるぐる なわとび</h2>
@@ -80,6 +94,13 @@
     </div>
     <div class="best" id="mBest"></div>
     <button class="btn main" id="mStart">はじめる！</button>
+    <div class="row"><button class="btn" id="mRec" style="font-size:.95rem">🎤 ろくおん</button><button class="btn" id="mTts" style="font-size:.95rem;white-space:nowrap"></button></div>
+  </div></div>
+  <div class="over" id="recOv" hidden><div class="card">
+    <h2 style="font-size:1.5rem">こえを ろくおん</h2>
+    <p>じぶんの こえで セリフや わらいごえを とっておくと、ゲームの 中で その こえが ながれるよ。●を おして しゃべって、もう一回 おすと とまるよ（3びょうで じどうで とまる）。とびいし ジャンプで とった こえも つかえるよ。</p>
+    <div class="recs" id="recs"></div>
+    <button class="btn main" id="recClose">できた</button>
   </div></div>
   <div class="over" id="resOv" hidden><div class="card" id="resCard"></div></div>
 </div>
@@ -209,7 +230,7 @@ function tick() {
   G.t += STEP;
   for (const p of G.ps) phys(p);
   if (G.t < 0) { const cd = Math.ceil(-G.t); if (cd !== G.lastCd) { G.lastCd = cd; if (cd <= 3) { banner(String(cd), 700); if (snd()) Kit.tone(600, .1, { type: 'square', vol: .1 }); } } return; }
-  if (G.lastCd !== 0) { G.lastCd = 0; banner('スタート！', 800); if (snd()) Kit.tone(900, .16, { type: 'square', vol: .12 }); }
+  if (G.lastCd !== 0) { G.lastCd = 0; banner('スタート！', 800); if (snd()) Kit.tone(900, .16, { type: 'square', vol: .12 }); voiceEv('start'); }
   if (G.ev && G.ev.type === 'pause') { G.ev.t -= STEP; if (G.ev.t <= 0) G.ev = null; }
   const before = ropeAngles().map(a => wrap(a - Math.PI));
   const topBefore = wrap(G.phi);
@@ -224,8 +245,8 @@ function tick() {
 function onTop() {
   if (G.count < 4 || G.ev) return;
   const r = G.rng();
-  if (r < .17) { G.ev = { type: 'pause', t: .38 + G.rng() * .3 }; G.evId++; }
-  else if (r < .27 && G.count >= 8) { G.ev = { type: 'fast', mul: 1.5 }; G.evId++; }
+  if (r < .17) { G.ev = { type: 'pause', t: .38 + G.rng() * .3 }; G.evId++; voiceEv('pause'); }
+  else if (r < .27 && G.count >= 8) { G.ev = { type: 'fast', mul: 1.5 }; G.evId++; voiceEv('fast'); }
   else if (r < .36) { G.ev = { type: 'slow', mul: .55 }; G.evId++; }
 }
 function onBottom() {
@@ -234,17 +255,18 @@ function onBottom() {
   for (const p of G.ps) {
     if (!p.alive || p.kind === 'net') continue;
     if (p.h < CLEAR) out(p);
+    else if (p.kind === 'human' && p.h < CLEAR + 9 && Math.random() < .6) voiceEv('close');
   }
   for (const p of G.ps) if (p.alive) p.jumps = G.count;
-  if (snd()) Kit.noise(.07, { vol: .06, freq: 900, filter: 'bandpass' });
+  ropeSlap();
   // はやさ と 2本なわ
   if (G.ropes > 1) { if (--G.twinLeft <= 0) { G.ropes = 1; banner('1本に もどった！', 900); } }
   else {
     G.P = Math.max(PMIN, G.P * .986);
     const tw = TWIN[G.twinI];
-    if (tw && G.count === tw[0]) { G.ropes = 2; G.twinLeft = tw[1]; G.twinI++; G.ev = null; banner('なわが 2本！', 1100); if (snd()) Kit.sfx('select'); }
+    if (tw && G.count === tw[0]) { G.ropes = 2; G.twinLeft = tw[1]; G.twinI++; G.ev = null; banner('なわが 2本！', 1100); if (snd()) Kit.sfx('select'); voiceEv('twin'); }
   }
-  if (G.count % 10 === 0 && G.ps.some(p => p.alive && p.kind !== 'cpu')) { tip(`${G.count}かい！`, 900); if (snd()) Kit.sfx('good'); }
+  if (G.count % 10 === 0 && G.ps.some(p => p.alive && p.kind !== 'cpu')) { tip(`${G.count}かい！`, 900); if (snd()) Kit.sfx('good'); voiceEv('ten'); }
   hud(); checkEnd();
 }
 function phys(p) {
@@ -255,7 +277,7 @@ function phys(p) {
 function out(p) {
   p.alive = false; p.outAt = G.count; p.fallT = 0;
   if (p.el) p.el.classList.add('out');
-  if (p.kind === 'human') { Kit.sfx('bad'); Kit.vibrate && Kit.vibrate(120); }
+  if (p.kind === 'human') { Kit.sfx('bad'); Kit.vibrate && Kit.vibrate(120); voiceEv('out'); } else if (G.ps.some(q => q.alive && q.kind === 'human')) voiceEv('otherOut');
   if (G.mode === 'net' && p.kind === 'human') nsend({ k: 'o', c: G.count });
 }
 
@@ -332,6 +354,128 @@ function showResult() {
   $('rMenu').onclick = () => { Kit.sfx('tap'); showMenu(); };
 }
 
+/* ---------- なわの 音 ---------- */
+let ropeSnd = null;
+function ropeAudio() {
+  if (ropeSnd) return ropeSnd;
+  const a = Kit.audio(); if (!a) return null;
+  const len = a.sampleRate * 2, buf = a.createBuffer(1, len, a.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const src = a.createBufferSource(); src.buffer = buf; src.loop = true;
+  const f = a.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.4; f.frequency.value = 700;
+  const g = a.createGain(); g.gain.value = 0;
+  src.connect(f); f.connect(g); g.connect(a.destination); src.start();
+  ropeSnd = { a, f, g };
+  return ropeSnd;
+}
+// まわっている あいだ「ヒュン ヒュン」：なわが 下に くるほど 大きく・高く
+function ropeWhoosh() {
+  const on = G && !G.over && G.t > 0 && snd() && G.ff === 1;
+  const r = on ? ropeAudio() : ropeSnd; if (!r) return;
+  let v = 0, fr = 500;
+  if (on) {
+    const w = omega(), sp = Math.min(1.4, w / (TAU / P0));
+    let near = 0; for (const a of ropeAngles()) near = Math.max(near, Math.pow((1 - Math.cos(a)) / 2, 3));
+    v = (.02 + near * .2) * sp; fr = 380 + near * 1500 * (.6 + sp * .4);
+  }
+  r.g.gain.setTargetAtTime(v, r.a.currentTime, .025); r.f.frequency.setTargetAtTime(fr, r.a.currentTime, .025);
+}
+// じめんを たたく「パシッ」
+function ropeSlap() {
+  if (!snd() || (G && G.ff > 1)) return;
+  Kit.noise(.06, { vol: .16, freq: 2400, filter: 'highpass' });
+  Kit.tone(120, .06, { type: 'sine', vol: .12, slide: -50 });
+}
+
+/* ---------- こえ（とびいし ジャンプと おなじ しくみ） ---------- */
+const TTS = window.speechSynthesis;
+let jaVoices = [];
+function loadTtsVoices() { if (!TTS) return; jaVoices = TTS.getVoices().filter(v => /^ja/i.test(v.lang)); }
+if (TTS) { loadTtsVoices(); TTS.onvoiceschanged = loadTtsVoices; }
+function speak(text) {
+  if (!TTS || !snd()) return;
+  const u = new SpeechSynthesisUtterance(text); u.lang = 'ja-JP'; u.pitch = 1.05; u.rate = 1.1;
+  if (jaVoices.length) u.voice = jaVoices[0];
+  TTS.speak(u);
+}
+const LINES = [['iku', 'いくよー！'], ['yoshi', 'よしっ'], ['iijan', 'いいじゃん！'], ['hayai', 'はやっ！'], ['matte', 'ちょっと待って！'], ['nihon', 'え、2本！？'], ['abune', 'あっぶねー'], ['nande', 'なんでだよ！'], ['w1', '（わらいごえ 1）'], ['w2', '（わらいごえ 2）'], ['w3', '（わらいごえ 3）']];
+const SHARED = new Set(['yoshi', 'iijan', 'matte', 'abune', 'nande', 'w1', 'w2', 'w3']);   // とびいしと おなじ セリフ
+const LINE_ID = Object.fromEntries(LINES.map(([id, t]) => [t, id]));
+let useTTS = Kit.store.get('nawa:tts', Kit.store.get('tobiishi:tts', false));
+const VDB = { dbs: {}, urls: {}, from: {} };
+function vdb(name) { return new Promise(res => { if (VDB.dbs[name]) return res(VDB.dbs[name]); try { const r = indexedDB.open(name, 1); r.onupgradeneeded = () => r.result.createObjectStore('v'); r.onsuccess = () => { VDB.dbs[name] = r.result; res(r.result); }; r.onerror = () => res(null); } catch (e) { res(null); } }); }
+async function vGet(name, id) { const db = await vdb(name); if (!db) return null; return new Promise(res => { try { const q = db.transaction('v').objectStore('v').get(id); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); } catch (e) { res(null); } }); }
+async function vSet(id, blob) { const db = await vdb('nawatobi-voice'); if (!db) return; return new Promise(res => { const tx = db.transaction('v', 'readwrite'); if (blob) tx.objectStore('v').put(blob, id); else tx.objectStore('v').delete(id); tx.oncomplete = res; tx.onerror = res; }); }
+async function vAll(name) {
+  const db = await vdb(name); if (!db) return {};
+  return new Promise(res => { try { const st = db.transaction('v').objectStore('v'), ks = st.getAllKeys(), vs = st.getAll(); vs.onsuccess = () => { const o = {}; (ks.result || []).forEach((k, i) => { o[k] = vs.result[i]; }); res(o); }; vs.onerror = () => res({}); } catch (e) { res({}); } });
+}
+async function loadVoicesRec() {
+  const [mine, tobi] = await Promise.all([vAll('nawatobi-voice'), vAll('tobiishi-voice')]);
+  for (const [id] of LINES) {
+    let b = mine[id] || null, from = b ? 'me' : null;
+    if (!b && SHARED.has(id) && tobi[id]) { b = tobi[id]; from = 'tobi'; }
+    if (VDB.urls[id]) URL.revokeObjectURL(VDB.urls[id]);
+    VDB.urls[id] = b ? URL.createObjectURL(b) : null; VDB.from[id] = from;
+  }
+}
+loadVoicesRec();
+let curAudio = null, lastTalk = 0, laughT = 0;
+function playRec(id, vol = 1) { const u = VDB.urls[id]; if (!u || !snd()) return false; const w = id[0] === 'w'; if (curAudio && !w) curAudio.pause(); const a = new Audio(u); a.volume = vol; a.play().catch(() => {}); if (!w) curAudio = a; return true; }
+function bubble(id, text, ms) { const e = $(id); e.textContent = text; e.classList.add('on'); clearTimeout(e._t); e._t = setTimeout(() => e.classList.remove('on'), ms); }
+function talk(text, pri = 0) {
+  const now = performance.now();
+  if (pri < 2 && now - lastTalk < (pri ? 700 : 1400)) return;
+  lastTalk = now; bubble('say', text, 1200);
+  if (playRec(LINE_ID[text])) return;
+  if (useTTS && TTS && snd()) { if (pri) TTS.cancel(); speak(text); }
+}
+const LAUGHS = ['あはははは！', 'ぎゃははは！', 'うひゃひゃひゃ！', 'わはははは！'];
+function laugh(big) {
+  const now = performance.now(); if (!big && now - laughT < 2500) return; laughT = now;
+  setTimeout(() => { bubble('laugh', '📱 ' + Kit.pick(LAUGHS), 1500); const ws = ['w1', 'w2', 'w3'].filter(k => VDB.urls[k]); if (ws.length) playRec(Kit.pick(ws), .9); }, big ? 500 : 250);
+}
+function voiceEv(k) {
+  if (!G || G.ff > 1) return;
+  const humanIn = G.ps.some(p => p.alive && p.kind === 'human');
+  if (k === 'start') talk('いくよー！', 1);
+  else if (!humanIn && k !== 'out') return;
+  else if (k === 'pause') setTimeout(() => talk('ちょっと待って！', 1), 120);
+  else if (k === 'fast') talk('はやっ！', 1);
+  else if (k === 'twin') talk('え、2本！？', 2);
+  else if (k === 'close') talk('あっぶねー');
+  else if (k === 'ten') talk(G.count % 20 ? 'よしっ' : 'いいじゃん！');
+  else if (k === 'out') { talk('なんでだよ！', 2); laugh(true); }
+  else if (k === 'otherOut') laugh(false);
+}
+function ttsLabel() { $('mTts').textContent = useTTS ? '🔈 よみあげ オン' : '🔇 よみあげ オフ'; }
+ttsLabel();
+$('mTts').onclick = () => { useTTS = !useTTS; Kit.store.set('nawa:tts', useTTS); ttsLabel(); Kit.sfx('tap'); if (useTTS) speak('いくよー！'); };
+let mrec = null;
+function renderRecs() {
+  $('recs').innerHTML = '';
+  LINES.forEach(([id, t]) => {
+    const has = !!VDB.urls[id], mine = VDB.from[id] === 'me';
+    const row = Kit.el(`<div class="rc"><b>${t} ${has ? '<span class="ok">✔</span>' : ''}${VDB.from[id] === 'tobi' ? '<small>とびいしの こえ</small>' : ''}</b><button class="r">●</button><button class="p" ${has ? '' : 'disabled'}>▶</button><button class="d" ${mine ? '' : 'disabled'}>🗑</button></div>`);
+    const rb = row.querySelector('.r');
+    rb.onclick = async () => {
+      if (mrec && mrec.state === 'recording') { mrec.stop(); return; }
+      try {
+        const st = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const ch = []; mrec = new MediaRecorder(st); rb.classList.add('on'); rb.textContent = '■';
+        mrec.ondataavailable = e => ch.push(e.data);
+        mrec.onstop = async () => { st.getTracks().forEach(k => k.stop()); clearTimeout(mrec._t); const blob = new Blob(ch, { type: mrec.mimeType || 'audio/webm' }); await vSet(id, blob); await loadVoicesRec(); renderRecs(); playRec(id); };
+        mrec.start(); mrec._t = setTimeout(() => { if (mrec.state === 'recording') mrec.stop(); }, 3000);
+      } catch (e) { Kit.toast('マイクが つかえないよ'); }
+    };
+    row.querySelector('.p').onclick = () => playRec(id);
+    row.querySelector('.d').onclick = async () => { await vSet(id, null); await loadVoicesRec(); renderRecs(); };
+    $('recs').appendChild(row);
+  });
+}
+$('mRec').onclick = async () => { Kit.sfx('tap'); renderRecs(); $('recOv').hidden = false; await loadVoicesRec(); renderRecs(); };
+$('recClose').onclick = () => { if (mrec && mrec.state === 'recording') mrec.stop(); $('recOv').hidden = true; };
+
 /* ---------- HUD・えんしゅつ ---------- */
 function hud() {
   const e = $('cnt'); e.hidden = false;
@@ -350,7 +494,7 @@ function frame(now) {
   const dt = Math.min(.1, (now - lastT) / 1000); lastT = now;
   if (G && !G.over) { G.acc += dt * G.ff; let n = 0; while (G.acc >= STEP && n < 60) { G.acc -= STEP; tick(); n++; if (G.over) break; } }
   else if (G) { for (const p of G.ps) { if (p.air) phys(p); else p.fallT += dt; } }
-  render3D(now / 1000, dt);
+  render3D(now / 1000, dt); ropeWhoosh();
 }
 
 /* ---------- 3D の ぶたい ---------- */
@@ -647,11 +791,12 @@ Kit.bar({ id: 'nawatobi', title: '🪢 ぐるぐる なわとび', help: `
     <li>この スマホで：1〜4人。ボタンが 人数ぶん でる（3人いじょうは 上にも）。あいている ところに CPU を 入れられる</li>
     <li>ひとりで CPU なし：なんかい とべるか きろくに ちょうせん</li>
     <li>オンライン：べつの スマホと 2〜4人で たいせん</li>
+    <li>🎤 ろくおん：じぶんの こえで セリフや わらいごえを とれる（とびいしで とった こえも つかえる）。🔈 よみあげ：ろくおん して いない セリフを スマホが よみあげる</li>
   </ul>` });
 showMenu(); requestAnimationFrame(frame);
 if (!RD) { $('noGL').hidden = false; $('mStart').disabled = true; }
 { const jc = window.Net && Net.joinCode(); if (jc) { MODE = 'net'; renderMenu(); openNet(jc); } }
-if (location.hash === '#debug') window.__t = { get G() { return G; }, newGame, tick, press, onNet, startLocal, timeToBottom };
+if (location.hash === '#debug') window.__t = { get G() { return G; }, vGet, vdb, loadVoicesRec, VDB, newGame, tick, press, onNet, startLocal, timeToBottom };
 </script>
 </body>
 </html>
