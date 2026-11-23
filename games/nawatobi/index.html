@@ -504,7 +504,7 @@ function hud() {
   const e = $('cnt'); e.hidden = false;
   const alive = G.ps.filter(p => p.alive).length;
   const tc = teamCount(), allIn = alive === G.ps.length;
-  e.innerHTML = G.solo ? `${G.count}<small>かい（ベスト ${teamBest(1)}）</small>` : `${G.count}<small>${allIn ? `🤝 みんなで れんぞく中！（ベスト ${teamBest(G.n)}）` : `🤝 みんなで ${tc}かい・のこり ${alive}人`}</small>`;
+  e.innerHTML = G.solo ? `${G.count}<small>かい（ベスト ${teamBest(1)}）</small>` : `${G.count}<small>${allIn ? `🤝 みんなで れんぞく中${teamBest(G.n) ? `（ベスト ${teamBest(G.n)}）` : '！'}` : `🤝 みんなで ${tc}かい・のこり ${alive}人`}</small>`;
 }
 let bnT = 0;
 function banner(s, ms) { $('bnA').textContent = s; $('banner').classList.add('on'); clearTimeout(bnT); bnT = setTimeout(() => $('banner').classList.remove('on'), ms); }
@@ -570,7 +570,7 @@ const dirtTex = canvasTex(256, 256, (g, w, h) => {
   for (let i = 0; i < 900; i++) { g.fillStyle = Math.random() < .5 ? 'rgba(160,120,70,.25)' : 'rgba(255,240,200,.3)'; const x = Math.random() * w, y = Math.random() * h; if (Math.hypot(x - w / 2, y - h / 2) < w * .42) g.fillRect(x, y, 2, 2); }
 });
 const dirt = new THREE.Mesh(new THREE.CircleGeometry(1, 40), new THREE.MeshStandardMaterial({ map: dirtTex, transparent: true, roughness: 1, depthWrite: false }));
-dirt.rotation.x = -Math.PI / 2; dirt.scale.set(4.6, 2.6, 1); dirt.position.y = .01; dirt.receiveShadow = true; dirt.scale.set(4.8, 2.4, 1); rig.add(dirt);
+dirt.rotation.x = -Math.PI / 2; dirt.scale.set(4.6, 2.6, 1); dirt.position.y = .01; dirt.receiveShadow = true; dirt.scale.set(4.8, 2.9, 1); rig.add(dirt);
 // おか・木・はな
 [['#86cf68', -22, -38, 16], ['#74c25a', 8, -46, 20], ['#93d872', 30, -36, 14], ['#7fca63', -40, -30, 12]].forEach(([c, x, z, r]) => { const h = new THREE.Mesh(SPH(r, 24, 12), STD(c, { roughness: 1 })); h.position.set(x, -r * .55, z); h.scale.y = .6; h.receiveShadow = true; scene.add(h); });
 const trunkM = STD('#8a5a34'), leafMs = ['#3f9e45', '#4fb34f', '#5cbf5a'].map(c => STD(c, { roughness: .9 }));
@@ -590,7 +590,7 @@ for (let i = 0; i < 70; i++) {
 }
 
 /* ---------- 池（ひっかかると ここに ドボン） ---------- */
-const POND = { x: 0, z: 4.15, rx: 3.3, rz: 1.25 };
+const POND = { x: 0, z: -4.9, rx: 3.6, rz: 1.35 };   // なわは 足もとを おくへ ぬけるので、池も おく
 {
   const sand = new THREE.Mesh(new THREE.CircleGeometry(1, 48), STD('#e9d9a6', { roughness: 1 })); sand.rotation.x = -Math.PI / 2; sand.scale.set(POND.rx + .35, POND.rz + .3, 1); sand.position.set(POND.x, .012, POND.z); sand.receiveShadow = true; rig.add(sand);
   const water = new THREE.Mesh(new THREE.CircleGeometry(1, 48), STD('#2fa8e6', { roughness: .12, metalness: .1, emissive: '#0a5a9a', emissiveIntensity: .25 })); water.rotation.x = -Math.PI / 2; water.scale.set(POND.rx, POND.rz, 1); water.position.set(POND.x, .03, POND.z); water.receiveShadow = true; rig.add(water);
@@ -682,7 +682,7 @@ function setLabel(s, txt, col) {
 const ANIMALS = [0, 1, 2, 3].map(makeKid);
 
 // なわを まわす くま
-const HX = 4.1, HAND_IN = .55, AY = 1.3, RR = 1.3, HR = .28;
+const HX = 4.1, HAND_IN = .55, AY = 1.45, RR = 1.45, HR = .4;
 // なわを まわす ふたり（大きめ）
 const TURNCOL = [
   { top: '#ff4d6d', topD: '#d02a4a', pants: '#2a2a3a', shoe: '#ffffff', cap: '#ffffff', hair: '#2a1a10' },
@@ -703,7 +703,7 @@ function makeBear(k) {
 }
 const BEARS = [makeBear(0), makeBear(1)];
 // ネオンの なわ：しんの ひかり＋まわりの ひかり
-const NEON = ['#ff3d9a', '#33e8ff'], RROPE = 1.8;
+const NEON = ['#ff3d9a', '#33e8ff'], RROPE = 2.5;
 const ADD = (c, o) => new THREE.MeshBasicMaterial(Object.assign({ color: c, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, fog: false }, o));
 const ropes = NEON.map(col => {
   const c = new THREE.Color(col), mk = (m, cast) => { const o = new THREE.Mesh(new THREE.BufferGeometry(), m); o.frustumCulled = false; o.castShadow = !!cast; rig.add(o); return o; };
@@ -745,7 +745,7 @@ function poseBear(B, phi, t) {
 const TARGET = new THREE.Vector3(0, 1.0, 0);
 const FIT = [];
 [-1, 1].forEach(q => FIT.push(new THREE.Vector3(q * (HX + 1.0), 0, 0), new THREE.Vector3(q * (HX + .55), 2.8, 0)));
-FIT.push(new THREE.Vector3(0, 2.9, 0), new THREE.Vector3(0, 0, -2.5), new THREE.Vector3(-POND.rx, 0, POND.z), new THREE.Vector3(POND.rx, 0, POND.z), new THREE.Vector3(0, 0, POND.z + POND.rz + .3));
+FIT.push(new THREE.Vector3(0, AY + RROPE + .1, 0), new THREE.Vector3(0, 0, 2.3), new THREE.Vector3(0, 1.2, -2.3), new THREE.Vector3(-POND.rx, 0, POND.z), new THREE.Vector3(POND.rx, 0, POND.z), new THREE.Vector3(0, .6, POND.z - POND.rz - .3));
 const _p = new THREE.Vector3();
 function fitCam(w, h) {
   if (!RD) return;
