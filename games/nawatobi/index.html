@@ -25,6 +25,8 @@
   .banner b { font: 400 clamp(2rem, 12vw, 3.2rem) 'Dela Gothic One', sans-serif; color: #ffd23a; -webkit-text-stroke: 2px #5a3a00; text-shadow: 0 4px 0 rgba(0,0,0,.25); }
   .tip { position: absolute; left: 50%; top: 52%; transform: translateX(-50%); z-index: 3; pointer-events: none; background: rgba(31,74,106,.85); color: #fff; font: 900 .95rem 'Zen Maru Gothic', sans-serif; border-radius: 99px; padding: 7px 16px; white-space: nowrap; transition: opacity .3s; }
   .tip.off { opacity: 0; }
+  .nogl { position: absolute; left: 50%; top: 40%; transform: translateX(-50%); z-index: 7; background: #fff; color: #c0392b; font-weight: 900; padding: 10px 16px; border-radius: 14px; }
+  .nogl[hidden] { display: none; }
   .over { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; padding: 14px; overflow: auto; background: rgba(31,74,106,.45); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
   .over[hidden] { display: none; }
   .card { width: min(420px, 100%); background: #f6fbff; color: #1f4a6a; border-radius: 26px; padding: 18px 16px; display: grid; gap: 10px; box-shadow: 0 20px 50px rgba(0,0,0,.35); }
@@ -60,9 +62,10 @@
   <div id="btns"></div>
   <div class="banner" id="banner"><b id="bnA"></b></div>
   <div class="tip off" id="tip"></div>
+  <div class="nogl" id="noGL" hidden>この きかいでは 3Dが うごきません</div>
   <div class="over" id="menuOv"><div class="card">
     <h2>ぐるぐる なわとび</h2>
-    <p>くまの きょうだいが まわす 大なわを、タイミングよく ジャンプ！ さいごまで のこった 人の かち。</p>
+    <p>くまの きょうだいが まわす 大なわを、いぬ・ねこ・うさぎ・パンダの みんなで ジャンプ！ さいごまで のこった 人の かち。</p>
     <ul class="how">
       <li>なわが 足もとに くる ちょっと まえに ボタンを おす</li>
       <li>なわは だんだん はやく なる。とちゅうで とまったり、きゅうに はやく なったり、2本に なったりするよ</li>
@@ -82,10 +85,10 @@
 </div>
 <script src="../../common/kit.js"></script>
 <script src="../../common/net.js"></script>
-<script>
-'use strict';
+<script type="module">
+import * as THREE from '../../common/vendor/three.module.min.js';
 const $ = id => document.getElementById(id);
-const stage = $('stage'), cv = $('cv'), ctx = cv.getContext('2d');
+const stage = $('stage'), cv = $('cv');
 const snd = () => Kit.settings.sound;
 
 /* ---------- きまり ---------- */
@@ -108,17 +111,13 @@ const R = 150;                       // なわの まわる 大きさ
 const TWIN = [[20, 10], [45, 12], [75, 14], [110, 16]];   // [なんかいめで, なんかい] 2本に なる
 
 /* ---------- がめん ---------- */
-let SC = 1, VW = 400, VH = 700, OX = 0, dpr = 1, topPad = 60, botPad = 130, groundY = 500;
+let topPad = 60, botPad = 130;
 function layout() {
-  const r = stage.getBoundingClientRect(); dpr = Math.min(2, devicePixelRatio || 1);
-  cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+  const r = stage.getBoundingClientRect();
   const local = G ? G.ps.filter(p => p.kind === 'human').length : 1;
   topPad = local >= 3 ? 120 : 64; botPad = G ? 130 : 40;
-  const H = r.height - topPad - botPad;
-  SC = Math.min(r.width / 410, H / 400); VW = r.width / SC; VH = r.height / SC; OX = (VW - 400) / 2;
-  groundY = (r.height - botPad) / SC - 34;
   $('cnt').style.top = (topPad + 4) + 'px';
-  placeButtons(r);
+  fitCam(r.width, r.height); placeButtons(r);
 }
 addEventListener('resize', layout);
 
@@ -132,8 +131,8 @@ function newGame(cfg) {
   if (cfg.mode === 'net') {
     cfg.names.forEach((n, i) => ps.push(mkP(i, i === cfg.me ? 'human' : 'net', n, i === cfg.me ? 0 : -1)));
   } else {
-    for (let i = 0; i < cfg.np; i++) ps.push(mkP(i, 'human', cfg.np > 1 ? `${KIDS[i].icon}さん` : 'じぶん', i));
-    if (cfg.cpu) for (let i = cfg.np; i < 4; i++) ps.push(mkP(i, 'cpu', `CPU${KIDS[i].icon}`, -1, cfg.cpu));
+    for (let i = 0; i < cfg.np; i++) ps.push(mkP(i, 'human', cfg.np > 1 ? ['いぬさん', 'ねこさん', 'うさぎさん', 'パンダさん'][i] : 'じぶん', i));
+    if (cfg.cpu) for (let i = cfg.np; i < 4; i++) ps.push(mkP(i, 'cpu', 'CPU', -1, cfg.cpu));
   }
   const n = ps.length;
   ps.forEach((p, i) => { p.x = 200 + (i - (n - 1) / 2) * (n > 3 ? 52 : 60); });
@@ -351,116 +350,223 @@ function frame(now) {
   const dt = Math.min(.1, (now - lastT) / 1000); lastT = now;
   if (G && !G.over) { G.acc += dt * G.ff; let n = 0; while (G.acc >= STEP && n < 60) { G.acc -= STEP; tick(); n++; if (G.over) break; } }
   else if (G) { for (const p of G.ps) { if (p.air) phys(p); else p.fallT += dt; } }
-  draw(now / 1000);
+  render3D(now / 1000, dt);
 }
 
-/* ---------- えがく ---------- */
-const HX = [34, 366], HAND_R = 22;
-function hands(phi) { return HX.map(x => ({ x: x + (x < 200 ? 26 : -26), y: groundY - R - HAND_R * Math.cos(phi) + 6 * Math.sin(phi), z: Math.sin(phi) })); }
-function ropePts(phi) {
-  const [a, b] = hands(phi), pts = [];
-  for (let i = 0; i <= 32; i++) {
-    const u = i / 32, s = Math.min(1, 1.55 * Math.sin(Math.PI * u));
-    const x = a.x + (b.x - a.x) * u, base = a.y + (b.y - a.y) * u;
-    pts.push([x, base - (R - 22) * Math.cos(phi) * s + .18 * R * Math.sin(phi) * s]);   // 足もとでは 手 ＋(R-22) ＝ じめん
+/* ---------- 3D の ぶたい ---------- */
+const D2R = Math.PI / 180;
+let RD = null;
+try { RD = new THREE.WebGLRenderer({ canvas: cv, antialias: true, powerPreference: 'high-performance' }); } catch (e) { RD = null; }
+if (RD) { RD.shadowMap.enabled = true; RD.shadowMap.type = THREE.PCFSoftShadowMap; RD.outputColorSpace = THREE.SRGBColorSpace; RD.toneMapping = THREE.ACESFilmicToneMapping; RD.toneMappingExposure = 1.08; }
+const scene = new THREE.Scene(); scene.fog = new THREE.Fog(0xd6efff, 22, 70);
+const cam = new THREE.PerspectiveCamera(40, 1, .1, 300);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x5a7a3a, 1.15));
+const sun = new THREE.DirectionalLight(0xfff2dc, 2.7);
+sun.position.set(-3.5, 10, 5); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+{ const s = sun.shadow.camera; s.left = -7; s.right = 7; s.top = 7; s.bottom = -7; s.near = 1; s.far = 30; }
+sun.shadow.bias = -.0004; sun.shadow.normalBias = .02; scene.add(sun, sun.target);
+const STD = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: .75, metalness: 0 }, o));
+function canvasTex(w, h, drawFn, rep) { const c = document.createElement('canvas'); c.width = w; c.height = h; drawFn(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; if (rep) t.repeat.set(rep[0], rep[1]); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; }
+const mesh = (g, m, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true; return o; };
+const SPH = (r, w = 16, h = 12) => new THREE.SphereGeometry(r, w, h);
+const CAP = (r, l) => new THREE.CapsuleGeometry(r, l, 6, 12);
+
+// 空
+const skyMat = new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, fog: false, uniforms: { top: { value: new THREE.Color('#3f9ff2') }, bot: { value: new THREE.Color('#d9f2ff') } },
+  vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }',
+  fragmentShader: 'uniform vec3 top; uniform vec3 bot; varying vec3 vP; void main(){ float h = clamp(vP.y*1.7+.12,0.,1.); gl_FragColor = vec4(mix(bot, top, pow(h,.8)),1.); }' });
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(200, 24, 16), skyMat));
+const glowTex = canvasTex(128, 128, (g, w) => { const r = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(.2, 'rgba(255,250,220,1)'); r.addColorStop(.32, 'rgba(255,240,200,.4)'); r.addColorStop(1, 'rgba(255,240,200,0)'); g.fillStyle = r; g.fillRect(0, 0, w, w); });
+const sunDisc = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, fog: false, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending })); sunDisc.scale.set(30, 30, 1); sunDisc.position.set(-40, 55, -120); scene.add(sunDisc);
+// くも
+const cloudMat = STD('#ffffff', { roughness: 1, emissive: '#ffffff', emissiveIntensity: .35 });
+const clouds = [];
+for (let i = 0; i < 7; i++) {
+  const g = new THREE.Group();
+  for (let k = 0; k < 5; k++) { const s = new THREE.Mesh(SPH(1.4 + Math.random() * 1.2, 12, 8), cloudMat); s.position.set(k * 1.8 - 3.6, Math.sin(k * 1.3) * .6 + (k === 2 ? .8 : 0), Math.random()); g.add(s); }
+  g.position.set(-50 + i * 17 + Math.random() * 6, 14 + Math.random() * 8, -60 - Math.random() * 25); g.scale.setScalar(.8 + Math.random() * .7);
+  scene.add(g); clouds.push(g);
+}
+// じめん
+const grassTex = canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = '#6cc24f'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 2600; i++) { const v = Math.random(); g.fillStyle = v < .5 ? 'rgba(40,120,30,.22)' : 'rgba(170,230,120,.25)'; g.fillRect(Math.random() * w, Math.random() * h, 2, 4 + Math.random() * 4); }
+}, [24, 24]);
+const ground = new THREE.Mesh(new THREE.CircleGeometry(80, 48), new THREE.MeshStandardMaterial({ map: grassTex, roughness: 1 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const dirtTex = canvasTex(256, 256, (g, w, h) => {
+  const r = g.createRadialGradient(w / 2, h / 2, w * .3, w / 2, h / 2, w / 2); r.addColorStop(0, 'rgba(230,200,140,1)'); r.addColorStop(.85, 'rgba(214,180,120,1)'); r.addColorStop(1, 'rgba(214,180,120,0)');
+  g.fillStyle = r; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 900; i++) { g.fillStyle = Math.random() < .5 ? 'rgba(160,120,70,.25)' : 'rgba(255,240,200,.3)'; const x = Math.random() * w, y = Math.random() * h; if (Math.hypot(x - w / 2, y - h / 2) < w * .42) g.fillRect(x, y, 2, 2); }
+});
+const dirt = new THREE.Mesh(new THREE.CircleGeometry(1, 40), new THREE.MeshStandardMaterial({ map: dirtTex, transparent: true, roughness: 1, depthWrite: false }));
+dirt.rotation.x = -Math.PI / 2; dirt.scale.set(4.6, 2.6, 1); dirt.position.y = .01; dirt.receiveShadow = true; scene.add(dirt);
+// おか・木・はな
+[['#86cf68', -22, -38, 16], ['#74c25a', 8, -46, 20], ['#93d872', 30, -36, 14], ['#7fca63', -40, -30, 12]].forEach(([c, x, z, r]) => { const h = new THREE.Mesh(SPH(r, 24, 12), STD(c, { roughness: 1 })); h.position.set(x, -r * .55, z); h.scale.y = .6; h.receiveShadow = true; scene.add(h); });
+const trunkM = STD('#8a5a34'), leafMs = ['#3f9e45', '#4fb34f', '#5cbf5a'].map(c => STD(c, { roughness: .9 }));
+function tree(x, z, s) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.scale.setScalar(s);
+  g.add(mesh(new THREE.CylinderGeometry(.18, .26, 1.6, 8), trunkM, 0, .8, 0));
+  const m = leafMs[Math.floor(Math.random() * 3)];
+  [[0, 2.1, 0, 1.05], [.55, 1.75, .2, .7], [-.5, 1.8, -.1, .75], [0, 2.75, 0, .7]].forEach(([a, b, c, r]) => g.add(mesh(SPH(r, 12, 10), m, a, b, c)));
+  scene.add(g);
+}
+[[-7, -6, 1.2], [-10, -10, 1.5], [7.2, -6.5, 1.3], [10.5, -11, 1.6], [-5, -16, 1.3], [5, -17, 1.4], [-14, -7, 1.4], [14, -8, 1.3], [-11, -20, 1.6], [11, -21, 1.5], [0, -26, 1.8]].forEach(a => tree(...a));
+const flowerMs = ['#ff6b8a', '#ffd23a', '#ffffff', '#b47cff'].map(c => STD(c, { roughness: .6 }));
+for (let i = 0; i < 70; i++) {
+  const a = Math.random() * Math.PI * 2, r = 4.2 + Math.random() * 9; const x = Math.cos(a) * r * 1.3, z = Math.sin(a) * r - 1;
+  if (z > 3) continue;
+  const f = mesh(SPH(.07, 6, 4), flowerMs[i % 4], x, .07, z); f.castShadow = false; scene.add(f);
+}
+
+/* ---------- キャラクター ---------- */
+const FUR = ['#e7b27c', '#b9c0cc', '#ffffff', '#ffffff'];
+const EAR = ['dog', 'cat', 'bunny', 'panda'];
+function makeAnimal(i) {
+  const k = KIDS[i], fur = STD(FUR[i]), shirt = STD(k.c, { roughness: .6 }), pants = STD(k.d, { roughness: .7 }), black = STD('#1e1612', { roughness: .4 }), pink = STD('#ff9aa8'), white = STD('#ffffff', { roughness: .3 }), light = STD(i === 0 ? '#fbe2c4' : '#ffffff');
+  const earM = i === 0 ? STD('#a0663a') : i === 3 ? black : fur;
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body); body.scale.setScalar(1.15);
+  const legs = [-1, 1].map(s => { const pv = new THREE.Group(); pv.position.set(s * .12, .42, 0); pv.add(mesh(CAP(.1, .18), pants, 0, -.18, 0)); pv.add(mesh(new THREE.BoxGeometry(.2, .12, .3), STD('#ffffff', { roughness: .5 }), 0, -.36, .04)); body.add(pv); return pv; });
+  const torso = mesh(CAP(.25, .2), shirt, 0, .72, 0); torso.scale.z = .9; body.add(torso);
+  body.add(mesh(new THREE.TorusGeometry(.17, .03, 6, 16), STD('#ffffff', { roughness: .5 }), 0, .9, .1));
+  const armM = i === 3 ? black : shirt;
+  const arms = [-1, 1].map(s => { const pv = new THREE.Group(); pv.position.set(s * .29, .86, 0); pv.add(mesh(CAP(.075, .24), armM, 0, -.17, 0)); pv.add(mesh(SPH(.085, 10, 8), i === 3 ? black : fur, 0, -.33, 0)); body.add(pv); return pv; });
+  const head = new THREE.Group(); head.position.y = 1.2; body.add(head);
+  const hd = mesh(SPH(.34, 20, 16), fur); hd.scale.set(1.06, 1, 1); head.add(hd);
+  const mz = mesh(SPH(.15, 14, 10), light, 0, -.09, .26); mz.scale.set(1.2, .85, 1); head.add(mz);
+  head.add(mesh(SPH(.055, 10, 8), i === 2 ? pink : black, 0, -.03, .4));
+  [-1, 1].forEach(s => {
+    if (i === 3) { const pt = mesh(SPH(.09, 12, 8), black, s * .13, .04, .27); pt.scale.set(.9, 1.2, .6); pt.rotation.z = s * .5; head.add(pt); }
+    head.add(mesh(SPH(.05, 10, 8), i === 3 ? white : black, s * .13, .05, .31));
+    head.add(mesh(SPH(.018, 6, 4), i === 3 ? black : white, s * .13 + .015, .07, .355));
+    const ck = mesh(SPH(.05, 8, 6), pink, s * .22, -.07, .25); ck.scale.z = .3; ck.material = STD('#ffb0b8', { transparent: true, opacity: .8 }); head.add(ck);
+    let e;
+    if (EAR[i] === 'dog') { e = mesh(SPH(.13, 12, 8), earM, s * .31, -.02, 0); e.scale.set(.55, 1.25, .45); e.rotation.z = s * .35; }
+    else if (EAR[i] === 'cat') { e = mesh(new THREE.ConeGeometry(.11, .22, 4), earM, s * .2, .32, 0); e.rotation.z = -s * .35; const inn = mesh(new THREE.ConeGeometry(.06, .13, 4), pink, 0, -.02, .04); e.add(inn); }
+    else if (EAR[i] === 'bunny') { e = mesh(CAP(.07, .34), earM, s * .12, .52, -.02); e.rotation.z = -s * .14; const inn = mesh(CAP(.04, .26), pink, 0, 0, .04); e.add(inn); }
+    else { e = mesh(SPH(.1, 12, 8), earM, s * .24, .27, 0); e.scale.z = .6; }
+    head.add(e);
+  });
+  // あしもとの いろの わ（ボタンの いろ）
+  const ring = new THREE.Mesh(new THREE.RingGeometry(.28, .36, 28), new THREE.MeshBasicMaterial({ color: k.c, transparent: true, opacity: .85, depthWrite: false }));
+  ring.rotation.x = -Math.PI / 2; ring.position.y = .015;
+  const label = makeLabel();
+  scene.add(root, ring, label); root.visible = ring.visible = label.visible = false;
+  return { root, body, legs, arms, head, ring, label };
+}
+function makeLabel() {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 64;
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true })); s.scale.set(1.7, .425, 1); s.renderOrder = 5; s.userData = { c, t, txt: '' };
+  return s;
+}
+function setLabel(s, txt, col) {
+  if (s.userData.txt === txt + col) return; s.userData.txt = txt + col;
+  const { c, t } = s.userData, g = c.getContext('2d'); g.clearRect(0, 0, 256, 64);
+  g.font = "900 34px 'Zen Maru Gothic', sans-serif"; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const w = Math.min(240, g.measureText(txt).width + 28);
+  g.fillStyle = 'rgba(255,255,255,.92)'; g.beginPath(); g.roundRect(128 - w / 2, 8, w, 48, 24); g.fill();
+  g.fillStyle = col; g.fillText(txt, 128, 33); t.needsUpdate = true;
+}
+const ANIMALS = [0, 1, 2, 3].map(makeAnimal);
+
+// なわを まわす くま
+const HX = 3.35, HAND_IN = .55, AY = 1.3, RR = 1.3, HR = .28;
+function makeBear(k) {
+  const s = k ? 1 : -1, fur = STD(k ? '#f1ebe0' : '#b5794a'), dk = STD(k ? '#cfc3b0' : '#7d4f2c'), belly = STD(k ? '#ffffff' : '#e8c49a'), black = STD('#1e1612', { roughness: .4 });
+  const root = new THREE.Group(); root.position.set(s * (HX + .55), 0, -.15); root.rotation.y = -s * .75;
+  const b = mesh(CAP(.62, .55), fur, 0, 1.05, 0); b.scale.z = .85; root.add(b);
+  const bl = mesh(SPH(.45, 16, 12), belly, 0, 1.0, .32); bl.scale.set(1, 1.15, .5); root.add(bl);
+  [-1, 1].forEach(q => root.add(mesh(SPH(.26, 12, 10), dk, q * .3, .16, .1)));
+  const head = new THREE.Group(); head.position.y = 2.15; root.add(head);
+  head.add(mesh(SPH(.5, 20, 16), fur));
+  [-1, 1].forEach(q => { const e = mesh(SPH(.17, 12, 8), fur, q * .38, .38, -.02); head.add(e); head.add(mesh(SPH(.1, 10, 8), dk, q * .38, .38, .06)); head.add(mesh(SPH(.06, 10, 8), black, q * .17, .08, .44)); head.add(mesh(SPH(.022, 6, 4), STD('#ffffff'), q * .17 + .02, .11, .5)); });
+  const mz = mesh(SPH(.22, 14, 10), belly, 0, -.1, .38); mz.scale.set(1.2, .85, .9); head.add(mz);
+  head.add(mesh(SPH(.075, 10, 8), black, 0, -.03, .58));
+  // そとがわの うでは こしに
+  const other = mesh(CAP(.15, .5), fur, s * -.0 + .62, 1.2, 0); other.rotation.z = .5; root.add(other);
+  scene.add(root);
+  // うち がわの うで（手は なわの はし）
+  const arm = mesh(CAP(.15, 1), fur); const paw = mesh(SPH(.18, 12, 10), dk);
+  scene.add(arm, paw);
+  return { root, head, arm, paw, s };
+}
+const BEARS = [makeBear(0), makeBear(1)];
+const ROPE_MATS = ['#ff4d6d', '#2fa6ff'].map(c => STD(c, { roughness: .45 }));
+const ropeMeshes = ROPE_MATS.map(m => { const o = new THREE.Mesh(new THREE.BufferGeometry(), m); o.castShadow = true; o.frustumCulled = false; scene.add(o); return o; });
+function handPos(phi, k) { const s = k ? 1 : -1; return new THREE.Vector3(s * (HX - HAND_IN) * 1, AY + HR * Math.cos(phi), HR * Math.sin(phi)); }
+function setRope(o, phi) {
+  const a = handPos(phi, 0), b = handPos(phi, 1), pts = [];
+  for (let i = 0; i <= 40; i++) {
+    const u = i / 40, s = Math.min(1, 1.8 * Math.sin(Math.PI * u));
+    pts.push(new THREE.Vector3(a.x + (b.x - a.x) * u, a.y + (RR - HR) * Math.cos(phi) * s + .035, a.z + (RR - HR) * Math.sin(phi) * s));
   }
-  return pts;
+  const old = o.geometry; o.geometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 60, .055, 8, false); old.dispose();
 }
-function drawRope(phi, col) {
-  const pts = ropePts(phi);
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = 9; ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y + 2) : ctx.moveTo(x, y + 2)); ctx.stroke();
-  ctx.strokeStyle = col; ctx.lineWidth = 6; ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke();
-  ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 2; ctx.setLineDash([6, 8]); ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y - 1) : ctx.moveTo(x, y - 1)); ctx.stroke(); ctx.setLineDash([]);
-  // かげ（足もとに くるほど こく）
-  const near = Math.max(0, -Math.cos(phi));
-  if (near > .5) { ctx.fillStyle = `rgba(0,0,0,${(near - .5) * .3})`; ctx.beginPath(); ctx.ellipse(200, groundY + 4, 110, 5, 0, 0, TAU); ctx.fill(); }
+const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
+function poseBear(B, phi, t) {
+  const sh = new THREE.Vector3(B.s * (HX + .1), 1.55, 0);
+  const hand = handPos(phi, B.s > 0 ? 1 : 0);
+  _v.subVectors(hand, sh); const len = _v.length();
+  B.arm.position.copy(sh).addScaledVector(_v, .5); B.arm.quaternion.setFromUnitVectors(_up, _v.clone().normalize()); B.arm.scale.set(1, len / 1.3, 1);
+  B.paw.position.copy(hand);
+  B.root.position.y = Math.max(0, Math.sin(phi * 2)) * .03;
+  B.head.rotation.z = Math.sin(phi) * .06 * B.s; B.head.rotation.y = B.s * .35;
 }
-function draw(t) {
-  ctx.setTransform(dpr * SC, 0, 0, dpr * SC, 0, 0);
-  // そら
-  const sg = ctx.createLinearGradient(0, 0, 0, groundY); sg.addColorStop(0, '#8fd3ff'); sg.addColorStop(1, '#e6f7ff');
-  ctx.fillStyle = sg; ctx.fillRect(0, 0, VW, VH);
-  ctx.save(); ctx.translate(OX, 0);
-  ctx.fillStyle = '#fff3a8'; ctx.beginPath(); ctx.arc(330, groundY - 330, 30, 0, TAU); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,.9)';
-  for (const [cx, cy, s] of [[70, groundY - 340, 1], [250, groundY - 280, .8], [-60, groundY - 250, .9], [450, groundY - 360, 1.1]]) {
-    const x = ((cx + t * 8 * s) % 560 + 560) % 560 - 80;
-    ctx.beginPath(); ctx.arc(x, cy, 18 * s, 0, TAU); ctx.arc(x + 20 * s, cy - 8 * s, 22 * s, 0, TAU); ctx.arc(x + 42 * s, cy, 17 * s, 0, TAU); ctx.fill();
-  }
-  // おか
-  ctx.fillStyle = '#a6e08a'; ctx.beginPath(); ctx.ellipse(60, groundY + 10, 220, 90, 0, Math.PI, TAU); ctx.fill();
-  ctx.fillStyle = '#93d679'; ctx.beginPath(); ctx.ellipse(340, groundY + 10, 240, 70, 0, Math.PI, TAU); ctx.fill();
-  ctx.restore();
-  // じめん
-  const gg = ctx.createLinearGradient(0, groundY - 6, 0, VH); gg.addColorStop(0, '#7cc95a'); gg.addColorStop(1, '#5aa83c');
-  ctx.fillStyle = gg; ctx.fillRect(0, groundY - 6, VW, VH - groundY + 6);
-  ctx.save(); ctx.translate(OX, 0);
-  ctx.fillStyle = '#e8d6a8'; ctx.beginPath(); ctx.ellipse(200, groundY + 4, 150, 16, 0, 0, TAU); ctx.fill();
-  if (!G) { drawHolder(0, .4, t); drawHolder(1, .4, t); drawRope(.4 + t * 1.2, '#ff4d6d'); ctx.restore(); return; }
-  const angs = ropeAngles(), cols = ['#ff4d6d', '#2fa6ff'];
-  // うしろの なわ
-  angs.forEach((a, k) => { if (Math.sin(a) <= 0) drawRope(a, cols[k]); });
-  drawHolder(0, G.phi, t); drawHolder(1, G.phi, t);
-  // アウトの 子は 下に すわる、のこりは じゅんばんに
-  for (const p of G.ps) if (p.alive || p.fallT < .5) drawKid(p, t);
-  angs.forEach((a, k) => { if (Math.sin(a) > 0) drawRope(a, cols[k]); });
-  for (const p of G.ps) if (!p.alive && p.fallT >= .5) drawKid(p, t);
-  ctx.restore();
+
+/* ---------- カメラ ---------- */
+const TARGET = new THREE.Vector3(0, 1.75, 0);
+function fitCam(w, h) {
+  if (!RD) return;
+  RD.setPixelRatio(Math.min(2, devicePixelRatio || 1)); RD.setSize(w, h, false);
+  cam.aspect = w / h; cam.fov = 40;
+  const tanV = Math.tan(cam.fov / 2 * D2R), tanH = tanV * cam.aspect, regionH = Math.max(120, h - topPad - botPad), f = regionH / h;
+  const dist = Math.max(3.95 / tanH, 1.7 / (tanV * f), 8);
+  const el = 17 * D2R;
+  cam.position.set(0, TARGET.y + Math.sin(el) * dist, Math.cos(el) * dist); cam.lookAt(TARGET);
+  const shift = h / 2 - (topPad + regionH / 2);
+  cam.setViewOffset(w, h, 0, shift, w, h); cam.updateProjectionMatrix();
 }
-function drawHolder(k, phi, t) {
-  const x = HX[k], gy = groundY, col = k ? '#efe6d8' : '#b5794a', dk = k ? '#c9bba6' : '#7d4f2c', inn = k ? 1 : -1;
-  const h = hands(phi)[k];
-  const bob = Math.sin(phi) * 2;
-  // からだ
-  ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(x, gy - 58 + bob, 40, 54, 0, 0, TAU); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.ellipse(x, gy - 50 + bob, 24, 32, 0, 0, TAU); ctx.fill();
-  // あし
-  ctx.fillStyle = dk; ctx.beginPath(); ctx.ellipse(x - 18, gy - 4, 16, 9, 0, 0, TAU); ctx.ellipse(x + 18, gy - 4, 16, 9, 0, 0, TAU); ctx.fill();
-  // うで
-  ctx.strokeStyle = col; ctx.lineWidth = 16; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x - inn * 22, gy - 86 + bob); ctx.lineTo(h.x, h.y); ctx.stroke();
-  ctx.fillStyle = dk; ctx.beginPath(); ctx.arc(h.x, h.y, 9, 0, TAU); ctx.fill();
-  // あたま
-  const hy = gy - 130 + bob;
-  ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x - 22, hy - 24, 11, 0, TAU); ctx.arc(x + 22, hy - 24, 11, 0, TAU); ctx.fill();
-  ctx.beginPath(); ctx.arc(x, hy, 32, 0, TAU); ctx.fill();
-  ctx.fillStyle = '#fff4e4'; ctx.beginPath(); ctx.ellipse(x - inn * 6, hy + 10, 15, 11, 0, 0, TAU); ctx.fill();
-  ctx.fillStyle = '#2a1a10';
-  const bl = (t * 1.3 + k * .7) % 4 < .12;
-  for (const ex of [-11, 11]) { if (bl) ctx.fillRect(x - inn * 4 + ex - 4, hy - 6, 8, 2.5); else { ctx.beginPath(); ctx.arc(x - inn * 4 + ex, hy - 5, 3.6, 0, TAU); ctx.fill(); } }
-  ctx.beginPath(); ctx.ellipse(x - inn * 6, hy + 5, 5, 3.6, 0, 0, TAU); ctx.fill();
-  ctx.strokeStyle = '#2a1a10'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x - inn * 6, hy + 10, 5, .2, Math.PI - .2); ctx.stroke();
-  ctx.fillStyle = 'rgba(255,120,120,.45)'; ctx.beginPath(); ctx.arc(x - 22, hy + 8, 6, 0, TAU); ctx.arc(x + 14, hy + 8, 6, 0, TAU); ctx.fill();
-}
-function drawKid(p, t) {
-  const sat = !p.alive && p.fallT >= .5;
-  let x = p.x, gy = groundY, h = p.h, rot = 0, alpha = 1;
-  if (!p.alive && !sat) { rot = Math.min(1, p.fallT / .3) * (p.i % 2 ? .9 : -.9); h = 0; }
-  if (sat) { gy = groundY + 46; alpha = .75; h = 0; }
-  // かげ
-  if (!sat) { ctx.fillStyle = `rgba(0,0,0,${.22 - Math.min(.15, h / 400)})`; ctx.beginPath(); ctx.ellipse(x, gy + 2, 18 - Math.min(8, h / 8), 5, 0, 0, TAU); ctx.fill(); }
-  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, gy - h); ctx.rotate(rot);
-  const sq = p.squash, sx = 1 + sq * .6, sy = 1 - sq;
-  ctx.scale(sx, sy);
-  // あし
-  ctx.strokeStyle = p.kid.d; ctx.lineWidth = 6; ctx.lineCap = 'round';
-  const legUp = p.air ? 6 : 0;
-  ctx.beginPath(); ctx.moveTo(-6, -16); ctx.lineTo(-7, -2 - legUp); ctx.moveTo(6, -16); ctx.lineTo(7, -2 - legUp); ctx.stroke();
-  // からだ
-  ctx.fillStyle = p.kid.c; ctx.beginPath(); ctx.ellipse(0, -28, 15, 16, 0, 0, TAU); ctx.fill();
-  // うで
-  const arm = p.air ? -1 : .4;
-  ctx.strokeStyle = p.kid.c; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(-12, -34); ctx.lineTo(-22, -34 + arm * 12); ctx.moveTo(12, -34); ctx.lineTo(22, -34 + arm * 12); ctx.stroke();
-  // かお
-  ctx.font = '30px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(p.kid.icon, 0, -58);
-  ctx.restore();
-  // なまえ
-  if (G.ps.length > 1) {
-    ctx.font = "900 11px 'Zen Maru Gothic', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    const lab = sat ? 'アウト' : p.kind === 'cpu' ? 'CPU' : p.kind === 'net' ? p.name.slice(0, 5) : (G.ps.filter(q => q.kind === 'human').length > 1 ? p.kid.icon : 'じぶん');
-    ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.strokeText(lab, x, gy + (sat ? 14 : 18)); ctx.fillStyle = sat ? '#c0392b' : p.kid.d; ctx.fillText(lab, x, gy + (sat ? 14 : 18));
-  }
+
+/* ---------- まいフレーム えがく ---------- */
+const PX2M = .012;     // ジャンプの たかさ（がめんの 点）→ メートル
+function kidX(p, n) { return (p.i - (n - 1) / 2) * .95; }
+function render3D(t, dt) {
+  if (!RD) return;
+  clouds.forEach((c, i) => { c.position.x += dt * (.4 + i * .05); if (c.position.x > 70) c.position.x = -70; });
+  const phi = G ? G.phi : .4 + t * 2.4;
+  const angs = G ? ropeAngles() : [phi];
+  ropeMeshes.forEach((o, k) => { o.visible = k < angs.length; if (o.visible) setRope(o, angs[k]); });
+  BEARS.forEach(B => poseBear(B, phi, t));
+  const ps = G ? G.ps : [0, 1, 2, 3].map(i => ({ i, kind: 'idle', alive: true, h: 0, air: false, squash: 0, fallT: 0, name: '' }));
+  const n = ps.length, many = n > 1 && G;
+  ANIMALS.forEach((A, i) => {
+    const p = ps.find(q => q.i === i);
+    A.root.visible = A.ring.visible = !!p; A.label.visible = !!(p && many);
+    if (!p) return;
+    const x = kidX(p, n);
+    let y = p.h * PX2M, z = 0, rx = 0, rz = 0, sit = 0;
+    if (!p.alive) {
+      if (p.fallT < .5) { const k = Math.min(1, p.fallT / .3); rx = -k * 1.2; y = 0; }
+      else { sit = 1; z = -2.1; y = 0; }
+    }
+    A.root.position.set(x, y, z); A.root.rotation.set(rx, 0, rz);
+    const sq = p.squash || 0; A.body.scale.set(1.15 * (1 + sq * .5), 1.15 * (1 - sq), 1.15 * (1 + sq * .5));
+    const bob = p.air ? 0 : Math.sin(t * 6 + i) * .015;
+    A.body.position.y = bob - sit * .26;
+    A.legs.forEach((l, s) => { l.rotation.x = sit ? -1.45 : p.air ? (s ? .5 : -.35) : 0; });
+    A.arms.forEach((a, s) => { a.rotation.z = (s ? 1 : -1) * (p.air ? 2.3 : sit ? .25 : .35 + Math.sin(t * 6 + i) * .05); a.rotation.x = sit ? -.6 : 0; });
+    A.head.rotation.x = sit ? .15 : p.air ? -.15 : 0;
+    A.head.rotation.z = sit ? Math.sin(t * 2 + i) * .1 : 0;
+    A.ring.visible = p.alive; A.ring.position.set(x, .015, 0);
+    if (A.label.visible) {
+      const humans = G.ps.filter(q => q.kind === 'human').length;
+      const txt = !p.alive ? 'アウト' : p.kind === 'cpu' ? 'CPU' : p.kind === 'net' ? (p.name || 'あいて').slice(0, 6) : humans > 1 ? `${p.kid.icon}` : 'じぶん';
+      setLabel(A.label, txt, !p.alive ? '#c0392b' : p.kid.d);
+      A.label.position.set(x, y + (sit ? 1.45 : 2.05), z);
+    }
+  });
+  RD.render(scene, cam);
 }
 
 /* ---------- メニュー ---------- */
@@ -512,6 +618,7 @@ Kit.bar({ id: 'nawatobi', title: '🪢 ぐるぐる なわとび', help: `
     <li>オンライン：べつの スマホと 2〜4人で たいせん</li>
   </ul>` });
 showMenu(); requestAnimationFrame(frame);
+if (!RD) { $('noGL').hidden = false; $('mStart').disabled = true; }
 { const jc = window.Net && Net.joinCode(); if (jc) { MODE = 'net'; renderMenu(); openNet(jc); } }
 if (location.hash === '#debug') window.__t = { get G() { return G; }, newGame, tick, press, onNet, startLocal, timeToBottom };
 </script>
