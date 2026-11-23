@@ -81,7 +81,7 @@
     <h2>ぐるぐる なわとび</h2>
     <p>くまの きょうだいが まわす 大なわを、いぬ・ねこ・うさぎ・パンダの みんなで ジャンプ！ さいごまで のこった 人の かち。</p>
     <ul class="how">
-      <li>なわが 足もとに くる ちょっと まえに ボタンを おす</li>
+      <li>なわが 足もとに くる ちょっと まえに ボタンを おす。はやすぎたら 空中で もう一回 おすと、くるっと まわって 二だんジャンプ！</li>
       <li>なわは だんだん はやく なる。とちゅうで とまったり、きゅうに はやく なったり、2本に なったりするよ</li>
     </ul>
     <div class="lbl">あそびかた</div>
@@ -121,9 +121,9 @@ const KIDS = [
 ];
 const CPU_LV = [
   null,
-  { n: 'よわい', sd: .1, miss: .06, adapt: .2, tire: .002 },
-  { n: 'ふつう', sd: .08, miss: .02, adapt: .5, tire: .0012 },
-  { n: 'つよい', sd: .055, miss: .006, adapt: .8, tire: .0006 },
+  { n: 'よわい', sd: .1, miss: .06, adapt: .2, tire: .002, rescue: .25 },
+  { n: 'ふつう', sd: .08, miss: .02, adapt: .5, tire: .0012, rescue: .5 },
+  { n: 'つよい', sd: .055, miss: .006, adapt: .8, tire: .0006, rescue: .75 },
 ];
 const STEP = 1 / 120;
 const V0 = 430, GRAV = 2000, TAIR = 2 * V0 / GRAV, CLEAR = 14;
@@ -167,7 +167,7 @@ function newGame(cfg) {
   Kit.audio();
 }
 function mkP(i, kind, name, btn, lv) {
-  return { i, kind, name, kid: KIDS[i], btn, lv: lv ? CPU_LV[lv] : null, h: 0, vy: 0, air: false, alive: true, outAt: Infinity, jumps: 0, fallT: 0, squash: 0, plan: null, blink: Math.random() * 4 };
+  return { i, kind, name, kid: KIDS[i], btn, lv: lv ? CPU_LV[lv] : null, h: 0, vy: 0, air: false, alive: true, outAt: Infinity, jumps: 0, fallT: 0, squash: 0, plan: null, dj: false, djDone: false, rescue: false, spin: 0 };
 }
 
 /* ---------- ボタン ---------- */
@@ -206,9 +206,16 @@ addEventListener('keydown', e => {
   const hs = G.ps.filter(p => p.kind === 'human'); const p = hs.find(q => q.btn === KEYMAP[e.code]); if (p) { e.preventDefault(); press(p); }
 });
 function press(p) {
-  if (!G || G.over || !p.alive || p.air || G.t < -.2) return;
+  if (!G || G.over || !p.alive || G.t < -.2) return;
+  if (p.air) { if (p.dj) return; dJump(p); if (G.mode === 'net') nsend({ k: 'd' }); return; }
   jump(p);
   if (G.mode === 'net') nsend({ k: 'j', t: G.t });
+}
+// 空中で もう一回：くるっと まわって もう一だん とぶ（1かいの ジャンプで 1かいだけ）
+const V2 = V0 * .82;
+function dJump(p) {
+  p.dj = true; p.vy = V2; p.spin = .001; p.squash = -.2;
+  if (snd() && p.kind !== 'cpu') { Kit.tone(700 + p.i * 60, .08, { type: 'triangle', vol: .12, slide: 500 }); Kit.noise(.12, { vol: .05, freq: 3000, filter: 'highpass' }); }
 }
 function jump(p) {
   p.air = true; p.vy = V0; p.squash = -.25;
@@ -270,7 +277,8 @@ function onBottom() {
   hud(); checkEnd();
 }
 function phys(p) {
-  if (p.air) { p.h += p.vy * STEP; p.vy -= GRAV * STEP; if (p.h <= 0) { p.h = 0; p.air = false; p.squash = .22; } }
+  if (p.air) { p.h += p.vy * STEP; p.vy -= GRAV * STEP; if (p.h <= 0) { p.h = 0; p.air = false; p.squash = .22; p.dj = false; p.djDone = false; } }
+  if (p.spin > 0 && p.spin < TAU) p.spin = Math.min(TAU, p.spin + STEP * TAU / .42);
   p.squash *= .9;
   if (!p.alive) p.fallT += STEP;
 }
@@ -298,7 +306,17 @@ function timeToBottom() {
 }
 function ropeAnglesOf(phi) { const a = [phi]; if (G.ropes > 1) a.push(phi + Math.PI); return a; }
 function cpuThink(p) {
-  if (!p.alive || p.air || G.t < .3) { if (p.air) p.plan = null; return; }
+  if (!p.alive || G.t < .3) return;
+  if (p.air) {
+    p.plan = null;
+    // とぶのが はやすぎた：このままだと なわに あたる → 二だんジャンプで たてなおす
+    if (!p.dj && !p.djDone) {
+      const land = (p.vy + Math.sqrt(p.vy * p.vy + 2 * GRAV * p.h)) / GRAV, tb = timeToBottom();
+      if (tb > land - .02 && tb < land + .5) { p.djDone = true; p.rescue = G.rng() < p.lv.rescue; }
+    }
+    if (p.rescue && !p.dj) { const land = (p.vy + Math.sqrt(p.vy * p.vy + 2 * GRAV * p.h)) / GRAV; if (land < .06 || timeToBottom() < .2) { p.rescue = false; dJump(p); } }
+    return;
+  }
   if (p.plan && p.plan.ev !== G.evId && G.rng() < p.lv.adapt) p.plan = null;   // とまったのに 気づいた
   if (!p.plan) {
     const tb = timeToBottom(); if (tb > .9) return;
@@ -323,7 +341,7 @@ function checkEnd() {
 }
 function finish() {
   G.over = true;
-  setTimeout(showResult, 1100);
+  const g = G; setTimeout(() => { if (G === g) showResult(); }, 1100);
 }
 function showResult() {
   if (!G) return;
@@ -639,16 +657,15 @@ function makeBear(k) {
   return { root, head, arm, paw, s };
 }
 const BEARS = [makeBear(0), makeBear(1)];
-// ネオンの なわ：しんの ひかり＋まわりの ひかり＋ざんぞう
-const NEON = ['#ff3d9a', '#33e8ff'], RROPE = 1.8, TRAILS = 5;
+// ネオンの なわ：しんの ひかり＋まわりの ひかり
+const NEON = ['#ff3d9a', '#33e8ff'], RROPE = 1.8;
 const ADD = (c, o) => new THREE.MeshBasicMaterial(Object.assign({ color: c, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, fog: false }, o));
 const ropes = NEON.map(col => {
   const c = new THREE.Color(col), mk = (m, cast) => { const o = new THREE.Mesh(new THREE.BufferGeometry(), m); o.frustumCulled = false; o.castShadow = !!cast; rig.add(o); return o; };
   const core = mk(new THREE.MeshBasicMaterial({ color: c.clone().lerp(new THREE.Color('#ffffff'), .6), toneMapped: false, fog: false }), true);
   const mid = mk(ADD(c, { opacity: .85 })), glow = mk(ADD(c, { opacity: .16 }));
-  const trails = Array.from({ length: TRAILS }, (_, k) => mk(ADD(c, { opacity: .2 * (1 - k / TRAILS) })));
   const light = new THREE.PointLight(c, 3.5, 5, 1.5); rig.add(light);
-  return { core, mid, glow, trails, light };
+  return { core, mid, glow, light };
 });
 function handPos(phi, k) { const s = k ? 1 : -1; return new THREE.Vector3(s * (HX - HAND_IN), AY + HR * Math.cos(phi), HR * Math.sin(phi)); }
 function ropeCurve(phi) {
@@ -666,7 +683,6 @@ function setRope(R, phi, k) {
   const cv3 = ropeCurve(phi);
   setTube(R.core, cv3, .03, 64, 8); setTube(R.mid, cv3, .06, 64, 8); setTube(R.glow, cv3, .15, 48, 8);
   R.light.position.copy(cv3.getPoint(.5));
-  R.trails.forEach((o, j) => { const h = phiHist[phiHist.length - 1 - (j + 1) * 2]; o.visible = h != null; if (h != null) setTube(o, ropeCurve(h + k * Math.PI), .075, 32, 6); });
 }
 const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 function poseBear(B, phi, t) {
@@ -711,7 +727,7 @@ function render3D(t, dt) {
   const phi = G ? G.phi : .4 + t * 2.4;
   const angs = G ? ropeAngles() : [phi];
   phiHist.push(phi); if (phiHist.length > 16) phiHist.shift();
-  ropes.forEach((Rp, k) => { const on = k < angs.length; [Rp.core, Rp.mid, Rp.glow, Rp.light, ...Rp.trails].forEach(o => { o.visible = on; }); if (on) setRope(Rp, phi, k); });
+  ropes.forEach((Rp, k) => { const on = k < angs.length; [Rp.core, Rp.mid, Rp.glow, Rp.light].forEach(o => { o.visible = on; }); if (on) setRope(Rp, phi, k); });
   BEARS.forEach(B => poseBear(B, phi, t));
   const ps = G ? G.ps : [0, 1, 2, 3].map(i => ({ i, kind: 'idle', alive: true, h: 0, air: false, squash: 0, fallT: 0, name: '' }));
   const n = ps.length, many = n > 1 && G;
@@ -725,7 +741,7 @@ function render3D(t, dt) {
       if (p.fallT < .5) { const k = Math.min(1, p.fallT / .3); rx = -k * 1.2; y = 0; }
       else { sit = 1; z = -2.1; y = 0; }
     }
-    A.root.position.set(x, y, z); A.root.rotation.set(rx, -RIG, rz);
+    A.root.position.set(x, y, z); A.root.rotation.set(rx, -RIG + (p.spin > 0 && p.spin < TAU ? p.spin : 0), rz);
     const sq = p.squash || 0; A.body.scale.set(1.15 * (1 + sq * .5), 1.15 * (1 - sq), 1.15 * (1 + sq * .5));
     const bob = p.air ? 0 : Math.sin(t * 6 + i) * .015;
     A.body.position.y = bob - sit * .26;
@@ -779,6 +795,7 @@ function onNet(m, from) {
   if (!NET || !G || G.mode !== 'net' || m.r !== NET.room.round) return;
   const p = G.ps[from]; if (!p || p.kind !== 'net') return;
   if (m.k === 'j') { if (p.alive && !p.air) jump(p); }
+  else if (m.k === 'd') { if (p.alive && p.air && !p.dj) dJump(p); }
   else if (m.k === 'o') { if (!p.alive) return; p.alive = false; p.outAt = m.c; p.jumps = m.c - 1; p.fallT = 0; hud(); checkEnd(); }
 }
 
@@ -786,6 +803,7 @@ Kit.bar({ id: 'nawatobi', title: '🪢 ぐるぐる なわとび', help: `
   <p>くまの きょうだいが まわす 大なわを ジャンプして、さいごまで のこった 人の かち！</p>
   <ul>
     <li>なわが 足もとに くる ちょっと まえに、じぶんの ボタンを おす（キーボードは スペース）</li>
+    <li>はやく とびすぎた ときは、空中で もう一回 おすと くるっと まわって 二だんジャンプ（1かいの ジャンプで 1かいだけ）</li>
     <li>なわは だんだん はやく なる。てっぺんで とまったり、きゅうに はやく・おそく なったりする</li>
     <li>とちゅうで なわが 2本に なる。いそがしいよ！</li>
     <li>この スマホで：1〜4人。ボタンが 人数ぶん でる（3人いじょうは 上にも）。あいている ところに CPU を 入れられる</li>
