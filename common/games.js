@@ -16,6 +16,7 @@ self.ASOBI_GAMES = [
   { id: 'sosogi', cat: 'play', name: 'ぴったり そそぎ', icon: '🧃', color: 'orange', tag: 'みんなで', who: '1〜4人', desc: 'スマホを ビンみたいに かたむけて、コップの せん まで ぴったり そそごう。ステージ・カフェ タイムも' },
   { id: 'tsumiki', cat: 'play', name: 'つみき タワー', icon: '🧱', color: 'sky', tag: 'みんなで', who: '1〜4人', desc: 'つみきを つんで たかい タワーに。スマホが かたむくと タワーも ぐらぐら！' },
   { id: 'nawatobi', cat: 'play', name: 'ぐるぐる なわとび', icon: '🪢', color: 'berry', tag: 'みんなで', who: '1〜4人＋CPU・オンライン2〜4人', desc: '大なわを みんなで ジャンプ！ ひっかかると 川に ドボン。みんなで とべた かずも きろく' },
+  { id: 'tarzan', cat: 'play', name: 'ターザン レース', icon: '🌴', color: 'grass', tag: '対戦', who: '1〜4人＋CPU・オンライン2〜4人', desc: 'つるに つかまって ブランコ！ いい タイミングで とびうつって ゴールを めざそう。おちると 川に ドボン' },
   { id: 'bouken', hidden: true, cat: 'play', name: 'ぷっちーのぼうけん', icon: '🚩', color: 'grass', tag: '一人で', who: '1人', desc: 'はしって とんで てきを ふんで、ゴールの はたを めざす よこスクロール アクション' },
   { id: 'puchic', cat: 'play', name: 'ぷちぷちチャレンジ', icon: '🫧', color: 'sky', tag: '対戦', who: '1〜2人＋CPU', desc: 'ぷちぷちを つぶして とくてんを きそおう' },
   { id: 'kamizumo', cat: 'play', name: '紙ずもう', icon: '🤼', color: 'orange', tag: '対戦', who: '1〜2人', desc: 'トントン たたいて 紙の 力士を たたかわせよう。番付を 上がって 横綱へ' },
