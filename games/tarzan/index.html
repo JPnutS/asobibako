@@ -79,7 +79,7 @@
   <div class="banner" id="banner"><b id="bnA"></b></div>
   <div class="tip off" id="tip"></div>
   <div class="say" id="say"></div><div class="say laugh" id="laugh"></div>
-  <div class="nogl" id="noGL" hidden>この きかいでは 3Dが うごきません</div>
+  <div class="nogl" id="noGL" hidden>3Dが うごかないよ。アプリを とじて ひらきなおしてね</div>
   <div class="over" id="menuOv"><div class="card">
     <h2>ジャングル ブランコ</h2>
     <p>ジャングルの つるに つかまって ブランコ！ いい タイミングで 手を はなして、つぎの つるへ とびうつろう。つるの そばで もう一回 おして つかもう。しっぱいすると 川に ドボン！ はやく ゴールした 人の かち。</p>
@@ -239,13 +239,13 @@ function press(p) {
 }
 // とんでいる ときに おす：すこしの あいだ 手を のばして つかもうと する
 function tryGrab(p) {
-  if (p.grabUsed) return;   // 1かい とぶごとに つかむのは 1かいだけ
-  p.grabUsed = true; p.grabT = GRABT;
+  if (p.grabCd > 0) return;
+  p.grabT = GRABT; p.grabCd = GRABCD;
   if (snd() && p.kind === 'human' && G.ff === 1) Kit.tone(700, .05, { type: 'sine', vol: .05 });
 }
 function release(p) {
   handPos(p);
-  p.st = 'fly'; p.vx = p.w * p.Ls * Math.cos(p.th); p.vy = p.w * p.Ls * Math.sin(p.th); p.plan = null; p.grabT = 0; p.grabUsed = false; p.gplan = null;
+  p.st = 'fly'; p.vx = p.w * p.Ls * Math.cos(p.th); p.vy = p.w * p.Ls * Math.sin(p.th); p.plan = null; p.grabT = 0; p.grabCd = .12; p.gplan = null;
   if (p.kind === 'human' && (p.hints = (p.hints || 0) + 1) <= 2) tip('つるの ちかくで もう一回 おすと つかむ！', 1600);
   if (snd() && p.kind !== 'net' && G.ff === 1) { Kit.noise(.18, { vol: .07, freq: 900, filter: 'bandpass' }); Kit.tone(520, .08, { type: 'triangle', vol: .06, slide: 300 }); }
   sendState(p, true);
@@ -291,7 +291,7 @@ function step(p) {
   if (p.st === 'swing') swingStep(p);
   else if (p.st === 'fly') {
     p.vy -= GV * STEP; p.x += p.vx * STEP; p.y += p.vy * STEP;
-    p.grabT -= STEP;
+    p.grabT -= STEP; p.grabCd -= STEP;
     const r = flyCheck(p.x, p.y, G.t, p.v, p.grabT > 0 ? CATCH : 0);
     if (r) {
       if (r.k === 'catch') grab(p, r);
@@ -565,7 +565,9 @@ function swingWhoosh() {
 /* ---------- 3D の ぶたい ---------- */
 const D2R = Math.PI / 180;
 let RD = null;
-try { RD = new THREE.WebGLRenderer({ canvas: cv, antialias: true, powerPreference: 'high-performance' }); } catch (e) { RD = null; }
+try { RD = new THREE.WebGLRenderer({ canvas: cv, antialias: true }); } catch (e) { RD = null; }
+cv.addEventListener('webglcontextlost', e => { e.preventDefault(); $('noGL').textContent = '3Dが とまったよ。アプリを とじて ひらきなおしてね'; $('noGL').hidden = false; });
+cv.addEventListener('webglcontextrestored', () => { $('noGL').hidden = true; });
 if (RD) { RD.shadowMap.enabled = true; RD.shadowMap.type = THREE.PCFSoftShadowMap; RD.outputColorSpace = THREE.SRGBColorSpace; RD.toneMapping = THREE.ACESFilmicToneMapping; RD.toneMappingExposure = 1.05; }
 const scene = new THREE.Scene(); scene.fog = new THREE.Fog(0xd6efff, 30, 95);
 const RIG = -.55;   // コースを ななめ おくへ
@@ -573,7 +575,7 @@ const rig = new THREE.Group(); rig.rotation.y = RIG; scene.add(rig);
 const cam = new THREE.PerspectiveCamera(40, 1, .1, 300);
 scene.add(new THREE.HemisphereLight(0xffffff, 0x5a7a3a, 1.15));
 const sun = new THREE.DirectionalLight(0xfff2dc, 2.6);
-sun.position.set(-6, 8, 4); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+sun.position.set(-6, 8, 4); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024);
 { const s = sun.shadow.camera; s.left = -7; s.right = 7; s.top = 7; s.bottom = -7; s.near = 1; s.far = 30; }
 sun.shadow.bias = -.0004; sun.shadow.normalBias = .02; scene.add(sun, sun.target);
 const STD = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: .75, metalness: 0 }, o));
@@ -720,7 +722,11 @@ for (let i = 0; i < 60; i++) { const x = -12 + Math.random() * 100, z = Math.ran
 const COURSE = new THREE.Group(); rig.add(COURSE);
 const woodM = STD('#7a4e2a', { roughness: .85 }), vineM = STD('#4a7a26', { roughness: .8 }), vleafM = STD('#5cbf3a', { roughness: .7 });
 let VINES = [];   // [vine][lane] → group
+const SHARED_M = new Set();
 function buildCourse3D(C, n) {
+  if (!SHARED_M.size) [woodM, vineM, vleafM, trunkM, bankM, ...leafMs].forEach(m => SHARED_M.add(m));
+  // まえの コースを GPUから かたづける（のこすと くりかえし あそぶうちに 3Dが とまる）
+  COURSE.traverse(o => { if (o.geometry) o.geometry.dispose(); const m = o.material; if (m && !SHARED_M.has(m)) { if (m.map) m.map.dispose(); m.dispose(); } });
   COURSE.clear(); VINES = [];
   const z0 = 1.3, z1 = -(n - 1) * LANE - 1.3, zm = (z0 + z1) / 2, zl = z0 - z1;
   C.V.forEach((V, j) => {
@@ -761,12 +767,12 @@ const EL = 26 * D2R, AZ = 0;
 let FITN = 4;
 function fitCam(w, h) {
   if (!RD) return;
-  RD.setPixelRatio(Math.min(2, devicePixelRatio || 1)); RD.setSize(w, h, false);
+  RD.setPixelRatio(Math.min(1.5, devicePixelRatio || 1)); RD.setSize(w, h, false);
   cam.aspect = w / h; cam.fov = 42; cam.clearViewOffset();
   rig.position.set(0, 0, 0); rig.updateMatrixWorld(true);
   const n = G ? G.n : 4, zA = 1.0, zB = -(n - 1) * LANE - 1.0;
   const FIT = [];
-  for (const x of [-1.6, 7.4]) for (const y of [.6, AH + .3]) for (const z of [zA, zB]) FIT.push(new THREE.Vector3(x, y, z));
+  for (const x of [-1.8, 4.8]) for (const y of [.6, AH + .3]) for (const z of [zA, zB]) FIT.push(new THREE.Vector3(x, y, z));
   const T = new THREE.Vector3(1.5, 2.9, (zA + zB) / 2).applyMatrix4(rig.matrixWorld);
   const regionH = Math.max(120, h - topPad - botPad), regN = 2 * regionH / h * .96;
   let ymin = 0, ymax = 0;
@@ -788,7 +794,8 @@ function followCam(dt) {
   if (G) {
     const hs = G.ps.filter(p => p.kind === 'human' && p.st !== 'goal');
     const fs = hs.length ? hs : G.ps.filter(p => p.st !== 'goal').length ? G.ps.filter(p => p.st !== 'goal') : G.ps;
-    const xs = fs.map(p => p.x); tx = (Math.min(...xs) + Math.max(...xs)) / 2;
+    // いまの つると つぎの つるの まんなかを 見る
+    const xs = fs.map(p => { const V = G.C.V, a = V[p.v].x, b = p.v + 1 < V.length ? V[p.v + 1].x : G.C.goal + 1; return p.st === 'goal' ? G.C.goal + 1 : (a + b) / 2 - 1.5; }); tx = (Math.min(...xs) + Math.max(...xs)) / 2;
     tx = Math.max(-1.5, Math.min(G.C.goal - 1, tx));
   }
   camX += (tx - camX) * Math.min(1, dt * 3);
@@ -899,7 +906,7 @@ Kit.bar({ id: 'tarzan', title: '🌴 ジャングル ブランコ', help: `
   <p>ジャングルの つるに つかまって、ブランコみたいに ゆれながら つぎの つるへ とびうつる レース！</p>
   <ul>
     <li>ボタンを おすと 手を はなして とぶ。まえに ふれて いく とちゅうで はなすと とおくまで とべるよ</li>
-    <li>とんで いる あいだ、つぎの つるの そばで もう一回 おすと つかまる。つかむ ボタンは 1かい とぶごとに 1かいだけ。おすのが はやすぎても おそすぎても 川に ドボン！ さっきの つるから やりなおし</li><li>まっている つるは 大きく ゆれて いる。こっちへ ゆれて くる ときに とばないと とどかないよ</li>
+    <li>とんで いる あいだ、つぎの つるの そばで もう一回 おすと つかまる。おすのが はやすぎても おそすぎても 川に ドボン！ さっきの つるから やりなおし</li><li>まっている つるは 大きく ゆれて いる。こっちへ ゆれて くる ときに とばないと とどかないよ</li>
     <li>うしろに ふれて いる ときに はなすと、ほとんど とばないよ</li>
     <li>つるは ${NV}本。おくに いくほど つるが ゆれたり、みじかく なったり する</li>
     <li>いちばん さきに ゴールの だいに ついた 人の かち。ひとりの ときは タイム アタック</li>
