@@ -18,12 +18,15 @@
   .prog { position: relative; width: min(300px, 76vw); height: 26px; margin: 4px auto 0; border-bottom: 4px solid rgba(255,255,255,.9); }
   .prog i { position: absolute; bottom: 0; transform: translateX(-50%); font-style: normal; font-size: 1.1rem; -webkit-text-stroke: 0; transition: left .15s linear; }
   .prog b { position: absolute; right: -14px; bottom: 0; font-size: 1.1rem; -webkit-text-stroke: 0; }
-  .pad { position: absolute; left: 0; right: 0; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 4; display: grid; grid-template-columns: 1fr 1.15fr 1fr; gap: 10px; padding: 0 12px; }
+  .pad { position: absolute; left: 0; right: 0; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 4; display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; padding: 0 10px; }
+  .pad #bB { margin-left: 6px; }
   .pad[hidden] { display: none; }
-  @media (orientation: landscape) and (max-height: 520px) { .pad { grid-template-columns: 110px 110px 1fr 150px; } .pad .jb { height: 72px; } #bJ { grid-column: 4; grid-row: 1; } #bR { grid-column: 2; grid-row: 1; } #bL { grid-column: 1; grid-row: 1; } }
+  @media (orientation: landscape) and (max-height: 520px) { .pad { grid-template-columns: 105px 105px 1fr 120px 130px; } .pad .jb { height: 72px; } #bB { grid-column: 4; } #bJ { grid-column: 5; } }
   .jb { appearance: none; height: 92px; border: 4px solid #fff; border-radius: 24px; color: #fff; font: 900 1.25rem 'Zen Maru Gothic', sans-serif; box-shadow: 0 5px 0 rgba(0,0,0,.25); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; touch-action: none; background: linear-gradient(160deg, #3fa8ff, #1f6fc8); }
   .jb big { font-size: 2.2rem; line-height: 1; }
   .jb.j { background: linear-gradient(160deg, #ffb13d, #ff6a2c); }
+  .jb.b { background: linear-gradient(160deg, #ff6b8a, #d0284c); }
+  .jb { font-size: .9rem; white-space: nowrap; letter-spacing: -.5px; } .jb big { font-size: 1.9rem; }
   .jb.down { filter: brightness(.85); box-shadow: 0 1px 0 rgba(0,0,0,.25); transform: translateY(3px); }
   .banner { position: absolute; left: 0; right: 0; top: 30%; text-align: center; pointer-events: none; z-index: 4; opacity: 0; transition: opacity .25s, transform .3s cubic-bezier(.3,1.6,.5,1); transform: scale(.8); }
   .banner.on { opacity: 1; transform: scale(1); }
@@ -59,18 +62,19 @@
   <div class="tip off" id="tip"></div>
   <div class="pad" id="pad" hidden>
     <button class="jb" id="bL"><big>⬅️</big>ひだり</button>
-    <button class="jb j" id="bJ"><big>⤴️</big>ジャンプ</button>
     <button class="jb" id="bR"><big>➡️</big>みぎ</button>
+    <button class="jb b" id="bB"><big>✋</big>ブレーキ</button>
+    <button class="jb j" id="bJ"><big>⤴️</big>ジャンプ</button>
   </div>
   <div class="nogl" id="noGL" hidden>3Dが うごかないよ。アプリを とじて ひらきなおしてね</div>
   <div class="over" id="menuOv"><div class="card">
     <h2>ゆきやま スノボ</h2>
-    <p>スノーボードで ゆきやまを すべりおりよう！ とちゅうの ふうせんを わって てんすうを あつめるよ。</p>
+    <p>スノーボードで ゆきやまを すべりおりる タイム アタック！ はやく ゴールしよう。</p>
     <ul class="how">
       <li>⬅️ ➡️ を おして いる あいだ、そっちへ まがる</li>
-      <li>ジャンプで ぴょん。木や ゆきだるまは よけるか とびこえよう（ぶつかると おそくなる）</li>
-      <li>ジャンプだいで 空へ！ 空中の ふうせんは 3てん、金いろは 5てん</li>
-      <li>空中で もう一回 ジャンプを おすと くるっと 1かいてん（+2てん）。まわりきる まえに おちると ころぶよ</li>
+      <li>⚠️ きゅうカーブの まえは ✋ブレーキで スピードを おとそう。はやすぎると はしに ドン！</li>
+      <li>ジャンプで 木や ゆきだるまを とびこえよう（ぶつかると ころんで おそくなる）</li>
+      <li>ふうせんを わると タイムが へるよ（🎈 -0.5びょう、金いろ -1びょう）。空中で もう一回 ジャンプで くるっと -1びょう</li>
     </ul>
     <div class="best" id="mBest"></div>
     <button class="btn main" id="mStart">すべる！</button>
@@ -87,12 +91,28 @@ const snd = () => Kit.settings.sound;
 /* ---------- きまり ---------- */
 const TAU = Math.PI * 2;
 const SL = .26;              // さかの かたむき（z が 1m すすむと y が 0.26m さがる）
-const LEN = 760;             // コースの ながさ
 const HALF = 7.5;            // コースの はば（まんなかから はしまで）
-const VMAX = 15, VMIN = 6, STEER = 7;
+const VMAX = 15, STEER = 9, BRAKE = 16, ACC = 5;
 const GRAV = 18;
-const gy = z => z * SL;                                          // じめんの たかさ
-const ccx = z => 4.2 * Math.sin(z / 58) + 2.2 * Math.sin(z / 21 + 1);   // コースの まんなか（くねくね）
+const gy = z => z * SL;      // じめんの たかさ
+// コース（きまった かたち）：[ながさ, まがりぐあい（1m すすむと よこに どれだけ ずれるか）, 'ramp' なら ジャンプだい]
+const SECS = [[45, 0], [50, .35], [45, 0, 'ramp'], [25, 0], [40, 1.2], [30, 0], [45, -.4], [25, 0], [40, -1.2], [25, 0], [45, 0, 'ramp'],
+  [34, 1.2], [34, -1.2], [35, 0], [45, .4], [45, 0, 'ramp'], [40, -1.2], [200, 0]];
+const SHARP = .8, TR = 10, DS = .5;
+let LEN = 0;
+const CX = [], CS = [];      // DS ごとの まんなかの x と まがりぐあい
+{
+  let d0 = 0; SECS.forEach(s => { s.d = d0; d0 += s[0]; }); LEN = SECS[SECS.length - 1].d + 50;
+  let x = 0;
+  for (let i = 0, d = 0; d <= d0 + 120; i++, d = i * DS) {
+    const k = SECS.findIndex(s => d >= s.d && d < s.d + s[0]), sec = SECS[k < 0 ? SECS.length - 1 : k], prev = k > 0 ? SECS[k - 1][1] : 0;
+    const u = Math.min(1, (d - sec.d) / TR), sm = u * u * (3 - 2 * u), sl = k < 0 ? 0 : prev + (sec[1] - prev) * sm;
+    CX.push(x); CS.push(sl); x += sl * DS;
+  }
+}
+const lut = (A, z) => { const d = -z; if (d <= 0) return A[0]; const f = d / DS, i = Math.floor(f); if (i >= A.length - 1) return A[A.length - 1]; return A[i] + (A[i + 1] - A[i]) * (f - i); };
+const ccx = z => lut(CX, z) + (z > 0 ? 0 : 0);   // コースの まんなか
+const csl = z => z > 0 ? 0 : lut(CS, z);           // その ばしょの まがりぐあい
 function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
 /* ---------- がめん ---------- */
@@ -107,50 +127,47 @@ addEventListener('resize', layout);
 
 /* ---------- じょうたい ---------- */
 let G = null;
-function makeCourse(rng) {
-  const obs = [], bal = [], ramps = [];
-  let z = -40, seg = 0;
-  while (z > -LEN + 40) {
-    const r = rng(); seg++;
-    if (seg % 5 === 0 && z > -LEN + 80) {
-      // ジャンプだい と 空中の ふうせん
-      const ox = (rng() - .5) * 6; ramps.push({ z, x: ox, w: 4.2 });
-      for (let k = 0; k < 5; k++) { const d = 6 + k * 3.2, t = d / 14; bal.push({ z: z - d, x: ox, y: Math.max(1, 12.2 * t - 9 * t * t + 2.0), pts: 3, gold: k === 1 }); }   // とんだ ときの きどうに ならべる
-      z -= 34;
-    } else if (r < .5) {
-      // ふうせんの れつ（よこに ゆれる）
-      const ox = (rng() - .5) * 9, sw = (rng() - .5) * 6;
-      for (let k = 0; k < 6; k++) bal.push({ z: z - k * 3, x: Math.max(-6.5, Math.min(6.5, ox + sw * Math.sin(k / 5 * Math.PI))), y: 1, pts: 1 });
-      if (rng() < .6) obs.push({ z: z - 6 - rng() * 6, x: Math.max(-6.5, Math.min(6.5, ox + (rng() < .5 ? -3.2 : 3.2))), k: rng() < .5 ? 'snowman' : 'rock' });
-      z -= 22;
-    } else {
-      // しょうがいぶつ
-      const n = 3 + Math.floor(rng() * 3 + Math.min(3, -z / 220));
-      for (let k = 0; k < n; k++) { const t = rng(); obs.push({ z: z - rng() * 10, x: (rng() - .5) * 13, k: t < .45 ? 'tree' : t < .8 ? 'snowman' : 'rock' }); }
-      if (rng() < .5) bal.push({ z: z - 5, x: (rng() - .5) * 10, y: 1, pts: 1 });
-      z -= 16;
+// コースは いつも おなじ（きまった たねで つくる）
+function makeCourse() {
+  const rng = mulberry(20261125), obs = [], bal = [], ramps = [], warns = [];
+  for (const s of SECS) {
+    const sharp = Math.abs(s[1]) >= SHARP, end = Math.min(s.d + s[0], LEN - 40);
+    if (sharp) {
+      warns.push({ z: -(s.d - 26), dir: Math.sign(s[1]) });
+      bal.push({ z: -(s.d + s[0] * .55), x: -Math.sign(s[1]) * 4.5, y: 1, pts: 1, gold: true });   // うちがわの 金の ふうせん
+      continue;
+    }
+    if (s[2] === 'ramp') {
+      const z = -(s.d + 12); ramps.push({ z, x: 0, w: 4.2 });
+      for (let k = 0; k < 5; k++) { const d = 6 + k * 3.2, t = d / 14; bal.push({ z: z - d, x: 0, y: Math.max(1, 12.2 * t - 9 * t * t + 2.0), pts: .5, gold: k === 2 }); }
+      continue;
+    }
+    const nextSharp = SECS.some(q => Math.abs(q[1]) >= SHARP && q.d >= end && q.d < end + 14);
+    for (let d = s.d + 14; d < end - (nextSharp ? 14 : 6); d += 15) {
+      if (rng() < .3) continue;
+      const n = 2 + Math.floor(rng() * 3);
+      for (let k = 0; k < n; k++) { const t = rng(); obs.push({ z: -(d + rng() * 8), x: (rng() - .5) * 12.5, k: t < .45 ? 'tree' : t < .8 ? 'snowman' : 'rock' }); }
     }
   }
-  // ふうせんの いちを コースに あわせる（ラッキーな 金いろ）
-  bal.forEach(b => { b.got = false; if (!b.gold && rng() < .06) b.gold = true; if (b.gold) b.pts = 5; });
-  return { obs, bal, ramps };
+  bal.forEach(b => { b.got = false; if (b.gold) b.pts = 1; });
+  return { obs, bal, ramps, warns };
 }
 const OBS_R = { tree: .55, snowman: .5, rock: .65 }, OBS_H = { tree: 3.5, snowman: 1.7, rock: .7 };
 function newGame() {
-  const rng = mulberry((Math.random() * 1e9) | 0);
-  G = { t: -3, over: false, lastCd: 4, C: makeCourse(rng), score: 0, nb: 0, crashes: 0, combo: 0,
-    p: { z: 2, x: 0, vz: 0, vx: 0, h: 0, vh: 0, air: false, spin: 0, spinning: false, crashT: 0, lean: 0, airT: 0 } };
+  G = { t: -3, over: false, lastCd: 4, C: makeCourse(), bonus: 0, nb: 0, crashes: 0, bumps: 0, warnSeen: 0,
+    p: { z: 2, x: 0, vz: 0, vx: 0, h: 0, vh: 0, air: false, spin: 0, spinning: false, crashT: 0, lean: 0, airT: 0, brake: false } };
   build3D();
   $('menuOv').hidden = true; $('resOv').hidden = true;
   layout(); hud(); Kit.audio();
 }
+const netT = () => Math.max(0, G.t - G.bonus);
 
 /* ---------- そうさ ---------- */
-const IN = { l: false, r: false };
+const IN = { l: false, r: false, b: false };
 function bindPad() {
   const hold = (id, k) => { const b = $(id); const on = e => { e.preventDefault(); IN[k] = true; b.classList.add('down'); }; const off = () => { IN[k] = false; b.classList.remove('down'); };
     b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('pointerleave', off); };
-  hold('bL', 'l'); hold('bR', 'r');
+  hold('bL', 'l'); hold('bR', 'r'); hold('bB', 'b');
   $('bJ').addEventListener('pointerdown', e => { e.preventDefault(); jump(); $('bJ').classList.add('down'); });
   const up = () => $('bJ').classList.remove('down'); $('bJ').addEventListener('pointerup', up); $('bJ').addEventListener('pointercancel', up);
 }
@@ -159,9 +176,13 @@ addEventListener('keydown', e => {
   if (!G) return;
   if (e.code === 'ArrowLeft' || e.code === 'KeyA') { IN.l = true; e.preventDefault(); }
   if (e.code === 'ArrowRight' || e.code === 'KeyD') { IN.r = true; e.preventDefault(); }
-  if ((e.code === 'Space' || e.code === 'ArrowUp') && !e.repeat) { jump(); e.preventDefault(); }
+  if (e.code === 'ArrowDown' || e.code === 'KeyS') { IN.b = true; e.preventDefault(); }
+  if ((e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') && !e.repeat) { jump(); e.preventDefault(); }
 });
-addEventListener('keyup', e => { if (e.code === 'ArrowLeft' || e.code === 'KeyA') IN.l = false; if (e.code === 'ArrowRight' || e.code === 'KeyD') IN.r = false; });
+addEventListener('keyup', e => {
+  if (e.code === 'ArrowLeft' || e.code === 'KeyA') IN.l = false; if (e.code === 'ArrowRight' || e.code === 'KeyD') IN.r = false;
+  if (e.code === 'ArrowDown' || e.code === 'KeyS') IN.b = false;
+});
 function jump() {
   if (!G || G.over || G.t < 0) return;
   const p = G.p; if (p.crashT > 0) return;
@@ -171,29 +192,37 @@ function jump() {
 
 /* ---------- うごき ---------- */
 function step(dt) {
+  if (G.t < 0) { G.t += dt; const cd = Math.ceil(-G.t); if (cd !== G.lastCd) { G.lastCd = cd; banner(String(cd), 700); if (snd()) Kit.tone(600, .1, { type: 'square', vol: .1 }); } return; }
   G.t += dt;
-  if (G.t < 0) { const cd = Math.ceil(-G.t); if (cd !== G.lastCd) { G.lastCd = cd; banner(String(cd), 700); if (snd()) Kit.tone(600, .1, { type: 'square', vol: .1 }); } return; }
   if (G.lastCd !== 0) { G.lastCd = 0; banner('スタート！', 800); if (snd()) Kit.tone(900, .16, { type: 'square', vol: .12 }); }
-  const p = G.p;
-  if (p.crashT > 0) { p.crashT -= dt; p.vz = Math.max(VMIN * .5, p.vz * (1 - dt * 2)); p.vx *= 1 - dt * 4; }
+  const p = G.p, steer = (IN.r ? 1 : 0) - (IN.l ? 1 : 0);
+  p.lean += (steer - p.lean) * Math.min(1, dt * 8);
+  p.brake = IN.b && !p.air && p.crashT <= 0;
+  if (p.crashT > 0) { p.crashT -= dt; p.vz = Math.max(2, p.vz * (1 - dt * 2)); p.vx *= 1 - dt * 4; }
   else {
-    const steer = (IN.r ? 1 : 0) - (IN.l ? 1 : 0);
     p.vx += (steer * STEER - p.vx) * Math.min(1, dt * (p.air ? 1.5 : 6));
-    const turn = Math.abs(p.vx) / STEER;
-    const tv = VMAX - turn * 2.5;
-    p.vz += (tv - p.vz) * Math.min(1, dt * (p.vz < tv ? .45 : 1.2));
+    const tv = VMAX - Math.abs(p.vx) / STEER * 2;
+    if (p.brake) p.vz = Math.max(2.5, p.vz - BRAKE * dt);
+    else if (p.vz < tv) p.vz = Math.min(tv, p.vz + ACC * dt);
+    else p.vz += (tv - p.vz) * Math.min(1, dt * 1.2);
   }
-  p.lean += ((p.vx / STEER) - p.lean) * Math.min(1, dt * 8);
   const z0 = p.z;
-  p.z -= p.vz * dt;
-  // コースの まんなかに ついていく ＋ よこに うごく
-  p.x += p.vx * dt;
+  p.z -= p.vz * dt; p.x += p.vx * dt;
+  // コースの はしに ぶつかると ドン！と とまる
   const c = ccx(p.z), off = p.x - c;
-  if (Math.abs(off) > HALF) { p.x = c + Math.sign(off) * HALF; p.vx *= -.3; p.vz *= 1 - dt * 3; if (snd() && Math.random() < .1) Kit.noise(.08, { vol: .05, freq: 600 }); }
+  if (Math.abs(off) > HALF) {
+    p.x = c + Math.sign(off) * HALF;
+    if (Math.sign(p.vx - csl(p.z) * p.vz) === Math.sign(off)) {
+      p.vx = csl(p.z) * p.vz - Math.sign(off) * 1.5;
+      if (p.vz > 3 && p.crashT <= 0) { p.vz = 0; p.crashT = 1.1; G.bumps++; boing(); Kit.vibrate && Kit.vibrate(60); tip(Math.abs(csl(p.z)) >= SHARP * .8 ? 'ドン！ カーブの まえで ブレーキ！' : 'ドン！', 1200); puff(p.x, gy(p.z) + .3, p.z, 14, 0, 1.2, 1.2); }
+    }
+  }
+  // きゅうカーブの かんばん
+  for (const w of G.C.warns) if (z0 > w.z && p.z <= w.z) { tip(w.dir > 0 ? 'きゅうカーブ ➡️ ブレーキで スピードを おとそう' : '⬅️ きゅうカーブ ブレーキで スピードを おとそう', 1800); if (snd()) { Kit.tone(880, .08, { type: 'square', vol: .07 }); setTimeout(() => Kit.tone(880, .08, { type: 'square', vol: .07 }), 140); } }
   // ジャンプ
   if (p.air) {
     p.airT += dt; p.vh -= GRAV * dt; p.h += p.vh * dt;
-    if (p.spinning) { p.spin += dt * TAU / .7; if (p.spin >= TAU) { p.spinning = false; p.spin = 0; addScore(2, 'くるっと +2', p); } }
+    if (p.spinning) { p.spin += dt * TAU / .7; if (p.spin >= TAU) { p.spinning = false; p.spin = 0; addBonus(1, 'くるっと -1びょう'); } }
     if (p.h <= 0) {
       p.h = 0; p.air = false; p.vh = 0;
       if (p.spinning) { p.spinning = false; p.spin = 0; crash('ころんだ！'); }
@@ -210,15 +239,15 @@ function step(dt) {
     const ox = ccx(o.z) + o.x;
     if (Math.hypot(ox - p.x, o.z - p.z) < OBS_R[o.k] + .35 && p.h < OBS_H[o.k]) { crash(o.k === 'snowman' ? 'ゆきだるまに ドーン！' : o.k === 'tree' ? '木に ぶつかった！' : 'いわに ゴツン！'); o.hit = 1; break; }
   }
-  // ふうせん
+  // ふうせん（わると タイムが へる）
   for (const b of G.C.bal) {
     if (b.got || Math.abs(b.z - p.z) > 1.4) continue;
     const bx = ccx(b.z) + b.x;
-    if (Math.hypot(bx - p.x, b.z - p.z) < 1.05 && Math.abs((p.h + 1.1) - b.y) < 1.3) { b.got = true; b.popT = 0; G.nb++; addScore(b.pts, '+' + b.pts, p); pop(b.gold, b.pts > 1); }
+    if (Math.hypot(bx - p.x, b.z - p.z) < 1.05 && Math.abs((p.h + 1.1) - b.y) < 1.3) { b.got = true; b.popT = 0; G.nb++; addBonus(b.pts, '-' + b.pts + 'びょう'); pop(b.gold, b.pts > .5); }
   }
   if (p.z <= -LEN) finish();
 }
-function addScore(n, txt, p) { G.score += n; floatTxt(txt); hud(); }
+function addBonus(n, txt) { G.bonus += n; floatTxt(txt); hud(); }
 function crash(msg) {
   const p = G.p; p.crashT = 1.1; p.vz *= .35; G.crashes++;
   boing(); Kit.vibrate && Kit.vibrate(100); tip(msg, 1000);
@@ -230,19 +259,21 @@ function pop(gold, big) {
 }
 
 /* ---------- おわり ---------- */
+const PAR = [50, 58, 68];   // めいじん・すごい・いい かんじ（びょう）
+function fmt(t) { return t.toFixed(2); }
 function finish() {
-  if (G.over) return; G.over = true;
-  banner('ゴール！', 1200); if (snd()) Kit.sfx('good');
+  if (G.over) return; G.over = true; G.final = netT();
+  banner('ゴール！', 1200); if (snd()) Kit.sfx('good'); layout();
   const g = G; setTimeout(() => { if (G === g) showResult(); }, 1500);
 }
 function showResult() {
   $('cnt').hidden = true; $('pad').hidden = true;
-  const sc = G.score, best = Kit.store.get('snowb:best', 0), isBest = sc > best; if (isBest) Kit.store.set('snowb:best', sc);
-  const total = G.C.bal.reduce((a, b) => a + b.pts, 0);
-  const title = sc >= total * .8 ? 'スノボ めいじん！' : sc >= total * .55 ? 'すごい！' : sc >= total * .3 ? 'いい かんじ！' : 'ゴール！';
-  $('resCard').innerHTML = `<div class="ttl">${title}</div><div class="big">${sc}<small> てん${isBest ? '　ベスト！' : ''}</small></div>
-    <div class="best">🎈 ${G.nb}こ　⏱️ ${G.t.toFixed(1)}びょう　💥 ${G.crashes}かい</div>
-    <div class="best">ベスト ${Math.max(best, sc)} てん</div>
+  const tm = G.final, best = Kit.store.get('snowb:bestT', 0), isBest = !best || tm < best; if (isBest) Kit.store.set('snowb:bestT', tm);
+  const title = tm <= PAR[0] ? 'スノボ めいじん！' : tm <= PAR[1] ? 'すごい！' : tm <= PAR[2] ? 'いい かんじ！' : 'ゴール！';
+  $('resCard').innerHTML = `<div class="ttl">${title}</div><div class="big">${fmt(tm)}<small> びょう${isBest ? '　ベスト！' : ''}</small></div>
+    <div class="best">⏱️ すべった じかん ${fmt(G.t)}　🎈 -${G.bonus}びょう</div>
+    <div class="best">💥 ころんだ ${G.crashes}かい　🧱 ドン ${G.bumps}かい</div>
+    <div class="best">ベスト ${fmt(isBest ? tm : best)} びょう</div>
     <div class="row"><button class="btn main" id="rAgain">もう一回</button><button class="btn" id="rMenu">もどる</button></div>`;
   if (isBest) setTimeout(() => { Kit.sfx('win'); Kit.confetti(); }, 200);
   $('resOv').hidden = false;
@@ -254,7 +285,7 @@ function showResult() {
 function hud() {
   const e = $('cnt'); e.hidden = false;
   const f = Math.min(1, Math.max(0, -G.p.z / LEN));
-  e.innerHTML = `${G.score}<small>てん　🎈${G.nb}</small><div class="prog"><i style="left:${(f * 100).toFixed(1)}%">🏂</i><b>🏁</b></div>`;
+  e.innerHTML = `${Math.max(0, netT()).toFixed(1)}<small>びょう${G.bonus ? '　🎈-' + G.bonus : ''}</small><div class="prog"><i style="left:${(f * 100).toFixed(1)}%">🏂</i><b>🏁</b></div>`;
 }
 let bnT = 0;
 function banner(s, ms) { $('bnA').textContent = s; $('banner').classList.add('on'); clearTimeout(bnT); bnT = setTimeout(() => $('banner').classList.remove('on'), ms); }
@@ -267,8 +298,8 @@ let lastT = performance.now(), hudT = 0;
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min(.05, (now - lastT) / 1000); lastT = now;
-  if (G && !G.over) { step(dt); hudT += dt; if (hudT > .15) { hudT = 0; hud(); } }
-  else if (G) { G.p.vz *= 1 - dt * 2; G.p.z -= G.p.vz * dt; }
+  if (G && !G.over) { step(dt); hudT += dt; if (hudT > .1) { hudT = 0; hud(); } }
+  else if (G) { G.p.vz *= 1 - dt * 2; G.p.z -= G.p.vz * dt; G.p.x += (ccx(G.p.z) - G.p.x) * Math.min(1, dt * 2); }
   render3D(now / 1000, dt); carveSound();
 }
 let cSnd = null;
@@ -276,8 +307,9 @@ function carveSound() {
   const on = G && !G.over && G.t > 0 && snd() && !G.p.air;
   if (!cSnd && on) { const a = Kit.audio(); if (a) { const len = a.sampleRate * 2, b = a.createBuffer(1, len, a.sampleRate), d = b.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1; const s = a.createBufferSource(); s.buffer = b; s.loop = true; const f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 900; const g = a.createGain(); g.gain.value = 0; s.connect(f); f.connect(g); g.connect(a.destination); s.start(); cSnd = { a, f, g }; } }
   if (!cSnd) return;
-  const v = on ? .03 + Math.min(1, G.p.vz / VMAX) * .05 + Math.abs(G.p.lean) * .06 : 0;
-  cSnd.g.gain.setTargetAtTime(v, cSnd.a.currentTime, .05); cSnd.f.frequency.setTargetAtTime(700 + Math.abs(G.p.lean) * 1500, cSnd.a.currentTime, .05);
+  const br = on && G.p.brake ? 1 : 0;
+  const v = on ? .03 + Math.min(1, G.p.vz / VMAX) * .05 + Math.abs(G.p.lean) * .06 + br * .08 : 0;
+  cSnd.g.gain.setTargetAtTime(v, cSnd.a.currentTime, .05); cSnd.f.frequency.setTargetAtTime(700 + Math.abs(G.p.lean) * 1500 + br * 1800, cSnd.a.currentTime, .05);
 }
 
 /* ---------- 3D の ぶたい ---------- */
@@ -458,6 +490,16 @@ function makeBal(b, i) {
   g.userData.base = new THREE.Vector3(ccx(b.z) + b.x, gy(b.z) + b.y + .2, b.z); g.userData.ph = Math.random() * TAU;
   return g;
 }
+// きゅうカーブの かんばん（コースは きまって いるので さいしょに 1かいだけ つくる）
+{
+  const tex = dir => canvasTex(128, 128, (g, w) => { g.translate(w / 2, w / 2); g.rotate(Math.PI / 4); g.fillStyle = '#222'; g.fillRect(-44, -44, 88, 88); g.fillStyle = '#ffd23a'; g.fillRect(-39, -39, 78, 78); g.rotate(-Math.PI / 4); g.fillStyle = '#222'; g.font = '900 64px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(dir > 0 ? '➜' : '⬅', 0, 4); });
+  const mR = new THREE.MeshStandardMaterial({ map: tex(1), transparent: true, side: THREE.DoubleSide }), mL = new THREE.MeshStandardMaterial({ map: tex(-1), transparent: true, side: THREE.DoubleSide });
+  for (const w of makeCourse().warns) for (const s of [-1, 1]) {
+    const x = ccx(w.z) + s * (HALF + .9), y = gy(w.z);
+    scene.add(mesh(new THREE.CylinderGeometry(.06, .06, 2, 6), trunkM, x, y + 1, w.z));
+    const b = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5), w.dir > 0 ? mR : mL); b.position.set(x, y + 2.2, w.z + .05); scene.add(b);
+  }
+}
 let OBJ = { obs: [], ramps: [], bal: [] };
 function build3D() {
   while (COURSE.children.length) COURSE.remove(COURSE.children[0]);   // かたちは ぜんぶ つかいまわし（すてる ものは ない）
@@ -493,7 +535,7 @@ function stepSpray(dt) { for (const d of spray) { if (d.life <= 0) continue; d.l
 
 /* ---------- まいフレーム えがく ---------- */
 const _p = new THREE.Vector3(), _l = new THREE.Vector3(), camLook = new THREE.Vector3();
-let camInit = false, prevCrash = 0, prevAir = false;
+let camInit = false, prevCrash = 0, prevAir = false, camHd = 0, camOff = 0, camH = 0, brkV = 0;
 function rampH(p) {
   if (p.air) return 0;
   for (const r of G.C.ramps) if (p.z > r.z && p.z < r.z + 3 && Math.abs(p.x - (ccx(r.z) + r.x)) < r.w / 2) return .9 * (1 - (p.z - r.z) / 3);
@@ -506,11 +548,12 @@ function render3D(t, dt) {
   let fx, fy, fz, fh = 0;
   if (G) {
     const p = G.p, y = gy(p.z) + p.h + rampH(p);
+    brkV += ((p.brake ? 1 : 0) - brkV) * Math.min(1, dt * 8);
     RIDER.visible = true; RIDER.position.set(p.x, y, p.z);
     const cr = p.crashT > 0 ? 1.1 - p.crashT : -1;
-    RIDER.rotation.y = -p.lean * .35 + (p.spinning ? -p.spin : 0);
+    RIDER.rotation.y = -Math.atan2(p.vx, Math.max(2, p.vz)) - p.lean * .15 + brkV * .75 + (p.spinning ? -p.spin : 0);
     RIDER.rotation.x = p.air ? -Math.atan(SL) * .3 + Math.min(.25, p.vh * .02) : -Math.atan(SL);
-    RTILT.rotation.z = -p.lean * .42;
+    RTILT.rotation.z = -p.lean * .42 + brkV * .3;
     // ころんだ ときは くるっと ころがる
     RP.body.rotation.z = cr >= 0 ? (cr < .7 ? Math.min(1.5, cr * 6) : 1.5 * (1 - (cr - .7) / .4)) : 0;
     RP.body.position.y = p.air ? .05 : -.04 + Math.sin(t * 9) * .01;
@@ -520,7 +563,7 @@ function render3D(t, dt) {
     if (prevAir && !p.air && G.t > 0) puff(p.x, y + .05, p.z, 12, 0, 1.1, 1.2);
     prevCrash = p.crashT; prevAir = p.air;
     // すべる ゆきけむり
-    if (!p.air && G.t > 0 && !G.over || G.over && p.vz > 1) { sprayAcc += dt * (p.vz / VMAX) * (14 + Math.abs(p.lean) * 50); while (sprayAcc > 1) { sprayAcc--; puff(p.x, y + .05, p.z + .6, 1, -p.lean * 2.5, .7); } }
+    if (!p.air && G.t > 0 && !G.over || G.over && p.vz > 1) { sprayAcc += dt * ((p.vz / VMAX) * (14 + Math.abs(p.lean) * 50) + (p.brake ? 70 : 0)); while (sprayAcc > 1) { sprayAcc--; puff(p.x, y + .05, p.z + .3, 1, p.brake ? 2.5 : -p.lean * 2.5, p.brake ? 1.1 : .7); } }
     // ふうせん・しょうがいぶつ（ちかくだけ みせる）
     G.C.bal.forEach((b, i) => {
       const m = OBJ.bal[i]; if (!m) return;
@@ -533,18 +576,15 @@ function render3D(t, dt) {
     fx = p.x; fy = gy(p.z); fz = p.z; fh = p.h;
   } else {
     RIDER.visible = false;
-    fz = -((t * 9) % (LEN - 20)); fx = ccx(fz); fy = gy(fz);
+    fz = -((t * 9) % (LEN - 20)); fx = ccx(fz); fy = gy(fz); if (fz > -1) camHd = 0;
   }
-  // カメラ：うしろの 上から
-  const portrait = cam.aspect < 1;
-  _p.set(fx * .8 + ccx(fz + 7) * .2, fy + 6 * SL + (portrait ? 3.3 : 2.9) + fh * .45, fz + (portrait ? 5.4 : 5.0));
-  _l.set(fx, gy(fz - 7) + 1 + fh * .5, fz - 7);
-  if (!camInit) { cam.position.copy(_p); camLook.copy(_l); camInit = true; }
-  // まえうしろは ぴったり ついていく（おくれると がくがく するので）。よこと 上下だけ なめらかに
-  const k = 1 - Math.exp(-dt * 5);
-  cam.position.x += (_p.x - cam.position.x) * k; cam.position.y += (_p.y - cam.position.y) * k; cam.position.z = _p.z;
-  camLook.x += (_l.x - camLook.x) * k; camLook.y += (_l.y - camLook.y) * k; camLook.z = _l.z;
-  if (Math.abs(cam.position.y - _p.y) > 6) { cam.position.copy(_p); camLook.copy(_l); }   // ワープした ときは すぐ ついていく
+  // カメラ：うしろの 上から。コースの むきに あわせて まわる（まえうしろは ぴったり ついていく）
+  const portrait = cam.aspect < 1, k = 1 - Math.exp(-dt * 4);
+  const hT = Math.atan(csl(fz - 8)); camHd += (hT - camHd) * (1 - Math.exp(-dt * 4));
+  camOff += ((fx - ccx(fz)) - camOff) * k; camH += (fh - camH) * k;
+  const sn = Math.sin(camHd), cs = Math.cos(camHd), back = portrait ? 5.4 : 5.0, bx = ccx(fz) + camOff * .8;
+  cam.position.set(bx - sn * back, fy + back * cs * SL + (portrait ? 3.3 : 2.9) + camH * .45, fz + cs * back);
+  camLook.set(bx + sn * 7, gy(fz - 7 * cs) + 1 + camH * .5, fz - 7 * cs);
   cam.lookAt(camLook);
   SKYG.position.copy(cam.position);
   MTN.position.set(cam.position.x, cam.position.y, cam.position.z);
@@ -554,24 +594,24 @@ function render3D(t, dt) {
 
 /* ---------- メニュー ---------- */
 function showMenu() {
-  G = null; $('cnt').hidden = true; $('resOv').hidden = true; tip(''); IN.l = IN.r = false;
-  const b = Kit.store.get('snowb:best', 0); $('mBest').textContent = b ? `ベスト：${b} てん` : '';
+  G = null; $('cnt').hidden = true; $('resOv').hidden = true; tip(''); IN.l = IN.r = IN.b = false;
+  const b = Kit.store.get('snowb:bestT', 0); $('mBest').textContent = b ? `ベスト：${fmt(b)} びょう` : '';
   $('menuOv').hidden = false; layout();
 }
 $('mStart').onclick = () => { Kit.sfx('tap'); Kit.audio(); newGame(); };
 
 Kit.bar({ id: 'snowboard', title: '🏂 ゆきやま スノボ', help: `
-  <p>スノーボードで ゆきやまを すべりおりて、ふうせんを わって てんすうを あつめる ゲーム！ ゴールで てんすうが きまるよ。</p>
+  <p>スノーボードで ゆきやまを すべりおりる タイム アタック！ コースは いつも おなじ。れんしゅうして ベストタイムを ちぢめよう。</p>
   <ul>
     <li>⬅️ ➡️ ボタンを おして いる あいだ、そっちへ まがる。キーボードは やじるし か A・D</li>
+    <li>✋ ブレーキ（キーボードは ↓ か S）：おして いる あいだ スピードが おちる。⚠️ きゅうカーブは はやすぎると まがりきれずに はしに ドン！ と ぶつかって とまって しまう</li>
     <li>ジャンプ ボタン（スペース）で ぴょん。木・ゆきだるま・いわに ぶつかると ころんで おそくなる</li>
-    <li>ふうせん：ふつうは 1てん、ジャンプだいの 先の 空中の ふうせんは 3てん、金いろは 5てん</li>
-    <li>空中で もう一回 ジャンプを おすと くるっと 1かいてんして +2てん。まわりきる まえに じめんに つくと ころぶ</li>
-    <li>まがって いる ときは すこし おそくなる。まっすぐ すべると はやい</li>
+    <li>ふうせんを わると タイムが へる：ジャンプだいの 先の 空中の ふうせんは -0.5びょう、金いろは -1びょう</li>
+    <li>空中で もう一回 ジャンプを おすと くるっと 1かいてんして -1びょう。まわりきる まえに じめんに つくと ころぶ</li>
   </ul>` });
 showMenu(); requestAnimationFrame(frame);
 if (!RD) { $('noGL').hidden = false; $('mStart').disabled = true; }
-if (location.hash === '#debug') window.__t = { get G() { return G; }, newGame, step, IN, jump, showMenu };
+if (location.hash === '#debug') window.__t = { get G() { return G; }, newGame, step, IN, jump, showMenu, ccx, csl, LEN, SECS };
 </script>
 </body>
 </html>

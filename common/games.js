@@ -18,7 +18,7 @@ self.ASOBI_GAMES = [
   { id: 'nawatobi', cat: 'play', name: 'ぐるぐる なわとび', icon: '🪢', color: 'berry', tag: 'みんなで', who: '1〜4人＋CPU・オンライン2〜4人', desc: '大なわを みんなで ジャンプ！ ひっかかると 川に ドボン。みんなで とべた かずも きろく' },
   { id: 'tarzan', cat: 'play', name: 'ジャングル ブランコ', icon: '🌴', color: 'grass', tag: '対戦', who: '1〜4人＋CPU・オンライン2〜4人', desc: 'つるに つかまって ブランコ！ ボタンで はなして、ボタンで つかむ。つぎつぎ とびうつって ゴールを めざそう' },
   { id: 'hosomichi', cat: 'play', name: '一本ばし リレー', icon: '🪵', color: 'sky', tag: '対戦', who: '2チーム（4人ずつ・ひとりずつ CPUにも できる）', desc: 'くねくねの 一本ばしを ジョイスティックで わたって、小島で たすきを つなぐ リレー。かぜや さかなの じゃまも' },
-  { id: 'snowboard', cat: 'play', name: 'ゆきやま スノボ', icon: '🏂', color: 'grape', tag: '一人で', who: '1人', desc: 'スノーボードで ゆきやまを すべりおりて ふうせんを わろう。ジャンプだいで 空へ とんで、くるっと まわって 高とくてん' },
+  { id: 'snowboard', cat: 'play', name: 'ゆきやま スノボ', icon: '🏂', color: 'grape', tag: '一人で', who: '1人', desc: 'スノーボードで ゆきやまを すべる タイム アタック。きゅうカーブは ブレーキで スピードを おとして、ジャンプだいの ふうせんで タイムを へらそう' },
   { id: 'bouken', hidden: true, cat: 'play', name: 'ぷっちーのぼうけん', icon: '🚩', color: 'grass', tag: '一人で', who: '1人', desc: 'はしって とんで てきを ふんで、ゴールの はたを めざす よこスクロール アクション' },
   { id: 'puchic', cat: 'play', name: 'ぷちぷちチャレンジ', icon: '🫧', color: 'sky', tag: '対戦', who: '1〜2人＋CPU', desc: 'ぷちぷちを つぶして とくてんを きそおう' },
   { id: 'kamizumo', cat: 'play', name: '紙ずもう', icon: '🤼', color: 'orange', tag: '対戦', who: '1〜2人', desc: 'トントン たたいて 紙の 力士を たたかわせよう。番付を 上がって 横綱へ' },
