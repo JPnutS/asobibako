@@ -84,7 +84,7 @@
     <h2>ジャングル ブランコ</h2>
     <p>ジャングルの つるに つかまって ブランコ！ いい タイミングで 手を はなして、つぎの つるへ とびうつろう。つるの そばで もう一回 おして つかもう。しっぱいすると 川に ドボン！ はやく ゴールした 人の かち。</p>
     <ul class="how">
-      <li>まえに ふれて いく とちゅうで ボタンを おすと、とおくまで とぶよ。つるの ちかくで もう一回 おすと つかむ！</li>
+      <li>まえに ふれて いく とちゅうで「はなす」を おすと、とおくまで とぶよ。つるの ちかくで「つかむ」を おそう！</li>
       <li>おくに いくほど つるが 大きく ゆれたり、みじかく なったり するよ</li>
     </ul>
     <div class="lbl">あそびかた</div>
@@ -203,7 +203,7 @@ function buildButtons() {
   G.ps.filter(p => p.kind === 'human').forEach(p => {
     const b = document.createElement('button'); b.className = 'jb'; p.el = b;
     b.style.background = `linear-gradient(160deg, ${p.kid.c}, ${p.kid.d})`;
-    b.innerHTML = `<big>${p.kid.icon}</big>ジャンプ`;
+    b.innerHTML = `<big>${p.kid.icon}</big><span>はなす</span>`; p.lbl = b.querySelector('span'); p.lblTxt = 'はなす';
     b.addEventListener('pointerdown', e => { e.preventDefault(); press(p); b.classList.add('down'); });
     const up = () => b.classList.remove('down');
     b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', up);
@@ -538,6 +538,7 @@ function frame(now) {
   const dt = Math.min(.1, (now - lastT) / 1000); lastT = now;
   if (G && !G.over) { G.acc += dt * G.ff; let n = 0; while (G.acc >= STEP && n < 60) { G.acc -= STEP; tick(); n++; if (G.over) break; } hudT += dt; if (hudT > .1) { hudT = 0; hud(); } }
   else if (G) { for (const p of G.ps) if (p.st === 'fall') p.fallT += dt; }
+  if (G) for (const p of G.ps) if (p.lbl) { const t = p.st === 'fly' ? 'つかむ' : 'はなす'; if (t !== p.lblTxt) { p.lblTxt = t; p.lbl.textContent = t; } }   // ボタンの もじを いま できる ことに
   render3D(now / 1000, dt); swingWhoosh();
 }
 
@@ -905,7 +906,7 @@ function onNet(m, from) {
 Kit.bar({ id: 'tarzan', title: '🌴 ジャングル ブランコ', help: `
   <p>ジャングルの つるに つかまって、ブランコみたいに ゆれながら つぎの つるへ とびうつる レース！</p>
   <ul>
-    <li>ボタンを おすと 手を はなして とぶ。まえに ふれて いく とちゅうで はなすと とおくまで とべるよ</li>
+    <li>「はなす」ボタンで 手を はなして とぶ（とんで いる あいだは「つかむ」ボタンに かわる）。まえに ふれて いく とちゅうで はなすと とおくまで とべるよ</li>
     <li>とんで いる あいだ、つぎの つるの そばで もう一回 おすと つかまる。おすのが はやすぎても おそすぎても 川に ドボン！ さっきの つるから やりなおし</li><li>まっている つるは 大きく ゆれて いる。こっちへ ゆれて くる ときに とばないと とどかないよ</li>
     <li>うしろに ふれて いる ときに はなすと、ほとんど とばないよ</li>
     <li>つるは ${NV}本。おくに いくほど つるが ゆれたり、みじかく なったり する</li>
