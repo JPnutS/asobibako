@@ -83,7 +83,7 @@
   .rrow button.h { border-color: #ff7a1a; background: #fff1e0; }
   .stick .cpuL { position: absolute; left: 50%; top: -30px; transform: translateX(-50%); white-space: nowrap; background: rgba(31,74,106,.85); color: #fff; font: 900 .8rem 'Zen Maru Gothic', sans-serif; border-radius: 99px; padding: 3px 10px; display: none; }
   .stick.cpu { opacity: .45; } .stick.cpu .cpuL { display: block; }
-  .legs { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; font-size: .75rem; color: #5b7a96; }
+  .legs { margin: 3px 0 0; display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; font-size: .75rem; color: #5b7a96; }
   .rank .legs { justify-content: flex-start; }
 </style>
 </head>
@@ -107,11 +107,7 @@
     </ul>
     <div class="lbl">モード</div>
     <div class="chips c2" id="mChips"></div>
-    <div class="lbl">チーム</div>
-    <div class="chips c2" id="tChips"></div>
-    <div class="lbl">ひとチームの 人数（ひとり 1くかんずつ たすきを つなぐ）</div>
-    <div class="chips" id="pChips"></div>
-    <div class="lbl">だれが はしる？（タップで 👤プレイヤー／🤖CPU）</div>
+    <div class="lbl">だれが はしる？ ひとチーム 4人（タップで 👤プレイヤー／🤖CPU）</div>
     <div class="rost" id="rost"></div>
     <div id="cpuOpts" style="display:grid;gap:10px"><div class="lbl">CPUの つよさ</div><div class="chips" id="cChips" style="grid-template-columns:repeat(3,1fr)"></div></div>
     <div class="best" id="mBest"></div>
@@ -164,7 +160,7 @@ addEventListener('resize', layout);
 
 /* ---------- じょうたい ---------- */
 let G = null;
-let JAMA = Kit.store.get('hoso:jama', 1), NT = Kit.store.get('hoso:nt', 2), NL = Kit.store.get('hoso:nl', 3), CPU = Kit.store.get('hoso:cpu', 2);
+let JAMA = Kit.store.get('hoso:jama', 1), NT = 2, NL = 4, CPU = Kit.store.get('hoso:cpu', 2);
 let ROSTER = Kit.store.get('hoso:roster', [['h', 'c', 'c', 'c'], ['c', 'c', 'c', 'c']]);
 function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
@@ -386,7 +382,7 @@ function showResult() {
   const my = Math.min(...hs.map(t => t.endT));
   const old = Kit.store.get(bestKey(), 0), isBest = my < Infinity && (!old || my < old); if (isBest) Kit.store.set(bestKey(), +my.toFixed(2));
   const best = Kit.store.get(bestKey(), 0);
-  const legs = t => `<div class="legs">${t.times.map((x, i) => `<span>${i + 1}ばん${t.roster[i] === 'h' ? '👤' : '🤖'} ${fmt(x)}</span>`).join('')}</div>`;
+  const legs = t => `<p class="legs">${t.times.map((x, i) => `<span>${i + 1}ばん${t.roster[i] === 'h' ? '👤' : '🤖'} ${fmt(x)}</span>`).join('')}</p>`;
   if (G.teams.length === 1) {
     const t = G.teams[0];
     $('resCard').innerHTML = `<div class="ttl">${isBest ? 'ベスト きろく！' : 'ゴール！'}</div><div class="big">${fmt(t.endT)}<small> びょう</small></div>${legs(t)}
@@ -398,7 +394,6 @@ function showResult() {
     const w = order[0];
     $('resCard').innerHTML = `<div class="ttl" style="color:${w.T.d}">${w.T.icon} ${w.T.n}の かち！</div>
       <div class="rank">${order.map((t, i) => `<div class="${i ? '' : 'top'}"><i>${i ? '🥈' : '🥇'}</i><span>${t.T.icon} ${t.T.n}${legs(t)}<small style="display:block;font-size:.72rem;color:#5b7a96">ドボン ${t.falls}かい</small></span><b>${t.done ? fmt(t.endT) + 'びょう' : (t.leg + 1) + 'ばんめ'}</b></div>`).join('')}</div>
-      <div class="best">${isBest ? 'ベスト こうしん！ ' : ''}ベスト ${best ? fmt(best) + ' びょう' : '—'}</div>
       <div class="row"><button class="btn main" id="rAgain">もう一回</button><button class="btn" id="rMenu">もどる</button></div>`;
     if (w.roster.includes('h') || isBest) setTimeout(() => { Kit.sfx('win'); Kit.confetti(); }, 200); else Kit.sfx('tap');
   }
@@ -811,17 +806,13 @@ function showMenu() {
 }
 function renderMenu() {
   $('mChips').innerHTML = [[0, '🚶', 'ふつう'], [1, '🌬️🐟', 'じゃま あり']].map(([m, e, n]) => `<button data-m="${m}" class="${m === JAMA ? 'on' : ''}"><big>${e}</big>${n}</button>`).join('');
-  $('tChips').innerHTML = [[1, '⏱️', 'ひとりで（タイム）'], [2, '🔴🔵', '2チーム たいせん']].map(([m, e, n]) => `<button data-v="${m}" class="${m === NT ? 'on' : ''}"><big>${e}</big>${n}</button>`).join('');
-  $('pChips').innerHTML = [1, 2, 3, 4].map(n => `<button data-n="${n}" class="${n === NL ? 'on' : ''}"><big>${'🏃'.repeat(n)}</big>${n}人</button>`).join('');
   $('rost').innerHTML = TEAMS.slice(0, NT).map((T, k) => `<div class="rrow"><span>${NT > 1 ? T.icon : '🏃'}</span>${[0, 1, 2, 3].map(i => i < NL ? `<button data-t="${k}" data-i="${i}" class="${ROSTER[k][i] === 'h' ? 'h' : ''}"><big>${ROSTER[k][i] === 'h' ? '👤' : '🤖'}</big>${i + 1}ばん</button>` : '<span></span>').join('')}</div>`).join('');
   $('cChips').innerHTML = [1, 2, 3].map(l => `<button data-l="${l}" class="${l === CPU ? 'on' : ''}">${CPU_LV[l].n}</button>`).join('');
   const anyCpu = ROSTER.slice(0, NT).some(r => r.slice(0, NL).includes('c')), anyH = ROSTER.slice(0, NT).some(r => r.slice(0, NL).includes('h'));
   $('cpuOpts').style.display = anyCpu ? 'grid' : 'none';
   $('mStart').disabled = !anyH || !RD; $('mStart').textContent = anyH ? 'はじめる！' : '👤を 1人いじょう えらんでね';
-  const b = Kit.store.get(`hoso:best:${JAMA}:${NL}`, 0); $('mBest').textContent = b ? `ひとりで ぜんぶ はしった ベスト（${JAMA ? 'じゃま あり' : 'ふつう'}・${NL}人）：${fmt(b)} びょう` : '';
+  $('mBest').textContent = '';
   $('mChips').querySelectorAll('button').forEach(b => b.onclick = () => { JAMA = +b.dataset.m; Kit.store.set('hoso:jama', JAMA); Kit.sfx('tap'); renderMenu(); });
-  $('tChips').querySelectorAll('button').forEach(b => b.onclick = () => { NT = +b.dataset.v; Kit.store.set('hoso:nt', NT); Kit.sfx('tap'); renderMenu(); });
-  $('pChips').querySelectorAll('button').forEach(b => b.onclick = () => { NL = +b.dataset.n; Kit.store.set('hoso:nl', NL); Kit.sfx('tap'); renderMenu(); });
   $('rost').querySelectorAll('button').forEach(b => b.onclick = () => { const k = +b.dataset.t, i = +b.dataset.i; ROSTER[k][i] = ROSTER[k][i] === 'h' ? 'c' : 'h'; Kit.store.set('hoso:roster', ROSTER); Kit.sfx('tap'); renderMenu(); });
   $('cChips').querySelectorAll('button').forEach(b => b.onclick = () => { CPU = +b.dataset.l; Kit.store.set('hoso:cpu', CPU); Kit.sfx('tap'); renderMenu(); });
 }
@@ -835,7 +826,7 @@ Kit.bar({ id: 'hosomichi', title: '🪵 一本ばし リレー', help: `
     <li>道から はみでると 川に ドボン！ さいごに とおった まがりかどから やりなおし</li>
     <li>川の とちゅうの 小島で つぎの 人が まっている。小島に ついたら たすきを わたして、つぎの 人が そこから すすむ。さいごの 人が むこうの きしに ついたら ゴール</li><li>ひとりずつ 👤プレイヤーか 🤖CPUかを えらべる。プレイヤーの ばんは ジョイスティックを わたして こうたい</li>
     <li>じゃま あり：ときどき 🌬️ かぜが ふいて よこに ながされる（やじるしが 出たら ふんばろう）。🐟 さかなが とびはねて くると ぶつかって はじかれる（川に わが 出たら ちゅうい）。道も すこし ほそめ</li>
-    <li>2チーム：ジョイスティックが 左右に 2つ。ひとりで：タイムに ちょうせん</li>
+    <li>あかチームと あおチーム、ひとチーム 4人。ジョイスティックは 左が あか、右が あお</li>
     <li>🎤 ろくおん：じぶんの こえで セリフを とれる（ほかの ゲームで とった こえも つかえる）</li>
   </ul>` });
 showMenu(); requestAnimationFrame(frame);
