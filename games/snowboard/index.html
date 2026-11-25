@@ -100,7 +100,7 @@ let topPad = 60, botPad = 130;
 function layout() {
   const r = stage.getBoundingClientRect();
   topPad = 64; botPad = G ? 130 : 40;
-  if (RD) { RD.setPixelRatio(Math.min(1.5, devicePixelRatio || 1)); RD.setSize(r.width, r.height, false); cam.aspect = r.width / r.height; cam.fov = r.width < r.height ? 62 : 50; cam.updateProjectionMatrix(); }
+  if (RD) { RD.setPixelRatio(Math.min(1.25, devicePixelRatio || 1)); RD.setSize(r.width, r.height, false); cam.aspect = r.width / r.height; cam.fov = r.width < r.height ? 62 : 50; cam.updateProjectionMatrix(); }
   $('pad').hidden = !G || G.over;
 }
 addEventListener('resize', layout);
@@ -537,11 +537,14 @@ function render3D(t, dt) {
   }
   // カメラ：うしろの 上から
   const portrait = cam.aspect < 1;
-  _p.set(fx * .8 + ccx(fz + 7) * .2, fy + 6 * SL + (portrait ? 3.3 : 2.9) + fh * .45, fz + (portrait ? 6.2 : 5.8));
+  _p.set(fx * .8 + ccx(fz + 7) * .2, fy + 6 * SL + (portrait ? 3.3 : 2.9) + fh * .45, fz + (portrait ? 5.4 : 5.0));
   _l.set(fx, gy(fz - 7) + 1 + fh * .5, fz - 7);
   if (!camInit) { cam.position.copy(_p); camLook.copy(_l); camInit = true; }
-  const k = Math.min(1, dt * 6); cam.position.lerp(_p, k); camLook.lerp(_l, k);
-  if (cam.position.z - fz > 8 || cam.position.z - fz < 3) { cam.position.copy(_p); camLook.copy(_l); }   // ワープした ときは すぐ ついていく
+  // まえうしろは ぴったり ついていく（おくれると がくがく するので）。よこと 上下だけ なめらかに
+  const k = 1 - Math.exp(-dt * 5);
+  cam.position.x += (_p.x - cam.position.x) * k; cam.position.y += (_p.y - cam.position.y) * k; cam.position.z = _p.z;
+  camLook.x += (_l.x - camLook.x) * k; camLook.y += (_l.y - camLook.y) * k; camLook.z = _l.z;
+  if (Math.abs(cam.position.y - _p.y) > 6) { cam.position.copy(_p); camLook.copy(_l); }   // ワープした ときは すぐ ついていく
   cam.lookAt(camLook);
   SKYG.position.copy(cam.position);
   MTN.position.set(cam.position.x, cam.position.y, cam.position.z);
