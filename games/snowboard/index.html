@@ -71,7 +71,7 @@
     <h2>ゆきやま スノボ</h2>
     <p>スノーボードで ゆきやまを すべりおりる タイム アタック！ はやく ゴールしよう。</p>
     <ul class="how">
-      <li>⬅️ ➡️ を おして いる あいだ、そっちへ まがる</li>
+      <li>なにも おさないと コースに そって すすむ。⬅️ ➡️ で よこに よける（あかと あおの せんの 中が コース）</li>
       <li>⚠️ きゅうカーブの まえは ✋ブレーキで スピードを おとそう。はやすぎると はしに ドン！</li>
       <li>ジャンプで 木や ゆきだるまを とびこえよう（ぶつかると ころんで おそくなる）</li>
       <li>ふうせんを わると タイムが へるよ（🎈 -0.5びょう、金いろ -1びょう）。空中で もう一回 ジャンプで くるっと -1びょう</li>
@@ -92,7 +92,7 @@ const snd = () => Kit.settings.sound;
 const TAU = Math.PI * 2;
 const SL = .26;              // さかの かたむき（z が 1m すすむと y が 0.26m さがる）
 const HALF = 7.5;            // コースの はば（まんなかから はしまで）
-const VMAX = 15, STEER = 9, BRAKE = 16, ACC = 5;
+const VMAX = 15, STEER = 10, AUTO = 8.5, BRAKE = 16, ACC = 5;
 const GRAV = 18;
 const gy = z => z * SL;      // じめんの たかさ
 // コース（きまった かたち）：[ながさ, まがりぐあい（1m すすむと よこに どれだけ ずれるか）, 'ramp' なら ジャンプだい]
@@ -198,10 +198,12 @@ function step(dt) {
   const p = G.p, steer = (IN.r ? 1 : 0) - (IN.l ? 1 : 0);
   p.lean += (steer - p.lean) * Math.min(1, dt * 8);
   p.brake = IN.b && !p.air && p.crashT <= 0;
-  if (p.crashT > 0) { p.crashT -= dt; p.vz = Math.max(2, p.vz * (1 - dt * 2)); p.vx *= 1 - dt * 4; }
+  if (p.crashT > 0) { p.crashT -= dt; p.vz = Math.max(p.crashT > 1.1 ? 0 : Math.min(p.vz, 2), p.vz * (1 - dt * 2)); p.vx *= 1 - dt * 4; }
   else {
-    p.vx += (steer * STEER - p.vx) * Math.min(1, dt * (p.air ? 1.5 : 6));
-    const tv = VMAX - Math.abs(p.vx) / STEER * 2;
+    // なにも おさない ときは コースの むきに そって すすむ（でも まがれる はやさには げんかいが ある）
+    const auto = Math.max(-AUTO, Math.min(AUTO, csl(p.z - 2) * p.vz)), tgt = Math.max(-STEER, Math.min(STEER, auto + steer * 6));
+    p.vx += (tgt - p.vx) * Math.min(1, dt * (p.air ? 1.5 : 6));
+    const tv = VMAX - Math.abs(steer) * 1.5;
     if (p.brake) p.vz = Math.max(2.5, p.vz - BRAKE * dt);
     else if (p.vz < tv) p.vz = Math.min(tv, p.vz + ACC * dt);
     else p.vz += (tv - p.vz) * Math.min(1, dt * 1.2);
@@ -214,7 +216,7 @@ function step(dt) {
     p.x = c + Math.sign(off) * HALF;
     if (Math.sign(p.vx - csl(p.z) * p.vz) === Math.sign(off)) {
       p.vx = csl(p.z) * p.vz - Math.sign(off) * 1.5;
-      if (p.vz > 3 && p.crashT <= 0) { p.vz = 0; p.crashT = 1.1; G.bumps++; boing(); Kit.vibrate && Kit.vibrate(60); tip(Math.abs(csl(p.z)) >= SHARP * .8 ? 'ドン！ カーブの まえで ブレーキ！' : 'ドン！', 1200); puff(p.x, gy(p.z) + .3, p.z, 14, 0, 1.2, 1.2); }
+      if (p.vz > 3 && p.crashT <= 0) { p.vz = 0; p.crashT = 1.8; G.bumps++; boing(); Kit.vibrate && Kit.vibrate(60); tip(Math.abs(csl(p.z)) >= SHARP * .8 ? 'ドン！ カーブの まえで ブレーキ！' : 'ドン！', 1200); puff(p.x, gy(p.z) + .3, p.z, 14, 0, 1.2, 1.2); }
     }
   }
   // きゅうカーブの かんばん
@@ -259,7 +261,7 @@ function pop(gold, big) {
 }
 
 /* ---------- おわり ---------- */
-const PAR = [50, 58, 68];   // めいじん・すごい・いい かんじ（びょう）
+const PAR = [48, 55, 65];   // めいじん・すごい・いい かんじ（びょう）
 function fmt(t) { return t.toFixed(2); }
 function finish() {
   if (G.over) return; G.over = true; G.final = netT();
@@ -392,17 +394,17 @@ const snowTex = canvasTex(256, 256, (g, w, h) => {
   g.fillStyle = '#f4f9ff'; g.fillRect(0, 0, w, h);
   for (let i = 0; i < 900; i++) { g.fillStyle = Math.random() < .5 ? `rgba(170,200,235,${.08 + Math.random() * .12})` : `rgba(255,255,255,${.5 + Math.random() * .5})`; const r = .6 + Math.random() * 2.2; g.beginPath(); g.arc(Math.random() * w, Math.random() * h, r, 0, TAU); g.fill(); }
 }, [1, 1]);
-const snowM = new THREE.MeshStandardMaterial({ map: snowTex, roughness: .9, color: '#ffffff' });
+const snowM = new THREE.MeshStandardMaterial({ map: snowTex, roughness: .9, color: '#ffffff', vertexColors: true });
 {
   const Z0 = 40, Z1 = -LEN - 90, NZ = Math.round((Z0 - Z1) / 1.5), XS = [-38, -26, -18, -13, -10.5, -9, -HALF - .5, -HALF + .5, -4, -1.5, 0, 1.5, 4, HALF - .5, HALF + .5, 9, 10.5, 13, 18, 26, 38];
-  const pos = [], uv = [], idx = [];
+  const pos = [], uv = [], idx = [], col = [];
   for (let i = 0; i <= NZ; i++) {
     const z = Z0 + (Z1 - Z0) * i / NZ, c = ccx(z);
-    for (const u of XS) { const x = c + u; pos.push(x, snowY(x, z), z); uv.push(x / 6, z / 6); }
+    for (const u of XS) { const x = c + u; pos.push(x, snowY(x, z), z); uv.push(x / 6, z / 6); if (Math.abs(u) > HALF) col.push(.8, .86, .93); else col.push(1, 1, 1); }
   }
   const W = XS.length;
   for (let i = 0; i < NZ; i++) for (let k = 0; k < W - 1; k++) { const a = i * W + k, b = a + W; idx.push(a, b, a + 1, a + 1, b, b + 1); }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
   const m = new THREE.Mesh(g, snowM); m.receiveShadow = true; scene.add(m);
 }
 // コースの はしの ポール（オレンジ）と まわりの もみの木
@@ -422,6 +424,24 @@ const PINE_Y = [1.25, 2.1, 2.85];
   const pl = []; for (let z = 20; z > -LEN - 40; z -= 8) for (const s of [-1, 1]) pl.push([ccx(z) + s * (HALF + .6), z]);
   const pm = new THREE.InstancedMesh(new THREE.CylinderGeometry(.06, .06, 1.6, 6), STD('#ff7a1a', { roughness: .5 }), pl.length); const o = new THREE.Object3D();
   pl.forEach(([x, z], i) => { o.position.set(x, snowY(x, z) + .8, z); o.updateMatrix(); pm.setMatrixAt(i, o.matrix); }); scene.add(pm);
+}
+// コースの ふち：じめんの しましま ラインと オレンジの ネット
+{
+  const Z0 = 30, Z1 = -LEN - 60, N = Math.round((Z0 - Z1) / 1.5);
+  const ribbon = (f, mat, rep) => {   // f(z) → [ [x,y,z], [x,y,z] ]（2てん）
+    const pos = [], uv = [], idx = []; let dist = 0, px = 0, pz = 0;
+    for (let i = 0; i <= N; i++) { const z = Z0 + (Z1 - Z0) * i / N, [a, b] = f(z); if (i) dist += Math.hypot(a[0] - px, a[2] - pz); px = a[0]; pz = a[2]; pos.push(...a, ...b); uv.push(dist / rep, 0, dist / rep, 1); if (i) { const k = i * 2; idx.push(k - 2, k, k - 1, k - 1, k, k + 1); } }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+    const m = new THREE.Mesh(g, mat); m.receiveShadow = true; scene.add(m);
+  };
+  const lineTex = canvasTex(64, 8, (g, w, h) => { g.fillStyle = '#ff3b5c'; g.fillRect(0, 0, w / 2, h); g.fillStyle = '#2f7fe8'; g.fillRect(w / 2, 0, w / 2, h); });
+  const lineM = new THREE.MeshStandardMaterial({ map: lineTex, roughness: .8, polygonOffset: true, polygonOffsetFactor: -2 });
+  const netTex = canvasTex(64, 64, (g, w, h) => { g.strokeStyle = '#ff7a1a'; g.lineWidth = 5; for (let i = 0; i <= 64; i += 16) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i, h); g.stroke(); g.beginPath(); g.moveTo(0, i); g.lineTo(w, i); g.stroke(); } g.lineWidth = 10; g.beginPath(); g.moveTo(0, 2); g.lineTo(w, 2); g.stroke(); });
+  const netM = new THREE.MeshStandardMaterial({ map: netTex, transparent: true, alphaTest: .4, side: THREE.DoubleSide, roughness: .7 });
+  for (const sd of [-1, 1]) {
+    ribbon(z => { const c = ccx(z), y = gy(z) + .02; return [[c + sd * (HALF - .55), y, z], [c + sd * (HALF - .05), y, z]]; }, lineM, 3);
+    ribbon(z => { const x = ccx(z) + sd * (HALF + .35), y = snowY(x, z); return [[x, y + .95, z], [x, y + .02, z]]; }, netM, 1.1);
+  }
 }
 // とおくの 山
 const MTN = new THREE.Group(); scene.add(MTN);
@@ -550,7 +570,7 @@ function render3D(t, dt) {
     const p = G.p, y = gy(p.z) + p.h + rampH(p);
     brkV += ((p.brake ? 1 : 0) - brkV) * Math.min(1, dt * 8);
     RIDER.visible = true; RIDER.position.set(p.x, y, p.z);
-    const cr = p.crashT > 0 ? 1.1 - p.crashT : -1;
+    const cr = p.crashT > 0 ? Math.max(0, 1.1 - p.crashT) : -1;
     RIDER.rotation.y = -Math.atan2(p.vx, Math.max(2, p.vz)) - p.lean * .15 + brkV * .75 + (p.spinning ? -p.spin : 0);
     RIDER.rotation.x = p.air ? -Math.atan(SL) * .3 + Math.min(.25, p.vh * .02) : -Math.atan(SL);
     RTILT.rotation.z = -p.lean * .42 + brkV * .3;
@@ -603,7 +623,7 @@ $('mStart').onclick = () => { Kit.sfx('tap'); Kit.audio(); newGame(); };
 Kit.bar({ id: 'snowboard', title: '🏂 ゆきやま スノボ', help: `
   <p>スノーボードで ゆきやまを すべりおりる タイム アタック！ コースは いつも おなじ。れんしゅうして ベストタイムを ちぢめよう。</p>
   <ul>
-    <li>⬅️ ➡️ ボタンを おして いる あいだ、そっちへ まがる。キーボードは やじるし か A・D</li>
+    <li>なにも おさないと コースに そって すすむ。⬅️ ➡️ ボタンを おして いる あいだ、そっちへ よる（キーボードは やじるし か A・D）。あかと あおの せんと オレンジの ネットの 中が コース</li>
     <li>✋ ブレーキ（キーボードは ↓ か S）：おして いる あいだ スピードが おちる。⚠️ きゅうカーブは はやすぎると まがりきれずに はしに ドン！ と ぶつかって とまって しまう</li>
     <li>ジャンプ ボタン（スペース）で ぴょん。木・ゆきだるま・いわに ぶつかると ころんで おそくなる</li>
     <li>ふうせんを わると タイムが へる：ジャンプだいの 先の 空中の ふうせんは -0.5びょう、金いろは -1びょう</li>
