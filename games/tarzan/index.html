@@ -85,7 +85,7 @@
     <p>ジャングルの つるに つかまって ブランコ！ いい タイミングで 手を はなして、つぎの つるへ とびうつろう。つるの そばで もう一回 おして つかもう。しっぱいすると 川に ドボン！ はやく ゴールした 人の かち。</p>
     <ul class="how">
       <li>まえに ふれて いく とちゅうで ボタンを おすと、とおくまで とぶよ。つるの ちかくで もう一回 おすと つかむ！</li>
-      <li>おくに いくほど つるが ゆれたり、みじかく なったり するよ</li>
+      <li>おくに いくほど つるが 大きく ゆれたり、みじかく なったり するよ</li>
     </ul>
     <div class="lbl">あそびかた</div>
     <div class="chips c2" id="mChips"></div>
@@ -124,7 +124,7 @@ const KIDS = [
 ];
 const CPU_LV = [
   null,
-  { n: 'よわい', sd: .11, miss: .2, wait: .35, gmiss: .12, gsd: .12 },
+  { n: 'よわい', sd: .1, miss: .12, wait: .3, gmiss: .08, gsd: .12 },
   { n: 'ふつう', sd: .065, miss: .09, wait: .15, gmiss: .05, gsd: .07 },
   { n: 'つよい', sd: .04, miss: .035, wait: .05, gmiss: .015, gsd: .035 },
 ];
@@ -163,8 +163,8 @@ function makeCourse(rng) {
     const k = j / (NV - 1);
     const short = j > 2 && rng() < .3;
     const L = short ? 2.8 + rng() * .2 : 3.3 + rng() * .3;
-    V.push({ x, L, sw: .07 + k * .2 + rng() * .05, ws: Math.sqrt(GV / L) * (.9 + rng() * .2), ph: rng() * TAU });
-    x += (short ? 3.4 : 3.8) + k * .7 + rng() * .35;
+    V.push({ x, L, sw: .26 + k * .14 + rng() * .05, ws: Math.sqrt(GV / L) * (.6 + rng() * .14), ph: rng() * TAU });   // まっている つるは 大きく ゆれる
+    x += (short ? 4.7 : 5.2) + k * .5 + rng() * .25;   // つるが こっちへ ゆれて きた ときだけ とどく
   }
   return { V, goal: V[NV - 1].x + 3.2 };
 }
@@ -239,13 +239,13 @@ function press(p) {
 }
 // とんでいる ときに おす：すこしの あいだ 手を のばして つかもうと する
 function tryGrab(p) {
-  if (p.grabCd > 0) return;
-  p.grabT = GRABT; p.grabCd = GRABCD;
+  if (p.grabUsed) return;   // 1かい とぶごとに つかむのは 1かいだけ
+  p.grabUsed = true; p.grabT = GRABT;
   if (snd() && p.kind === 'human' && G.ff === 1) Kit.tone(700, .05, { type: 'sine', vol: .05 });
 }
 function release(p) {
   handPos(p);
-  p.st = 'fly'; p.vx = p.w * p.Ls * Math.cos(p.th); p.vy = p.w * p.Ls * Math.sin(p.th); p.plan = null; p.grabT = 0; p.grabCd = .12; p.gplan = null;
+  p.st = 'fly'; p.vx = p.w * p.Ls * Math.cos(p.th); p.vy = p.w * p.Ls * Math.sin(p.th); p.plan = null; p.grabT = 0; p.grabUsed = false; p.gplan = null;
   if (p.kind === 'human' && (p.hints = (p.hints || 0) + 1) <= 2) tip('つるの ちかくで もう一回 おすと つかむ！', 1600);
   if (snd() && p.kind !== 'net' && G.ff === 1) { Kit.noise(.18, { vol: .07, freq: 900, filter: 'bandpass' }); Kit.tone(520, .08, { type: 'triangle', vol: .06, slide: 300 }); }
   sendState(p, true);
@@ -291,7 +291,7 @@ function step(p) {
   if (p.st === 'swing') swingStep(p);
   else if (p.st === 'fly') {
     p.vy -= GV * STEP; p.x += p.vx * STEP; p.y += p.vy * STEP;
-    p.grabT -= STEP; p.grabCd -= STEP;
+    p.grabT -= STEP;
     const r = flyCheck(p.x, p.y, G.t, p.v, p.grabT > 0 ? CATCH : 0);
     if (r) {
       if (r.k === 'catch') grab(p, r);
@@ -740,8 +740,8 @@ function buildCourse3D(C, n) {
     VINES.push(row);
   });
   // スタートの いわ
-  const st = mesh(new THREE.BoxGeometry(3.6, 2.2, zl + .4), STD('#8f7a5a', { roughness: .95 }), -4.4, 1.1, zm); COURSE.add(st);
-  COURSE.add(mesh(new THREE.BoxGeometry(3.7, .25, zl + .5), bankM, -4.4, 2.3, zm));
+  const st = mesh(new THREE.BoxGeometry(3.6, 1.8, zl + .4), STD('#8f7a5a', { roughness: .95 }), -4.6, .9, zm); COURSE.add(st);
+  COURSE.add(mesh(new THREE.BoxGeometry(3.7, .15, zl + .5), bankM, -4.6, 1.87, zm));
   // ゴールの だい
   const gx = C.goal + 2.6;
   COURSE.add(mesh(new THREE.BoxGeometry(5.2, .3, zl + .4), STD('#c8945a', { roughness: .8 }), gx, DECK - .15, zm));
@@ -766,7 +766,7 @@ function fitCam(w, h) {
   rig.position.set(0, 0, 0); rig.updateMatrixWorld(true);
   const n = G ? G.n : 4, zA = 1.0, zB = -(n - 1) * LANE - 1.0;
   const FIT = [];
-  for (const x of [-1.8, 4.8]) for (const y of [.6, AH + .3]) for (const z of [zA, zB]) FIT.push(new THREE.Vector3(x, y, z));
+  for (const x of [-1.6, 7.4]) for (const y of [.6, AH + .3]) for (const z of [zA, zB]) FIT.push(new THREE.Vector3(x, y, z));
   const T = new THREE.Vector3(1.5, 2.9, (zA + zB) / 2).applyMatrix4(rig.matrixWorld);
   const regionH = Math.max(120, h - topPad - botPad), regN = 2 * regionH / h * .96;
   let ymin = 0, ymax = 0;
@@ -818,7 +818,7 @@ function render3D(t, dt) {
     let hx = p.x, hy = p.y, rz = 0, yaw = Math.PI / 2 - .55, swim = 0, cheer = 0;
     const L = A.legs, R = A.arms;
     let armUp = Math.PI + .25, legX = 0;
-    if (p.st === 'swing') { rz = p.th; legX = Math.max(-.9, Math.min(.9, -p.w * .35)); }
+    if (p.st === 'swing') { rz = p.th; legX = Math.max(-.9, Math.min(.9, -p.w * .35)); if (G.t < .35 && p.v === 0) { const k = Math.max(0, G.t / .35); rz *= k; legX *= k; } }   // スタートは いわの 上に たって いる
     else if (p.st === 'fly') { rz = Math.max(-.6, Math.min(.6, Math.atan2(p.vx, 6) * .8 - p.vy * .04)); armUp = p.grabT > 0 ? Math.PI + .25 : 2.2; legX = -.9; }
     else if (p.st === 'fall') {
       if (p.fallT < .45) { rz = p.fallT * 6; armUp = 2.4; legX = .6; }
@@ -899,7 +899,7 @@ Kit.bar({ id: 'tarzan', title: '🌴 ジャングル ブランコ', help: `
   <p>ジャングルの つるに つかまって、ブランコみたいに ゆれながら つぎの つるへ とびうつる レース！</p>
   <ul>
     <li>ボタンを おすと 手を はなして とぶ。まえに ふれて いく とちゅうで はなすと とおくまで とべるよ</li>
-    <li>とんで いる あいだ、つぎの つるの そばで もう一回 おすと つかまる。おすのが はやすぎても おそすぎても 川に ドボン！ さっきの つるから やりなおし</li>
+    <li>とんで いる あいだ、つぎの つるの そばで もう一回 おすと つかまる。つかむ ボタンは 1かい とぶごとに 1かいだけ。おすのが はやすぎても おそすぎても 川に ドボン！ さっきの つるから やりなおし</li><li>まっている つるは 大きく ゆれて いる。こっちへ ゆれて くる ときに とばないと とどかないよ</li>
     <li>うしろに ふれて いる ときに はなすと、ほとんど とばないよ</li>
     <li>つるは ${NV}本。おくに いくほど つるが ゆれたり、みじかく なったり する</li>
     <li>いちばん さきに ゴールの だいに ついた 人の かち。ひとりの ときは タイム アタック</li>
