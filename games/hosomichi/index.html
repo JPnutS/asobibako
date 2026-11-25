@@ -69,13 +69,20 @@
   .prog { position: relative; width: min(300px, 76vw); height: 26px; margin: 4px auto 0; border-bottom: 4px solid rgba(255,255,255,.85); }
   .prog i { position: absolute; transform: translateX(-50%); font-style: normal; font-size: 1.05rem; -webkit-text-stroke: 0; transition: left .1s linear; }
   .prog b { position: absolute; right: -14px; bottom: 0; font-size: 1.1rem; -webkit-text-stroke: 0; }
-  .cnt .legrow { display: inline-block; margin-top: 6px; font-size: .95rem; background: rgba(255,255,255,.9); border-radius: 99px; padding: 3px 12px; text-shadow: none; }
+  .cnt .legrow { display: inline-block; margin-top: 6px; font-size: .85rem; white-space: nowrap; background: rgba(255,255,255,.9); border-radius: 99px; padding: 3px 12px; text-shadow: none; }
   .stick { position: absolute; z-index: 4; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.5), rgba(255,255,255,.22)); border: 4px solid var(--c); box-shadow: 0 4px 0 rgba(0,0,0,.2); touch-action: none; }
   .stick .knob { position: absolute; left: 50%; top: 50%; width: 46%; height: 46%; margin: -23% 0 0 -23%; border-radius: 50%; background: linear-gradient(160deg, var(--c), var(--d)); border: 4px solid #fff; box-shadow: 0 4px 8px rgba(0,0,0,.3); display: grid; place-items: center; font-style: normal; font-size: 1.4rem; transition: transform .05s; }
   .stick.on .knob { transition: none; }
   .wind { position: absolute; left: 0; right: 0; top: 30%; text-align: center; z-index: 3; pointer-events: none; font: 400 2rem 'Dela Gothic One', sans-serif; color: #fff; -webkit-text-stroke: 1.5px #1f4a6a; opacity: 0; transition: opacity .2s; }
   .wind.on { opacity: 1; animation: wblink .3s infinite alternate; }
   @keyframes wblink { to { opacity: .55; } }
+  .rost { display: grid; gap: 6px; }
+  .rrow { display: grid; grid-template-columns: 2.2em repeat(4, 1fr); gap: 6px; align-items: center; font-size: 1.3rem; }
+  .rrow button { appearance: none; border: 3px solid #d6e8f6; background: #fff; border-radius: 12px; padding: 4px 0; font: 900 .8rem 'Zen Maru Gothic', sans-serif; color: #1f4a6a; cursor: pointer; }
+  .rrow button big { display: block; font-size: 1.3rem; }
+  .rrow button.h { border-color: #ff7a1a; background: #fff1e0; }
+  .stick .cpuL { position: absolute; left: 50%; top: -30px; transform: translateX(-50%); white-space: nowrap; background: rgba(31,74,106,.85); color: #fff; font: 900 .8rem 'Zen Maru Gothic', sans-serif; border-radius: 99px; padding: 3px 10px; display: none; }
+  .stick.cpu { opacity: .45; } .stick.cpu .cpuL { display: block; }
   .legs { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; font-size: .75rem; color: #5b7a96; }
   .rank .legs { justify-content: flex-start; }
 </style>
@@ -92,17 +99,20 @@
   <div class="nogl" id="noGL" hidden>3Dが うごかないよ。アプリを とじて ひらきなおしてね</div>
   <div class="over" id="menuOv"><div class="card">
     <h2>一本ばし リレー</h2>
-    <p>川に かかった ほそい 一本ばしを わたろう！ はみでると 川に ドボン。チームで こうたいしながら わたって、はやく ゴールした チームの かち。</p>
+    <p>川に かかった くねくねの 一本ばしを わたろう！ はみでると 川に ドボン。小島で まつ なかまに たすきを つないで、はやく ゴールした チームの かち。</p>
     <ul class="how">
       <li>ジョイスティックを うごかした ほうへ あるくよ（上が おく）</li>
+      <li>川の とちゅうの 小島で つぎの 人が まっている。そこまで わたったら たすきを わたそう</li>
       <li>じゃま ありでは かぜが ふいたり、さかなが とびはねて きたり するよ</li>
     </ul>
     <div class="lbl">モード</div>
     <div class="chips c2" id="mChips"></div>
-    <div class="lbl">だれと</div>
-    <div class="chips" id="tChips" style="grid-template-columns:repeat(3,1fr)"></div>
-    <div class="lbl">ひとチームの 人数（じゅんばんに わたるよ）</div>
+    <div class="lbl">チーム</div>
+    <div class="chips c2" id="tChips"></div>
+    <div class="lbl">ひとチームの 人数（ひとり 1くかんずつ たすきを つなぐ）</div>
     <div class="chips" id="pChips"></div>
+    <div class="lbl">だれが はしる？（タップで 👤プレイヤー／🤖CPU）</div>
+    <div class="rost" id="rost"></div>
     <div id="cpuOpts" style="display:grid;gap:10px"><div class="lbl">CPUの つよさ</div><div class="chips" id="cChips" style="grid-template-columns:repeat(3,1fr)"></div></div>
     <div class="best" id="mBest"></div>
     <button class="btn main" id="mStart">はじめる！</button>
@@ -132,12 +142,15 @@ const CPU_LV = [
   null,
   { n: 'よわい', spd: .62, react: .55, comp: .55, care: .45, wob: .22 },
   { n: 'ふつう', spd: .78, react: .38, comp: .75, care: .75, wob: .14 },
-  { n: 'つよい', spd: .92, react: .22, comp: .92, care: .95, wob: .08 },
+  { n: 'つよい', spd: .9, react: .18, comp: .96, care: 1, wob: .06 },
 ];
 const STEP = 1 / 120, TAU = Math.PI * 2;
-const SEG = 3, NSEG = 8, LEN = SEG * NSEG;   // 道：3mごとに まがる、ぜんぶで 24m
+const SEG = 2, SPL = 7;   // 道：2mごとに まがる。ひとりが はしるのは 7まがり（14m）
 const VMAX = 2.4, ACC = 9;                    // あるく はやさ
-const BANK0 = -.2, BANK1 = -LEN + .2;         // この あいだが 川の 上
+const BANK0 = -.2;   // ここから おくが 川の 上（おわりは -G.len）
+const ISR = 1.0;     // たすきを わたす 小島の 大きさ
+const hum = t => t.roster[Math.min(t.leg, G.nl - 1)] === 'h';   // いま はしっている 人は プレイヤー？
+const humLeft = t => !t.done && t.roster.slice(t.leg).includes('h');
 
 /* ---------- がめん ---------- */
 let topPad = 60, botPad = 150;
@@ -151,23 +164,29 @@ addEventListener('resize', layout);
 
 /* ---------- じょうたい ---------- */
 let G = null;
-let JAMA = Kit.store.get('hoso:jama', 1), VS = Kit.store.get('hoso:vs', 'cpu'), NL = Kit.store.get('hoso:nl', 2), CPU = Kit.store.get('hoso:cpu', 2);
+let JAMA = Kit.store.get('hoso:jama', 1), NT = Kit.store.get('hoso:nt', 2), NL = Kit.store.get('hoso:nl', 3), CPU = Kit.store.get('hoso:cpu', 2);
+let ROSTER = Kit.store.get('hoso:roster', [['h', 'c', 'c', 'c'], ['c', 'c', 'c', 'c']]);
 function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
-function makePath(rng, jama) {
-  const off = [0], wid = [];
-  for (let k = 1; k <= NSEG; k++) off.push(k === NSEG ? 0 : Math.max(-1, Math.min(1, off[k - 1] + (rng() - .5) * 1.6)));
-  for (let k = 0; k < NSEG; k++) { const narrow = k > 1 && rng() < .35; wid.push(narrow ? (jama ? .5 : .55) : (jama ? .72 : .8) + rng() * .15); }
+function makePath(rng, jama, n) {
+  // くねくね：左右に ふりながら すすむ
+  const off = [0], wid = []; let side = rng() < .5 ? 1 : -1;
+  for (let k = 1; k <= n; k++) {
+    if (k === n) { off.push(0); break; }
+    if (rng() < .75) side = -side;
+    off.push(Math.max(-1.05, Math.min(1.05, side * (.45 + rng() * .6))));
+  }
+  for (let k = 0; k < n; k++) { const narrow = k % SPL > 1 && rng() < .3; wid.push(narrow ? (jama ? .5 : .55) : (jama ? .7 : .78) + rng() * .15); }
   return { off, wid };
 }
 function newGame(cfg) {
   const rng = mulberry((Math.random() * 1e9) | 0);
-  const nt = cfg.vs === 'solo' ? 1 : 2;
-  G = { t: -3.2, acc: 0, over: false, lastCd: 4, jama: cfg.jama, nl: cfg.nl, P: makePath(rng, cfg.jama), rng, teams: [], ff: 1,
+  const nt = cfg.nt, nseg = cfg.nl * SPL;
+  G = { t: -3.2, acc: 0, over: false, lastCd: 4, jama: cfg.jama, nl: cfg.nl, nseg, len: nseg * SEG, P: makePath(rng, cfg.jama, nseg), rng, teams: [], ff: 1,
     wind: { st: 'calm', t: 2.5 + rng() * 2, dir: 1, f: 0, v: 0 }, fish: [], fishT: 3 + rng() * 2 };
   for (let k = 0; k < nt; k++) {
     const T = TEAMS[k], base = nt === 1 ? 0 : T.base;
-    G.teams.push({ k, T, base, kind: k === 1 && cfg.vs === 'cpu' ? 'cpu' : 'human', lv: CPU_LV[cfg.cpu], leg: 0, legT0: 0, times: [], done: false, endT: Infinity, falls: 0,
+    G.teams.push({ k, T, base, roster: cfg.roster[k].slice(0, cfg.nl), lv: CPU_LV[cfg.cpu], leg: 0, legT0: 0, times: [], done: false, endT: Infinity, falls: 0,
       r: { x: base, z: 1.2, vx: 0, vz: 0, st: 'run', fallT: 0, face: Math.PI, cp: 0, plan: null, seen: 0, wobT: 0, wob: 0, waitT: 0 } });
   }
   buildCourse3D(); buildPeople();
@@ -180,10 +199,10 @@ function newGame(cfg) {
 const STK = [];   // { el, knob, team, id, x, y }
 function buildSticks() {
   const box = $('btns'); box.innerHTML = ''; STK.length = 0;
-  G.teams.filter(t => t.kind === 'human').forEach(t => {
+  G.teams.filter(t => t.roster.includes('h')).forEach(t => {
     const el = document.createElement('div'); el.className = 'stick';
     el.style.setProperty('--c', t.T.c); el.style.setProperty('--d', t.T.d);
-    el.innerHTML = `<i class="knob">${G.teams.length > 1 ? t.T.icon : ''}</i>`;
+    el.innerHTML = `<i class="knob">${G.teams.length > 1 ? t.T.icon : ''}</i><b class="cpuL">🤖 CPUが はしってるよ</b>`;
     const s = { el, knob: el.firstChild, team: t, id: null, x: 0, y: 0 };
     const move = e => {
       const r = el.getBoundingClientRect(), R = r.width / 2;
@@ -222,20 +241,21 @@ function inputOf(t) {
 function cx(t, k) { return t.base + G.P.off[k]; }
 // 道の 上？（川の 上の ところだけ しらべる）
 function onPath(t, x, z) {
-  if (z > BANK0 || z < BANK1) return true;
+  if (z > BANK0 || z < -G.len + .2) return true;
   const P = G.P;
-  for (let k = 0; k < NSEG; k++) {
+  for (let i = 1; i < G.nl; i++) { const k = i * SPL; if (Math.hypot(x - cx(t, k), z + k * SEG) < ISR) return true; }   // 小島
+  for (let k = 0; k < G.nseg; k++) {
     const ax = cx(t, k), az = -k * SEG, bx = cx(t, k + 1), bz = -(k + 1) * SEG;
     const dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz;
     let u = ((x - ax) * dx + (z - az) * dz) / L2; u = Math.max(0, Math.min(1, u));
     const px = ax + dx * u, pz = az + dz * u;
-    const w = Math.max(P.wid[k], (u < .1 && k > 0) ? P.wid[k - 1] : 0, (u > .9 && k < NSEG - 1) ? P.wid[k + 1] : 0);
+    const w = Math.max(P.wid[k], (u < .1 && k > 0) ? P.wid[k - 1] : 0, (u > .9 && k < G.nseg - 1) ? P.wid[k + 1] : 0);
     if (Math.hypot(x - px, z - pz) <= w / 2 + .04) return true;
   }
   return false;
 }
 function pathX(t, z) {   // その ふかさでの 道の まんなか
-  const k = Math.max(0, Math.min(NSEG - 1, Math.floor(-z / SEG))), u = Math.max(0, Math.min(1, (-z - k * SEG) / SEG));
+  const k = Math.max(0, Math.min(G.nseg - 1, Math.floor(-z / SEG))), u = Math.max(0, Math.min(1, (-z - k * SEG) / SEG));
   return cx(t, k) + (cx(t, k + 1) - cx(t, k)) * u;
 }
 
@@ -256,7 +276,7 @@ function runnerStep(t) {
     if (r.fallT > 1.5) { const k = r.cp; r.x = cx(t, k); r.z = -k * SEG - (k ? .1 : 0); r.vx = r.vz = 0; r.st = 'run'; r.fallT = 0; r.face = Math.PI; r.plan = null; }
     return;
   }
-  const inp = t.kind === 'cpu' ? cpuInput(t) : inputOf(t);
+  const inp = hum(t) ? inputOf(t) : cpuInput(t);
   const tvx = inp.x * VMAX, tvz = inp.z * VMAX;
   const a = Math.min(1, ACC * STEP);
   r.vx += (tvx - r.vx) * a; r.vz += (tvz - r.vz) * a;
@@ -266,24 +286,25 @@ function runnerStep(t) {
   r.z = Math.min(r.z, 3.2); r.x = Math.max(-7, Math.min(7, r.x));
   if (Math.hypot(r.vx, r.vz) > .3) r.face = Math.atan2(r.vx, r.vz);
   // チェックポイント（とおった まがりかど）
-  const k = Math.max(0, Math.min(NSEG - 1, Math.floor(-r.z / SEG)));
+  const k = Math.max(0, Math.min(G.nseg - 1, Math.floor(-r.z / SEG)));
   if (k > r.cp && onPath(t, r.x, r.z)) r.cp = k;
   if (!onPath(t, r.x, r.z)) return fall(t);
-  if (r.z <= -LEN - .6) legDone(t);
+  if (t.leg < G.nl - 1) { const nk = (t.leg + 1) * SPL; if (Math.hypot(r.x - cx(t, nk), r.z + nk * SEG) < .75) legDone(t); }   // つぎの 人に たすき
+  else if (r.z <= -G.len - .6) legDone(t);
 }
 function fall(t) {
   const r = t.r; r.st = 'fall'; r.fallT = 0; r.splashed = false; t.falls++;
-  if (t.kind === 'human') { Kit.sfx('bad'); Kit.vibrate && Kit.vibrate(120); voiceEv('out'); } else if (G.teams.some(q => q.kind === 'human' && !q.done)) voiceEv('otherOut');
+  if (hum(t)) { Kit.sfx('bad'); Kit.vibrate && Kit.vibrate(120); voiceEv('out'); } else if (G.teams.some(q => hum(q) && !q.done)) voiceEv('otherOut');
 }
 function legDone(t) {
   const lt = G.t - t.legT0; t.times.push(lt); t.leg++; t.legT0 = G.t;
   if (t.leg >= G.nl) {
     t.done = true; t.endT = G.t;
     if (!G.winner) { G.winner = t; banner(G.teams.length > 1 ? `${t.T.icon} ゴール！` : 'ゴール！', 1300); }
-    if (t.kind === 'human') { Kit.sfx('good'); voiceEv('goal'); }
+    if (t.roster[G.nl - 1] === 'h') { Kit.sfx('good'); voiceEv('goal'); }
   } else {
-    const r = t.r; Object.assign(r, { x: t.base, z: 1.2, vx: 0, vz: 0, st: 'baton', waitT: .8, cp: 0, plan: null, face: Math.PI, kx: 0 });
-    if (t.kind === 'human' || G.teams.length === 1) { tip(`${t.T.icon} バトンタッチ！ ${t.leg + 1}ばんめ スタート`, 1400); voiceEv('baton'); }
+    const r = t.r, k = t.leg * SPL; Object.assign(r, { x: cx(t, k), z: -k * SEG, vx: 0, vz: 0, st: 'baton', waitT: .5, cp: k, plan: null, face: Math.PI, kx: 0 });
+    tip(`${t.T.icon} たすきを わたした！ ${t.leg + 1}ばんめは ${hum(t) ? 'プレイヤー' : 'CPU'}`, 1500); if (hum(t) || t.roster[t.leg - 1] === 'h') voiceEv('baton');
     if (snd()) Kit.sfx('select');
   }
   hud();
@@ -303,9 +324,9 @@ function fishStep() {
   G.fishT -= STEP;
   if (G.fishT <= 0) {
     G.fishT = 2.4 + G.rng() * 1.8;
-    const busy = G.teams.filter(t => !t.done && t.r.st === 'run' && t.r.z < -1 && t.r.z > -LEN + 1);
+    const busy = G.teams.filter(t => !t.done && t.r.st === 'run' && t.r.z < -1 && t.r.z > -G.len + 1);
     const ref = busy.length ? busy[Math.floor(G.rng() * busy.length)].r.z - 1 - G.rng() * 3 : -3 - G.rng() * 18;
-    const z = Math.max(-LEN + 1.5, Math.min(-1.5, ref)), dir = G.rng() < .5 ? 1 : -1;
+    const z = Math.max(-G.len + 1.5, Math.min(-1.5, ref)), dir = G.rng() < .5 ? 1 : -1;
     G.fish.push({ z, dir, warn: .9, s: 0, hit: new Set(), x: -dir * 5.5, y: -1 });
   }
   for (const f of G.fish) {
@@ -314,7 +335,7 @@ function fishStep() {
     f.x = -f.dir * 5.5 + f.dir * 11 * f.s; f.y = Math.sin(Math.PI * f.s) * 1.9 - .2;
     for (const t of G.teams) {
       const r = t.r; if (t.done || r.st !== 'run' || f.hit.has(t)) continue;
-      if (f.y > .2 && f.y < 1.35 && Math.hypot(r.x - f.x, r.z - f.z) < .5) { f.hit.add(t); r.kx = f.dir * 2.6; boing(); if (t.kind === 'human') voiceEv('hit'); }
+      if (f.y > .2 && f.y < 1.35 && Math.hypot(r.x - f.x, r.z - f.z) < .5) { f.hit.add(t); r.kx = f.dir * 2.6; boing(); if (hum(t)) voiceEv('hit'); }
     }
   }
   G.fish = G.fish.filter(f => f.s < 1);
@@ -323,8 +344,13 @@ function fishStep() {
 /* ---------- CPU ---------- */
 function cpuInput(t) {
   const r = t.r, L = t.lv;
-  // まえを 見て すすむ
-  const look = r.z - .9, tx = pathX(t, Math.max(-LEN, look));
+  // 道の まんなかを すこし さきまで たどった ところを めざす
+  let k = Math.max(0, Math.min(G.nseg - 1, Math.floor(-r.z / SEG)));
+  let ax = cx(t, k), az = -k * SEG, bx = cx(t, k + 1), bz = -(k + 1) * SEG;
+  let sl = Math.hypot(bx - ax, bz - az), u = Math.max(0, Math.min(1, ((r.x - ax) * (bx - ax) + (r.z - az) * (bz - az)) / (sl * sl))), ahead = .55;
+  while (ahead > (1 - u) * sl && k < G.nseg - 1) { ahead -= (1 - u) * sl; k++; ax = bx; az = bz; bx = cx(t, k + 1); bz = -(k + 1) * SEG; sl = Math.hypot(bx - ax, bz - az); u = 0; }
+  u = Math.min(1, u + ahead / sl);
+  const tx = ax + (bx - ax) * u, look = r.z > -G.len ? az + (bz - az) * u : r.z - 1;
   // かぜに きづくまで すこし おくれる
   r.seen += ((G.wind.v * L.comp) - r.seen) * Math.min(1, STEP / L.react);
   r.wobT -= STEP; if (r.wobT <= 0) { r.wobT = .4 + G.rng() * .5; r.wob = (G.rng() - .5) * 2 * L.wob; }
@@ -337,8 +363,8 @@ function cpuInput(t) {
   const d = Math.hypot(dx, dz) || 1, sp = Math.min(1, d * 2) * L.spd;
   let vx = dx / d * sp - r.seen / VMAX, vz = dz / d * sp;
   // せまい ところは ゆっくり
-  const k = Math.max(0, Math.min(NSEG - 1, Math.floor(-r.z / SEG)));
-  if (r.z < 0 && G.P.wid[k] < .6) { vx *= .85; vz *= .8; }
+  const k2 = Math.max(0, Math.min(G.nseg - 1, Math.floor(-r.z / SEG)));
+  if (r.z < 0 && G.P.wid[k2] < .6) { vx *= .85; vz *= .8; }
   return { x: vx, z: vz };
 }
 
@@ -346,7 +372,7 @@ function cpuInput(t) {
 function checkEnd() {
   if (G.over) return;
   if (G.teams.every(t => t.done)) return finish();
-  const humanLeft = G.teams.some(t => t.kind === 'human' && !t.done);
+  const humanLeft = G.teams.some(humLeft);
   if (!humanLeft && G.ff === 1) { G.ff = 4; tip('CPUを はやおくり…', 1500); }
   if (G.winner && G.t - G.winner.endT > 40) return finish();
 }
@@ -356,11 +382,11 @@ function bestKey() { return `hoso:best:${G.jama}:${G.nl}`; }
 function showResult() {
   if (!G) return;
   $('cnt').hidden = true;
-  const hs = G.teams.filter(t => t.kind === 'human' && t.done);
+  const hs = G.teams.filter(t => t.done && t.roster.every(x => x === 'h') && G.teams.length === 1);   // ベストは ひとりで ぜんぶ はしった とき
   const my = Math.min(...hs.map(t => t.endT));
   const old = Kit.store.get(bestKey(), 0), isBest = my < Infinity && (!old || my < old); if (isBest) Kit.store.set(bestKey(), +my.toFixed(2));
   const best = Kit.store.get(bestKey(), 0);
-  const legs = t => `<div class="legs">${t.times.map((x, i) => `<span>${i + 1}ばん ${fmt(x)}</span>`).join('')}</div>`;
+  const legs = t => `<div class="legs">${t.times.map((x, i) => `<span>${i + 1}ばん${t.roster[i] === 'h' ? '👤' : '🤖'} ${fmt(x)}</span>`).join('')}</div>`;
   if (G.teams.length === 1) {
     const t = G.teams[0];
     $('resCard').innerHTML = `<div class="ttl">${isBest ? 'ベスト きろく！' : 'ゴール！'}</div><div class="big">${fmt(t.endT)}<small> びょう</small></div>${legs(t)}
@@ -371,10 +397,10 @@ function showResult() {
     const order = G.teams.slice().sort((a, b) => a.endT - b.endT || b.leg - a.leg);
     const w = order[0];
     $('resCard').innerHTML = `<div class="ttl" style="color:${w.T.d}">${w.T.icon} ${w.T.n}の かち！</div>
-      <div class="rank">${order.map((t, i) => `<div class="${i ? '' : 'top'}"><i>${i ? '🥈' : '🥇'}</i><span>${t.T.icon} ${t.T.n}${t.kind === 'cpu' ? '（CPU）' : ''}${legs(t)}<small style="display:block;font-size:.72rem;color:#5b7a96">ドボン ${t.falls}かい</small></span><b>${t.done ? fmt(t.endT) + 'びょう' : (t.leg + 1) + 'ばんめ'}</b></div>`).join('')}</div>
+      <div class="rank">${order.map((t, i) => `<div class="${i ? '' : 'top'}"><i>${i ? '🥈' : '🥇'}</i><span>${t.T.icon} ${t.T.n}${legs(t)}<small style="display:block;font-size:.72rem;color:#5b7a96">ドボン ${t.falls}かい</small></span><b>${t.done ? fmt(t.endT) + 'びょう' : (t.leg + 1) + 'ばんめ'}</b></div>`).join('')}</div>
       <div class="best">${isBest ? 'ベスト こうしん！ ' : ''}ベスト ${best ? fmt(best) + ' びょう' : '—'}</div>
       <div class="row"><button class="btn main" id="rAgain">もう一回</button><button class="btn" id="rMenu">もどる</button></div>`;
-    if (w.kind === 'human' || isBest) setTimeout(() => { Kit.sfx('win'); Kit.confetti(); }, 200); else Kit.sfx('tap');
+    if (w.roster.includes('h') || isBest) setTimeout(() => { Kit.sfx('win'); Kit.confetti(); }, 200); else Kit.sfx('tap');
   }
   $('resOv').hidden = false;
   $('rAgain').onclick = () => { Kit.sfx('tap'); startLocal(); };
@@ -385,7 +411,7 @@ function showResult() {
 function hud() {
   const e = $('cnt'); e.hidden = false;
   const t0 = Math.max(0, G.t);
-  const row = G.teams.map(t => `<span style="color:${t.T.d}">${G.teams.length > 1 ? t.T.icon : '🏃'} ${t.done ? 'ゴール' : `${t.leg + 1}/${G.nl}ばん`}</span>`).join('　');
+  const row = G.teams.map(t => `<span style="color:${t.T.d}">${G.teams.length > 1 ? t.T.icon : '🏃'} ${t.done ? "ゴール" : `${t.leg + 1}/${G.nl}${hum(t) ? "👤" : "🤖"}`}</span>`).join('　');
   e.innerHTML = `${fmt(G.winner && G.teams.length === 1 ? G.winner.endT : t0)}<small>びょう</small><small class="legrow">${row}</small>`;
 }
 let bnT = 0;
@@ -399,6 +425,7 @@ let lastT = performance.now(), hudT = 0;
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min(.1, (now - lastT) / 1000); lastT = now;
+  for (const s of STK) s.el.classList.toggle('cpu', !!G && !s.team.done && !hum(s.team));
   if (G && !G.over) { G.acc += dt * G.ff; let n = 0; while (G.acc >= STEP && n < 60) { G.acc -= STEP; tick(); n++; if (G.over) break; } hudT += dt; if (hudT > .1) { hudT = 0; hud(); } }
   render3D(now / 1000, dt);
 }
@@ -455,7 +482,7 @@ function laugh(big) {
 }
 function voiceEv(k) {
   if (!G || G.ff > 1) return;
-  const humanIn = G.teams.some(t => t.kind === 'human' && !t.done);
+  const humanIn = G.teams.some(t => hum(t) && !t.done);
   if (k === 'start') talk('いくよー！', 1);
   else if (k === 'baton') talk('バトンタッチ！', 1);
   else if (k === 'out') { talk('なんでだよ！', 2); laugh(true); }
@@ -599,17 +626,10 @@ const riverTex = canvasTex(128, 256, (g, w, h) => {
   for (let i = 0; i < 40; i++) { g.fillStyle = 'rgba(10,80,150,.25)'; g.fillRect(Math.random() * w, Math.random() * h, 3, 20 + Math.random() * 30); }
 }, [8, 3]);
 riverTex.center.set(.5, .5); riverTex.rotation = Math.PI / 2;
-{
-  const water = new THREE.Mesh(new THREE.PlaneGeometry(80, LEN + 1), new THREE.MeshStandardMaterial({ map: riverTex, roughness: .15, metalness: .1, emissive: '#0a5a9a', emissiveIntensity: .25 }));
-  water.rotation.x = -Math.PI / 2; water.position.set(0, -.6, -LEN / 2); water.receiveShadow = true; rig.add(water);
-  // てまえの きし（スタート）・おくの きし（ゴール）
-  rig.add(mesh(new THREE.BoxGeometry(80, 1.2, 14), grassM, 0, -.6, 7));
-  rig.add(mesh(new THREE.BoxGeometry(80, 1.2, 30), grassM, 0, -.6, -LEN - 15));
-  const sandM = STD('#e6d3a0', { roughness: 1 });
-  rig.add(mesh(new THREE.BoxGeometry(80, 1.1, .5), sandM, 0, -.62, .1), mesh(new THREE.BoxGeometry(80, 1.1, .5), sandM, 0, -.62, -LEN - .1));
-  const rockM = STD('#a9a59a', { roughness: .9 });
-  for (let i = 0; i < 50; i++) { const r = mesh(new THREE.DodecahedronGeometry(.15 + Math.random() * .25, 0), rockM, (Math.random() - .5) * 30, -.55, Math.random() < .5 ? -.2 : -LEN + .2); r.scale.y = .6; rig.add(r); }
-}
+const ENV = new THREE.Group(); rig.add(ENV);
+const sandM = STD('#e6d3a0', { roughness: 1 }), rockM = STD('#a9a59a', { roughness: .9 });
+const waterM = new THREE.MeshStandardMaterial({ map: riverTex, roughness: .15, metalness: .1, emissive: '#0a5a9a', emissiveIntensity: .25 });
+rig.add(mesh(new THREE.BoxGeometry(80, 1.2, 14), grassM, 0, -.6, 7), mesh(new THREE.BoxGeometry(80, 1.1, .5), sandM, 0, -.62, .1));   // てまえの きし（スタート）
 const trunkM = STD('#8a5a34'), leafMs = ['#3f9e45', '#4fb34f', '#5cbf5a'].map(c => STD(c, { roughness: .9 }));
 function tree(x, z, s) {
   const g = new THREE.Group(); g.position.set(x, 0, z); g.scale.setScalar(s);
@@ -618,13 +638,20 @@ function tree(x, z, s) {
   [[0, 2.1, 0, 1.05], [.55, 1.75, .2, .7], [-.5, 1.8, -.1, .75], [0, 2.75, 0, .7]].forEach(([a, b, c, r]) => g.add(mesh(SPH(r, 12, 10), m, a, b, c)));
   rig.add(g);
 }
-for (let i = 0; i < 16; i++) tree((i % 2 ? 1 : -1) * (6 + Math.random() * 6), -LEN - 3 - Math.random() * 14, 1 + Math.random() * .6);
 for (let i = 0; i < 6; i++) tree((i % 2 ? 1 : -1) * (6.5 + Math.random() * 4), 2 + Math.random() * 6, 1 + Math.random() * .4);
-// ゴールの もん
-{
-  const flagTex = canvasTex(256, 64, (g) => { for (let i = 0; i < 16; i++) for (let k = 0; k < 4; k++) { g.fillStyle = (i + k) % 2 ? '#222' : '#fff'; g.fillRect(i * 16, k * 16, 16, 16); } });
-  const ban = new THREE.Mesh(new THREE.PlaneGeometry(8, .6), new THREE.MeshStandardMaterial({ map: flagTex, side: THREE.DoubleSide })); ban.position.set(0, 2.6, -LEN - .8); rig.add(ban);
-  for (const x of [-4, 4]) rig.add(mesh(new THREE.CylinderGeometry(.08, .08, 2.9, 8), STD('#ff4d6d'), x, 1.45, -LEN - .8));
+const flagTex = canvasTex(256, 64, (g) => { for (let i = 0; i < 16; i++) for (let k = 0; k < 4; k++) { g.fillStyle = (i + k) % 2 ? '#222' : '#fff'; g.fillRect(i * 16, k * 16, 16, 16); } });
+const flagM = new THREE.MeshStandardMaterial({ map: flagTex, side: THREE.DoubleSide }), poleM = STD('#ff4d6d');
+// 川の ながさは ゲームごとに かわる → 川・おくの きし・ゴールを つくりなおす
+function buildEnv() {
+  ENV.traverse(o => { if (o.geometry) o.geometry.dispose(); }); ENV.clear();
+  const L = G.len;
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(80, L + 1), waterM); water.rotation.x = -Math.PI / 2; water.position.set(0, -.6, -L / 2); water.receiveShadow = true; ENV.add(water);
+  riverTex.repeat.set(8, Math.max(3, L / 8));
+  ENV.add(mesh(new THREE.BoxGeometry(80, 1.2, 30), grassM, 0, -.6, -L - 15), mesh(new THREE.BoxGeometry(80, 1.1, .5), sandM, 0, -.62, -L - .1));
+  for (let i = 0; i < 40; i++) { const r = mesh(new THREE.DodecahedronGeometry(.15 + Math.random() * .25, 0), rockM, (Math.random() - .5) * 30, -.55, Math.random() < .5 ? -.2 : -L + .2); r.scale.y = .6; ENV.add(r); }
+  const tr = []; for (let i = 0; i < 14; i++) { const g = new THREE.Group(), s = 1 + Math.random() * .6; g.position.set((i % 2 ? 1 : -1) * (6 + Math.random() * 6), 0, -L - 3 - Math.random() * 14); g.scale.setScalar(s); g.add(mesh(new THREE.CylinderGeometry(.18, .26, 1.6, 8), trunkM, 0, .8, 0)); const m = leafMs[i % 3]; [[0, 2.1, 0, 1.05], [.55, 1.75, .2, .7], [-.5, 1.8, -.1, .75], [0, 2.75, 0, .7]].forEach(([a, b, c, r]) => g.add(mesh(SPH(r, 12, 10), m, a, b, c))); ENV.add(g); }
+  const ban = new THREE.Mesh(new THREE.PlaneGeometry(8, .6), flagM); ban.position.set(0, 2.6, -L - .8); ENV.add(ban);
+  for (const x of [-4, 4]) ENV.add(mesh(new THREE.CylinderGeometry(.08, .08, 2.9, 8), poleM, x, 1.45, -L - .8));
 }
 
 /* ---------- 一本ばし ---------- */
@@ -633,9 +660,15 @@ const plankTex = canvasTex(64, 256, (g, w, h) => { g.fillStyle = '#b8814a'; g.fi
 const plankM = new THREE.MeshStandardMaterial({ map: plankTex, roughness: .85 }), postM = STD('#6a4424', { roughness: .9 });
 function buildCourse3D() {
   COURSE.traverse(o => { if (o.geometry) o.geometry.dispose(); });
-  COURSE.clear();
+  COURSE.clear(); buildEnv();
   for (const t of G.teams) {
-    for (let k = 0; k < NSEG; k++) {
+    for (let i = 1; i < G.nl; i++) {   // たすきを わたす 小島
+      const k = i * SPL, x = cx(t, k), z = -k * SEG;
+      COURSE.add(mesh(new THREE.CylinderGeometry(ISR, ISR * 1.15, 1.2, 24), rockM, x, -.62, z));
+      const top = mesh(new THREE.CylinderGeometry(ISR - .02, ISR - .02, .06, 24), grassM, x, -.01, z); COURSE.add(top);
+      const ring = new THREE.Mesh(new THREE.RingGeometry(.55, .68, 24), new THREE.MeshBasicMaterial({ color: t.T.c })); ring.rotation.x = -Math.PI / 2; ring.position.set(x, .03, z); COURSE.add(ring);
+    }
+    for (let k = 0; k < G.nseg; k++) {
       const ax = cx(t, k), az = -k * SEG, bx = cx(t, k + 1), bz = -(k + 1) * SEG, w = G.P.wid[k];
       const L = Math.hypot(bx - ax, bz - az);
       const p = mesh(new THREE.BoxGeometry(w, .14, L + .02), plankM, (ax + bx) / 2, -.07, (az + bz) / 2); p.rotation.y = Math.atan2(bx - ax, bz - az); COURSE.add(p);
@@ -691,7 +724,8 @@ function fitCam(w, h) {
 function followCam(dt) {
   const r = stage.getBoundingClientRect(); if (!r.width) return;
   let zmax = 1.5, zmin = -4;
-  if (G) { const zs = G.teams.map(t => t.r.z); zmax = Math.max(...zs) + 1.6; zmin = Math.min(...zs) - 4.5; zmin = Math.max(zmin, -LEN - 4); zmax = Math.min(zmax, 3); }
+  if (G) { let zs = G.teams.filter(t => !t.done).map(t => t.r.z); if (!zs.length) zs = [-G.len - 1]; if (Math.max(...zs) - Math.min(...zs) > 12) { const h = G.teams.filter(t => !t.done && hum(t)).map(t => t.r.z); if (h.length) zs = h; }   // はなれすぎたら プレイヤーを 見る
+    zmax = Math.max(...zs) + 1.6; zmin = Math.min(...zs) - 4.5; zmin = Math.max(zmin, -G.len - 4); zmax = Math.min(zmax, 3); }
   const zc = (zmax + zmin) / 2, sp = Math.max(6.5, zmax - zmin);
   camZ += (zc - camZ) * Math.min(1, dt * 3); camSpan += (sp - camSpan) * Math.min(1, dt * 2);
   const xw = G && G.teams.length > 1 ? 3.2 : 2.4;
@@ -730,11 +764,15 @@ function render3D(t, dt) {
       const ps = PEOPLE[T.k], r = T.r;
       for (let i = 0; i < G.nl; i++) {
         const P = ps[i];
-        if (i < T.leg || (T.done && i === G.nl - 1)) { posePerson(P, { x: T.base + (i - 1.5) * .55, z: -LEN - 2.2 - (i % 2) * .4, face: 0, cheer: 1, i }, t); continue; }   // ゴールで まっている
-        if (i > T.leg) { posePerson(P, { x: T.base + (T.base < 0 ? -1 : 1) * (.7 + (i - T.leg - 1) * .6), z: 2 + (i - T.leg) * .2, face: Math.PI, cheer: 1, i }, t); continue; }   // スタートで まっている
+        if (i < T.leg || (T.done && i === G.nl - 1)) {   // はしりおわった 人：たすきを わたした ところで おうえん
+          if (i === G.nl - 1) posePerson(P, { x: T.base, z: -G.len - 2.2, face: 0, cheer: 1, i }, t);
+          else { const k = (i + 1) * SPL; posePerson(P, { x: cx(T, k) - .5, z: -k * SEG + .35, face: Math.PI, cheer: 1, i }, t); }
+          continue;
+        }
+        if (i > T.leg) { const k = i * SPL; posePerson(P, { x: cx(T, k) + (i === T.leg + 1 ? 0 : .3), z: -k * SEG, face: 0, cheer: i === T.leg + 1 ? 1 : 0, i }, t); continue; }   // じぶんの 小島で まっている
         // はしっている 人
         const sp = Math.hypot(r.vx, r.vz) / VMAX; r.walk = (r.walk || 0) + dt * sp * 11;
-        const o = { x: r.x, z: r.z, face: r.face, walk: r.walk, sp, balance: r.z < BANK0 && r.z > BANK1, i };
+        const o = { x: r.x, z: r.z, face: r.face, walk: r.walk, sp, balance: r.z < BANK0 && r.z > -G.len, i };
         if (r.st === 'fall') {
           const ft = r.fallT, side = Math.sign(r.x - pathX(T, r.z)) || 1;
           if (ft < .45) { o.y = -ft * ft * 6; o.rz = -side * ft * 3; o.x += side * ft * .8; o.sad = 1; }
@@ -773,17 +811,21 @@ function showMenu() {
 }
 function renderMenu() {
   $('mChips').innerHTML = [[0, '🚶', 'ふつう'], [1, '🌬️🐟', 'じゃま あり']].map(([m, e, n]) => `<button data-m="${m}" class="${m === JAMA ? 'on' : ''}"><big>${e}</big>${n}</button>`).join('');
-  $('tChips').innerHTML = [['two', '🔴🔵', '2チーム'], ['cpu', '🔴🤖', 'CPUと'], ['solo', '⏱️', 'ひとりで']].map(([m, e, n]) => `<button data-v="${m}" class="${m === VS ? 'on' : ''}"><big>${e}</big>${n}</button>`).join('');
+  $('tChips').innerHTML = [[1, '⏱️', 'ひとりで（タイム）'], [2, '🔴🔵', '2チーム たいせん']].map(([m, e, n]) => `<button data-v="${m}" class="${m === NT ? 'on' : ''}"><big>${e}</big>${n}</button>`).join('');
   $('pChips').innerHTML = [1, 2, 3, 4].map(n => `<button data-n="${n}" class="${n === NL ? 'on' : ''}"><big>${'🏃'.repeat(n)}</big>${n}人</button>`).join('');
+  $('rost').innerHTML = TEAMS.slice(0, NT).map((T, k) => `<div class="rrow"><span>${NT > 1 ? T.icon : '🏃'}</span>${[0, 1, 2, 3].map(i => i < NL ? `<button data-t="${k}" data-i="${i}" class="${ROSTER[k][i] === 'h' ? 'h' : ''}"><big>${ROSTER[k][i] === 'h' ? '👤' : '🤖'}</big>${i + 1}ばん</button>` : '<span></span>').join('')}</div>`).join('');
   $('cChips').innerHTML = [1, 2, 3].map(l => `<button data-l="${l}" class="${l === CPU ? 'on' : ''}">${CPU_LV[l].n}</button>`).join('');
-  $('cpuOpts').style.display = VS === 'cpu' ? 'grid' : 'none';
-  const b = Kit.store.get(`hoso:best:${JAMA}:${NL}`, 0); $('mBest').textContent = b ? `ベスト（${JAMA ? 'じゃま あり' : 'ふつう'}・${NL}人）：${fmt(b)} びょう` : '';
+  const anyCpu = ROSTER.slice(0, NT).some(r => r.slice(0, NL).includes('c')), anyH = ROSTER.slice(0, NT).some(r => r.slice(0, NL).includes('h'));
+  $('cpuOpts').style.display = anyCpu ? 'grid' : 'none';
+  $('mStart').disabled = !anyH || !RD; $('mStart').textContent = anyH ? 'はじめる！' : '👤を 1人いじょう えらんでね';
+  const b = Kit.store.get(`hoso:best:${JAMA}:${NL}`, 0); $('mBest').textContent = b ? `ひとりで ぜんぶ はしった ベスト（${JAMA ? 'じゃま あり' : 'ふつう'}・${NL}人）：${fmt(b)} びょう` : '';
   $('mChips').querySelectorAll('button').forEach(b => b.onclick = () => { JAMA = +b.dataset.m; Kit.store.set('hoso:jama', JAMA); Kit.sfx('tap'); renderMenu(); });
-  $('tChips').querySelectorAll('button').forEach(b => b.onclick = () => { VS = b.dataset.v; Kit.store.set('hoso:vs', VS); Kit.sfx('tap'); renderMenu(); });
+  $('tChips').querySelectorAll('button').forEach(b => b.onclick = () => { NT = +b.dataset.v; Kit.store.set('hoso:nt', NT); Kit.sfx('tap'); renderMenu(); });
   $('pChips').querySelectorAll('button').forEach(b => b.onclick = () => { NL = +b.dataset.n; Kit.store.set('hoso:nl', NL); Kit.sfx('tap'); renderMenu(); });
+  $('rost').querySelectorAll('button').forEach(b => b.onclick = () => { const k = +b.dataset.t, i = +b.dataset.i; ROSTER[k][i] = ROSTER[k][i] === 'h' ? 'c' : 'h'; Kit.store.set('hoso:roster', ROSTER); Kit.sfx('tap'); renderMenu(); });
   $('cChips').querySelectorAll('button').forEach(b => b.onclick = () => { CPU = +b.dataset.l; Kit.store.set('hoso:cpu', CPU); Kit.sfx('tap'); renderMenu(); });
 }
-function startLocal() { newGame({ jama: JAMA, vs: VS, nl: NL, cpu: CPU }); }
+function startLocal() { newGame({ jama: JAMA, nt: NT, nl: NL, cpu: CPU, roster: ROSTER.map(r => r.slice()) }); }
 $('mStart').onclick = () => { Kit.sfx('tap'); Kit.audio(); startLocal(); };
 
 Kit.bar({ id: 'hosomichi', title: '🪵 一本ばし リレー', help: `
@@ -791,9 +833,9 @@ Kit.bar({ id: 'hosomichi', title: '🪵 一本ばし リレー', help: `
   <ul>
     <li>ジョイスティックを うごかした ほうへ あるく（上が おく）。キーボードは あかが WASD、あおが やじるし</li>
     <li>道から はみでると 川に ドボン！ さいごに とおった まがりかどから やりなおし</li>
-    <li>むこうの きしに ついたら バトンタッチ。つぎの 人が スタートから わたる。チーム ぜんいんが わたったら ゴール</li>
+    <li>川の とちゅうの 小島で つぎの 人が まっている。小島に ついたら たすきを わたして、つぎの 人が そこから すすむ。さいごの 人が むこうの きしに ついたら ゴール</li><li>ひとりずつ 👤プレイヤーか 🤖CPUかを えらべる。プレイヤーの ばんは ジョイスティックを わたして こうたい</li>
     <li>じゃま あり：ときどき 🌬️ かぜが ふいて よこに ながされる（やじるしが 出たら ふんばろう）。🐟 さかなが とびはねて くると ぶつかって はじかれる（川に わが 出たら ちゅうい）。道も すこし ほそめ</li>
-    <li>2チーム：ジョイスティックが 左右に 2つ。CPUと：あおチームが CPU。ひとりで：タイムに ちょうせん</li>
+    <li>2チーム：ジョイスティックが 左右に 2つ。ひとりで：タイムに ちょうせん</li>
     <li>🎤 ろくおん：じぶんの こえで セリフを とれる（ほかの ゲームで とった こえも つかえる）</li>
   </ul>` });
 showMenu(); requestAnimationFrame(frame);
