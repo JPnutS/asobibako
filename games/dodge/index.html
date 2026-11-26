@@ -286,6 +286,7 @@ function stepPlayer(p, dt) {
   }
   if (G.t < 0) { p.mv = 0; return; }
   const b = G.ball, holder = b.st === 'held' && b.owner === p;
+  if (p.windup) { if (holder) { stepWindup(p, dt); p.holdT += dt; return; } p.windup = null; }
   let mx = 0, mz = 0, spd = RUN;
   if (isHumanCtl(p)) {
     const ip = inputOf(p.tm); mx = ip.x; mz = ip.z;
@@ -386,7 +387,7 @@ function go(p, tx, tz, k) {
   }
   const dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz); if (d < .25) return { x: 0, z: 0, s: 0 }; return { x: dx / d * Math.min(1, d), z: dz / d * Math.min(1, d), s: k }; }
 function aiHolder(p) {
-  const lv = G.lv, tm = p.tm;
+  const lv = G.lv, tm = p.tm; if (p.windup) return;
   if (!p.plan) {
     const canPass = (p.inf ? outs(tm).length : outs(tm).length > 1 || alive(tm).length) > 0;
     const r = Math.random(), sp = tm.human ? .3 : lv.spP, pa = tm.human ? .2 : lv.passP;
@@ -401,13 +402,33 @@ function aiHolder(p) {
 }
 
 /* ---------- なげる・パス ---------- */
+// ねらう あいて：ちかくて、いま むいて いる ほうに いる 子
 function pickTarget(p) {
   const c = alive(opp(p.tm)).filter(q => q.st === 'ok'); if (!c.length) return null;
+  const sc = q => { let d = Math.atan2(q.x - p.x, q.z - p.z) - p.face; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU; return Math.hypot(q.x - p.x, q.z - p.z) + Math.abs(d) * 3; };
+  c.sort((a, b) => sc(a) - sc(b));
+  return c[0];
+}
+function pickRecv(p) {
+  const tm = p.tm; let c;
+  if (p.inf) c = outs(tm); else { c = outs(tm).filter(q => q !== p); if (!c.length) c = alive(tm).filter(q => q.st === 'ok'); }
+  if (!c.length) return null;
   c.sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z));
   return c[0];
 }
-function throwBall(p, special) {
-  const tg = pickTarget(p); if (!tg) return;
+// なげる まえに あいての ほうを むいて ふりかぶる（うしろむきの ままでは なげない）
+function throwBall(p, special) { if (p.windup) return; const tg = pickTarget(p); if (!tg) return; p.windup = { kind: 'throw', tg, sp: special, t: 0 }; }
+function passBall(p) { if (p.windup) return; const r = pickRecv(p); if (!r) return; p.windup = { kind: 'pass', tg: r, t: 0 }; }
+function stepWindup(p, dt) {
+  const w = p.windup, tg = w.tg;
+  if (tg.st !== 'ok' || (w.kind === 'throw' && !tg.inf)) { const n = w.kind === 'throw' ? pickTarget(p) : pickRecv(p); if (!n) { p.windup = null; return; } w.tg = n; }
+  const want = faceTo(p, w.tg.x, w.tg.z); let d = want - p.face; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU;
+  const turn = 13 * dt; p.face += Math.abs(d) < turn ? d : Math.sign(d) * turn;
+  if (w.sp && p.inf) { p.x += -p.sgn * DASH * .55 * dt; p.mv = DASH * .55; p.walkPh += dt * 14; clampPos(p); } else p.mv = 0;   // ダッシュの いきおい
+  if (Math.abs(d) < .3) w.t += dt;
+  if (w.t >= (w.kind === 'pass' ? .08 : .15)) { p.windup = null; if (w.kind === 'pass') releasePass(p, w.tg); else releaseThrow(p, w.sp, w.tg); }
+}
+function releaseThrow(p, special, tg) {
   const b = G.ball, sp = special ? p.sp : null, speed = sp ? SP[sp].v : 15;
   const fwd = Math.atan2(tg.x - p.x, tg.z - p.z);
   const from = { x: p.x + Math.sin(fwd) * .5, y: 1.25 + p.y, z: p.z + Math.cos(fwd) * .5 };
@@ -422,19 +443,15 @@ function throwBall(p, special) {
   if (sp) { banner(`${p.name}の\n${SP[sp].n}！`, 1100); if (snd()) { Kit.tone(180, .45, { type: 'sawtooth', vol: .08, slide: 1000 }); Kit.noise(.4, { vol: .08, freq: 900, filter: 'bandpass' }); } }
   else if (snd()) Kit.noise(.16, { vol: .09, freq: 1300, filter: 'bandpass' });
 }
-function passBall(p) {
-  const tm = p.tm; let c;
-  if (p.inf) c = outs(tm); else { c = outs(tm).filter(q => q !== p); if (!c.length) c = alive(tm).filter(q => q.st === 'ok'); }
-  if (!c.length) return;
-  c.sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z));
-  const r = p.inf ? c[0] : c[c.length > 1 && !c[0].inf ? 0 : 0], b = G.ball;
+function releasePass(p, r) {
+  const b = G.ball;
   const from = { x: p.x, y: 1.3 + p.y, z: p.z }, to = { x: r.x, y: 1.2, z: r.z }, dist = Math.hypot(to.x - from.x, to.z - from.z);
   Object.assign(b, { st: 'pass', live: false, owner: null, team: p.k, recv: r, from, to, t: 0, dur: Math.max(.3, dist / 13), x: from.x, y: from.y, z: from.z, sp: null });
   p.throwT = .22; p.holdT = 0; p.plan = null; p.dashing = false; p.dashT = 0;
   if (snd()) Kit.tone(520, .1, { type: 'sine', vol: .07, slide: 200 });
 }
 function holdBy(p) {
-  const b = G.ball; b.st = 'held'; b.owner = p; b.live = false; b.sp = null; b.team = p.k; p.holdT = 0; p.plan = null; p.dashT = 0;
+  const b = G.ball; b.st = 'held'; b.owner = p; b.live = false; b.sp = null; b.team = p.k; p.holdT = 0; p.plan = null; p.dashT = 0; p.windup = null;
 }
 
 /* ---------- ボール ---------- */
@@ -447,6 +464,10 @@ function stepBall(dt) {
   if (b.st === 'pass') {
     b.t += dt; const k = Math.min(1, b.t / b.dur);
     b.x = b.from.x + (b.to.x - b.from.x) * k; b.z = b.from.z + (b.to.z - b.from.z) * k; b.y = b.from.y + (b.to.y - b.from.y) * k + Math.sin(k * Math.PI) * 2.2;
+    if (b.t > .1) for (const q of G.ps) {   // あいての パスは とおり みちに いたら とっちゃう
+      if (q.k === b.team || q.st !== 'ok' || Math.hypot(q.x - b.x, q.z - b.z) > .7 || b.y > q.y + 2.4) continue;
+      holdBy(q); G.stats[q.k].catch++; banner('パスカット！', 800); fx('catch', q.x, 1.4, q.z); if (snd()) { Kit.tone(660, .07, { type: 'square', vol: .1 }); Kit.tone(990, .1, { type: 'square', vol: .1, delay: .06 }); } return;
+    }
     const r = b.recv;
     if (r.st === 'ok' && Math.hypot(r.x - b.x, r.z - b.z) < .9 && k > .5) { holdBy(r); if (snd()) Kit.tone(700, .06, { type: 'triangle', vol: .08 }); return; }
     if (k >= 1) { b.st = 'loose'; b.vx = (b.to.x - b.from.x) / b.dur * .4; b.vz = (b.to.z - b.from.z) / b.dur * .4; b.vy = -2; }
@@ -784,6 +805,7 @@ function posePerson(P, p, t) {
   P.arms.forEach((a, s) => {
     let rx = (s ? -sw : sw) * .8, rz = (s ? 1 : -1) * .2;
     if (catching) { rx = -1.45; rz = (s ? -1 : 1) * .25; }
+    else if (s === 1 && p.windup) rx = 1.2 + Math.min(1, p.windup.t / .15) * 1.3;
     else if (s === 1 && p.throwT > 0) { const k = 1 - p.throwT / .28; rx = 2.4 - 4 * k; }
     else if (s === 1 && hold) rx = p.dashing ? 2.2 : -1.2;
     else if (p.y > .05) { rx = -2.4; rz = (s ? 1 : -1) * .5; }
