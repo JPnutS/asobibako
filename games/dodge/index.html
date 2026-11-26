@@ -347,6 +347,7 @@ function aiMove(p, dt) {
     }
     return { x: 0, z: 0, s: 0 };
   }
+  if (b.st === 'pass' && b.recv === p) return go(p, b.to.x, b.to.z, spdK);   // パスを うけに いく
   // ころがって いる ボールを ひろいに いく（いちばん ちかい 子）
   if (b.st === 'loose') {
     const zn = zoneOf(b.x, b.z);
@@ -389,9 +390,10 @@ function go(p, tx, tz, k) {
 function aiHolder(p) {
   const lv = G.lv, tm = p.tm; if (p.windup) return;
   if (!p.plan) {
-    const canPass = (p.inf ? outs(tm).length : outs(tm).length > 1 || alive(tm).length) > 0;
+    const canPass = G.ps.some(q => q.tm === tm && q !== p && q.st === 'ok');
     const r = Math.random(), sp = tm.human ? .3 : lv.spP, pa = tm.human ? .2 : lv.passP;
     p.plan = canPass && r < pa ? 'pass' : r < pa + sp ? 'special' : 'throw';
+    if (p.plan === 'pass') { const c = G.ps.filter(q => q.tm === tm && q !== p && q.st === 'ok'); p.passTo = c.length ? c[Math.floor(Math.random() * c.length)] : null; }
     p.wait = (tm.human ? .9 : lv.hold) * rnd(.7, 1.3);
     const tg = pickTarget(p); if (tg) { p.tx = tg.x; p.tz = tg.z; }
     p.dashT = 0;
@@ -409,16 +411,16 @@ function pickTarget(p) {
   c.sort((a, b) => sc(a) - sc(b));
   return c[0];
 }
+// パスの あいて：内野・外野の なかま ぜんぶから、むいて いる ほうに いる 子
 function pickRecv(p) {
-  const tm = p.tm; let c;
-  if (p.inf) c = outs(tm); else { c = outs(tm).filter(q => q !== p); if (!c.length) c = alive(tm).filter(q => q.st === 'ok'); }
-  if (!c.length) return null;
-  c.sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z));
+  const c = G.ps.filter(q => q.tm === p.tm && q !== p && q.st === 'ok'); if (!c.length) return null;
+  const sc = q => { let d = Math.atan2(q.x - p.x, q.z - p.z) - p.face; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU; return Math.abs(d) * 4 + Math.hypot(q.x - p.x, q.z - p.z) * .15; };
+  c.sort((a, b) => sc(a) - sc(b));
   return c[0];
 }
 // なげる まえに あいての ほうを むいて ふりかぶる（うしろむきの ままでは なげない）
 function throwBall(p, special) { if (p.windup) return; const tg = pickTarget(p); if (!tg) return; p.windup = { kind: 'throw', tg, sp: special, t: 0 }; }
-function passBall(p) { if (p.windup) return; const r = pickRecv(p); if (!r) return; p.windup = { kind: 'pass', tg: r, t: 0 }; }
+function passBall(p) { if (p.windup) return; const r = !p.tm.human && p.passTo && p.passTo.st === 'ok' ? p.passTo : pickRecv(p); p.passTo = null; if (!r) return; p.windup = { kind: 'pass', tg: r, t: 0 }; }
 function stepWindup(p, dt) {
   const w = p.windup, tg = w.tg;
   if (tg.st !== 'ok' || (w.kind === 'throw' && !tg.inf)) { const n = w.kind === 'throw' ? pickTarget(p) : pickRecv(p); if (!n) { p.windup = null; return; } w.tg = n; }
@@ -446,7 +448,7 @@ function releaseThrow(p, special, tg) {
 function releasePass(p, r) {
   const b = G.ball;
   const from = { x: p.x, y: 1.3 + p.y, z: p.z }, to = { x: r.x, y: 1.2, z: r.z }, dist = Math.hypot(to.x - from.x, to.z - from.z);
-  Object.assign(b, { st: 'pass', live: false, owner: null, team: p.k, recv: r, from, to, t: 0, dur: Math.max(.3, dist / 13), x: from.x, y: from.y, z: from.z, sp: null });
+  Object.assign(b, { st: 'pass', live: false, owner: null, team: p.k, recv: r, from, to, t: 0, dur: Math.max(.3, dist / 13), arc: 1.4 + dist * .2, x: from.x, y: from.y, z: from.z, sp: null });
   p.throwT = .22; p.holdT = 0; p.plan = null; p.dashing = false; p.dashT = 0;
   if (snd()) Kit.tone(520, .1, { type: 'sine', vol: .07, slide: 200 });
 }
@@ -463,7 +465,7 @@ function stepBall(dt) {
   }
   if (b.st === 'pass') {
     b.t += dt; const k = Math.min(1, b.t / b.dur);
-    b.x = b.from.x + (b.to.x - b.from.x) * k; b.z = b.from.z + (b.to.z - b.from.z) * k; b.y = b.from.y + (b.to.y - b.from.y) * k + Math.sin(k * Math.PI) * 2.2;
+    b.x = b.from.x + (b.to.x - b.from.x) * k; b.z = b.from.z + (b.to.z - b.from.z) * k; b.y = b.from.y + (b.to.y - b.from.y) * k + Math.sin(k * Math.PI) * b.arc;
     if (b.t > .1) for (const q of G.ps) {   // あいての パスは とおり みちに いたら とっちゃう
       if (q.k === b.team || q.st !== 'ok' || Math.hypot(q.x - b.x, q.z - b.z) > .7 || b.y > q.y + 2.4) continue;
       holdBy(q); G.stats[q.k].catch++; banner('パスカット！', 800); fx('catch', q.x, 1.4, q.z); if (snd()) { Kit.tone(660, .07, { type: 'square', vol: .1 }); Kit.tone(990, .1, { type: 'square', vol: .1, delay: .06 }); } return;
@@ -864,7 +866,7 @@ Kit.bar({ id: 'dodge', title: '🏐 ドッジボール たいけつ', help: `
   <p>あかチームと あおチームの ドッジボール！ 1チーム 4人（内野 3人・外野 1人）。あいての 内野を ぜんいん 外野に したら かち。</p>
   <ul>
     <li>ジョイスティックで はしる。うごかす 子は ボールに ちかい 子に じどうで きりかわる（▼と わが ついて いる 子）</li>
-    <li>ボールを もって いる とき：🏐なげる（いちばん ちかい あいてを ねらう）・🤝パス（内野⇔外野）</li>
+    <li>ボールを もって いる とき：🏐なげる（むいて いる ほうの あいてを ねらう）・🤝パス（ジョイスティックを むけた ほうの なかまへ。内野どうし・外野へ どちらも OK）</li>
     <li>🔥ひっさつ シュート：ボールを もって あいての ほうへ はしり（ダッシュ）、そのまま なげる。ロケット・なみなみ・ジグザグ・ドロップの 4しゅるい。キャッチ しにくい</li>
     <li>もって いない とき：🧤キャッチは ボールが とどく しゅんかんに おす。⤴️ジャンプで よけられる（ドロップは よけられない）</li>
     <li>あたったら 外野へ。外野から あいてに あてると 内野に もどれる（外野が もう ひとり いる とき）</li>
