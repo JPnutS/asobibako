@@ -109,15 +109,13 @@
   <div class="nogl" id="noGL" hidden>3Dが うごかないよ。アプリを とじて ひらきなおしてね</div>
   <div class="over" id="menuOv"><div class="card">
     <h2>ドッジボール たいけつ</h2>
-    <p>あかチームと あおチームの ドッジボール！ ボールを あてて、あいての 内野を ぜんいん 外野に したら かち。</p>
+    <p>てまえが じぶんの あかチーム、おくが CPUの あおチーム！ ボールを あてて、あいての 内野を ぜんいん 外野に したら かち。</p>
     <ul class="how">
       <li>ジョイスティックで はしる。ボールに ちかい 子に じどうで きりかわるよ</li>
       <li>ボールを もって いる とき：🏐なげる・🤝パス。あいての ほうへ はしって なげると 🔥ひっさつ シュート！</li>
       <li>もって いない とき：🧤キャッチ（ボールが くる しゅんかんに）・⤴️ジャンプで よける</li>
       <li>あたったら 外野へ。外野から あてると 内野に もどれる</li>
     </ul>
-    <div class="lbl">だれと あそぶ？</div>
-    <div class="chips c2" id="mChips"></div>
     <div id="cpuOpts" style="display:grid;gap:10px"><div class="lbl">CPUの つよさ</div><div class="chips" id="cChips" style="grid-template-columns:repeat(3,1fr)"></div></div>
     <div class="best" id="mBest"></div>
     <button class="btn main" id="mStart">しあい かいし！</button>
@@ -161,7 +159,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 /* ---------- じょうたい ---------- */
 let G = null;
-let MODE = Kit.store.get('dodge:mode', 'cpu'), CPU = Kit.store.get('dodge:cpu', 2);
+let MODE = 'cpu', CPU = Kit.store.get('dodge:cpu', 2);
 function newGame(cfg) {
   const mode = cfg.mode, auto = !!cfg.auto;
   G = { mode, auto, lv: CPU_LV[cfg.cpu || 2], lvN: cfg.cpu || 2, t: -2.6, lastCd: 4, over: false, acc: 0, ff: cfg.ff || 1, ps: [], stats: [{ out: 0, catch: 0 }, { out: 0, catch: 0 }], ballOwnerT: 0,
@@ -236,7 +234,7 @@ function inputOf(tm) {
   if (kx || ky) { x = kx; y = ky; }
   if (G.mode === 'cpu' && tm.k === 0) { const a = (KEYS.has('ArrowRight') ? 1 : 0) - (KEYS.has('ArrowLeft') ? 1 : 0), b = (KEYS.has('ArrowDown') ? 1 : 0) - (KEYS.has('ArrowUp') ? 1 : 0); if (a || b) { x = a; y = b; } }
   const d = Math.hypot(x, y); if (d > 1) { x /= d; y /= d; }
-  return { x, z: y };
+  return { x: -y, z: x };   // カメラは あかチームの うしろ：がめんの 上 ＝ あいての ほう（+x）
 }
 
 /* ---------- だれを うごかすか（ボールに ちかい 子に じどうで きりかえ） ---------- */
@@ -708,11 +706,11 @@ const woodTex = canvasTex(512, 512, (g, w, h) => {
     g.fillStyle = '#fff'; g.font = '900 38px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('ファイト！', 280, 150); g.fillText('ファイト！', 744, 150);
   });
   wallTex.wrapS = wallTex.wrapT = THREE.ClampToEdgeWrapping;
-  const back = new THREE.Mesh(new THREE.PlaneGeometry(40, 10), new THREE.MeshStandardMaterial({ map: wallTex, roughness: .9 })); back.position.set(0, 5, -11); scene.add(back);
+  const back = new THREE.Mesh(new THREE.PlaneGeometry(40, 10), new THREE.MeshStandardMaterial({ map: wallTex, roughness: .9 })); back.position.set(21, 5, 0); back.rotation.y = -Math.PI / 2; scene.add(back);
   const sideM = STD('#efdcb8', { roughness: .95 });
-  [-1, 1].forEach(s => { const w = new THREE.Mesh(new THREE.PlaneGeometry(30, 10), sideM); w.position.set(s * 20, 5, 0); w.rotation.y = -s * Math.PI / 2; scene.add(w); });
+  [-1, 1].forEach(s => { const w = new THREE.Mesh(new THREE.PlaneGeometry(50, 10), sideM); w.position.set(0, 5, s * 13); w.rotation.y = s > 0 ? Math.PI : 0; scene.add(w); });
   // バスケットの ゴール（かざり）
-  [-1, 1].forEach(s => { const bd = mesh(new THREE.BoxGeometry(1.8, 1.1, .08), STD('#ffffff'), s * 15.5, 5.2, -10.8); scene.add(bd); const rim = mesh(new THREE.TorusGeometry(.32, .04, 6, 16), STD('#ff6a1a'), s * 15.5, 4.6, -10.4); rim.rotation.x = Math.PI / 2; scene.add(rim); });
+  [-1, 1].forEach(s => { const bd = mesh(new THREE.BoxGeometry(1.8, 1.1, .08), STD('#ffffff'), 20.8, 5.2, s * 9); bd.rotation.y = Math.PI / 2; scene.add(bd); const rim = mesh(new THREE.TorusGeometry(.32, .04, 6, 16), STD('#ff6a1a'), 20.4, 4.6, s * 9); rim.rotation.x = Math.PI / 2; scene.add(rim); });
 }
 
 /* ---------- キャラクター ---------- */
@@ -758,18 +756,19 @@ const dust = Array.from({ length: 30 }, () => { const m = new THREE.Mesh(SPH(1, 
 let dustI = 0;
 
 /* ---------- カメラ ---------- */
-const EL = 38 * D2R, camT = new THREE.Vector3(0, .6, .6);
-const FITP = [[-12.3, 0, -7], [12.3, 0, -7], [-12.3, 0, 6.9], [12.3, 0, 6.9], [-12, 3, -7], [12, 3, -7], [0, 3, -7]].map(a => new THREE.Vector3(...a));
+let EL = 30 * D2R; const camT = new THREE.Vector3(1.5, .6, 0);
+const FITP = [[-10.8, 0, -5.6], [-10.8, 0, 5.6], [12, 0, -6.4], [12, 0, 6.4], [12, 3.2, -6.4], [12, 3.2, 6.4], [-11.6, 0, 0]].map(a => new THREE.Vector3(...a));
 const _v = new THREE.Vector3();
 function fitCam(w, h) {
   if (!RD) return;
   RD.setPixelRatio(Math.min(1.5, devicePixelRatio || 1)); RD.setSize(w, h, false);
-  cam.aspect = w / h; cam.fov = w < h ? 50 : 34; cam.updateProjectionMatrix();
-  const top = 1 - 2 * topPad / h, bot = -1 + 2 * botPad / h * .55;
+  cam.aspect = w / h; cam.fov = w < h ? 58 : 42; cam.updateProjectionMatrix();
+  const land = w > h; EL = (land ? 22 : 30) * D2R;
+  const top = 1 - 2 * topPad / h, bot = land ? -.98 : -1 + 2 * botPad / h * .55, pts = land ? FITP.slice(0, 6) : FITP;
   let d = 10;
   for (; d < 120; d += .25) {
-    cam.position.set(camT.x, camT.y + Math.sin(EL) * d, camT.z + Math.cos(EL) * d); cam.lookAt(camT); cam.updateMatrixWorld();
-    if (FITP.every(p => { _v.copy(p).project(cam); return Math.abs(_v.x) < .99 && _v.y < top && _v.y > bot; })) break;
+    cam.position.set(camT.x - Math.cos(EL) * d, camT.y + Math.sin(EL) * d, camT.z); cam.lookAt(camT); cam.updateMatrixWorld();
+    if (pts.every(p => { _v.copy(p).project(cam); return Math.abs(_v.x) < .99 && _v.y < top && _v.y > bot; })) break;
   }
 }
 
@@ -830,12 +829,10 @@ function showMenu() {
   renderMenu(); $('menuOv').hidden = false; layout();
 }
 function renderMenu() {
-  $('mChips').innerHTML = [['cpu', '🔴🤖', 'CPUと たいせん'], ['two', '🔴🔵', '2人で たいせん']].map(([m, e, n]) => `<button data-m="${m}" class="${m === MODE ? 'on' : ''}"><big>${e}</big>${n}</button>`).join('');
   $('cChips').innerHTML = [1, 2, 3].map(l => `<button data-l="${l}" class="${l === CPU ? 'on' : ''}">${CPU_LV[l].n}</button>`).join('');
   $('cpuOpts').style.display = MODE === 'cpu' ? 'grid' : 'none';
   const w = [1, 2, 3].map(l => Kit.store.get(`dodge:win:${l}`, 0));
   $('mBest').textContent = MODE === 'cpu' && w.some(x => x) ? `かった かず：${[1, 2, 3].map(l => `${CPU_LV[l].n} ${w[l - 1]}`).join('・')}` : MODE === 'two' ? '2人の ときは スマホを よこに して、左と右で もってね' : '';
-  $('mChips').querySelectorAll('button').forEach(b => b.onclick = () => { MODE = b.dataset.m; Kit.store.set('dodge:mode', MODE); Kit.sfx('tap'); renderMenu(); });
   $('cChips').querySelectorAll('button').forEach(b => b.onclick = () => { CPU = +b.dataset.l; Kit.store.set('dodge:cpu', CPU); Kit.sfx('tap'); renderMenu(); });
 }
 function startLocal() { newGame({ mode: MODE, cpu: CPU }); }
@@ -849,7 +846,7 @@ Kit.bar({ id: 'dodge', title: '🏐 ドッジボール たいけつ', help: `
     <li>🔥ひっさつ シュート：ボールを もって あいての ほうへ はしり（ダッシュ）、そのまま なげる。ロケット・なみなみ・ジグザグ・ドロップの 4しゅるい。キャッチ しにくい</li>
     <li>もって いない とき：🧤キャッチは ボールが とどく しゅんかんに おす。⤴️ジャンプで よけられる（ドロップは よけられない）</li>
     <li>あたったら 外野へ。外野から あいてに あてると 内野に もどれる（外野が もう ひとり いる とき）</li>
-    <li>2人で：スマホを よこに して、左が あか・右が あお。キーボードは あかが WASD＋F（なげる）G（パス）、あおが やじるし＋L（なげる）;（パス）</li>
+    <li>じぶんは てまえの あかチーム、おくが CPUの あおチーム。ジョイスティックの 上が あいての ほう。キーボードは WASD か やじるし＋スペース（なげる）・K（パス）</li>
   </ul>` });
 showMenu(); requestAnimationFrame(frame);
 if (!RD) { $('noGL').hidden = false; $('mStart').disabled = true; }
