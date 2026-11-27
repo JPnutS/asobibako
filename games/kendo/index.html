@@ -15,14 +15,6 @@
   .hud { position: absolute; left: 0; right: 0; top: 8px; display: flex; justify-content: space-between; align-items: center; padding: 0 12px; z-index: 3; pointer-events: none; font: 400 1.5rem 'Dela Gothic One', sans-serif; color: #fff; -webkit-text-stroke: 1.5px #3a1a00; }
   .hud small { font: 900 .8rem 'Zen Maru Gothic', sans-serif; -webkit-text-stroke: 0; display: block; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
   .hud[hidden] { display: none; }
-  .pad { position: absolute; left: 0; right: 0; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 4; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 0 12px; }
-  .pad[hidden] { display: none; }
-  .pad button { appearance: none; height: 96px; border: 4px solid #fff; border-radius: 22px; color: #fff; font: 400 1.5rem 'Dela Gothic One', sans-serif; box-shadow: 0 6px 0 rgba(0,0,0,.35); display: flex; flex-direction: column; align-items: center; justify-content: center; touch-action: none; cursor: pointer; transition: transform .15s; }
-  .pad button big { font-size: 1.9rem; line-height: 1; }
-  .pad button.down { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,.35); filter: brightness(.9); }
-  .pad .men { background: linear-gradient(160deg, #ff5a4a, #c0281e); }
-  .pad .kote { background: linear-gradient(160deg, #3fa8ff, #1f64c8); }
-  .pad .dou { background: linear-gradient(160deg, #3fc860, #1f8a3a); }
   .over { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; padding: 14px; overflow: auto; background: rgba(30,15,0,.5); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
   .over[hidden] { display: none; }
   .card { width: min(420px, 100%); background: #fffaf0; color: #3a2a1a; border-radius: 26px; padding: 18px 16px; display: grid; gap: 10px; box-shadow: 0 20px 50px rgba(0,0,0,.4); }
@@ -43,19 +35,15 @@
 <div class="stage" id="stage">
   <canvas id="cv"></canvas>
   <div class="hud" id="hud" hidden><div id="hL"></div><div id="hR" style="text-align:right"></div></div>
-  <div class="pad" id="pad" hidden>
-    <button class="men" data-k="men"><big>🪖</big>メン</button>
-    <button class="kote" data-k="kote"><big>🧤</big>コテ</button>
-    <button class="dou" data-k="dou"><big>🛡️</big>ドウ</button>
-  </div>
   <div class="over" id="menuOv"><div class="card">
     <h2>メン！コテ！ドウ！</h2>
-    <p>どうじょうに つぎつぎ あらわれる ヘンな あいてと しあい！ スキを みつけて いっぽん とろう。</p>
+    <p>どうじょうに つぎつぎ あらわれる ヘンな あいてと しあい！ <b>もちもの</b> を みて、どこを うつか きめよう。</p>
     <ul class="how">
-      <li>あいてに <b>ひかる わ</b> が でたら スキあり！ あたま＝メン、て＝コテ、おなか＝ドウ の ボタンを すばやく おす</li>
-      <li>まちがえたり、おそかったり すると いたっ！ ❤️が へる。❤️が なくなったら おわり</li>
-      <li><b style="color:#a050e0">むらさきの わ</b> は フェイント。おしちゃ ダメ！</li>
-      <li>ときどき へんな ことが おきるよ…</li>
+      <li>あたまに なにか のってる → <b>メン</b>：あたまの うえを <b>上から 下へ</b> シュッ</li>
+      <li>てに なにか もってる → <b>コテ</b>：その てを <b>上から 下へ</b> シュッ</li>
+      <li>おなかで かかえてる → <b>ドウ</b>：おなかを <b>よこに</b> シュッ</li>
+      <li><b>🙇 おじぎ</b> してる 子は うっちゃ ダメ！ がまん</li>
+      <li>まちがえたり、にげられたり すると ❤️が へる。ときどき へんな ことが おきるよ…</li>
     </ul>
     <div class="best" id="mBest"></div>
     <button class="btn main" id="mStart">はじめ！</button>
@@ -70,81 +58,106 @@ const stage = $('stage'), cv = $('cv'), cx = cv.getContext('2d');
 const snd = () => Kit.settings.sound;
 const TAU = Math.PI * 2, rnd = (a, b) => a + Math.random() * (b - a), pick = a => a[Math.floor(Math.random() * a.length)];
 
-/* ---------- あいて（ぜんぶ オリジナルの ヘンな ひとたち） ---------- */
+/* ---------- あいて：もちものを みて うつ ばしょを きめる ---------- */
+// part：men＝あたまの うえ、kote＝て に もって いる、dou＝おなかで かかえて いる、rei＝おじぎ（うたない！）
 const FOES = [
-  { e: '🐱', n: 'ねこ', r: '3だん' }, { e: '🥬', n: 'はくさい', r: 'しょだん' }, { e: '🤖', n: 'そうじロボ', r: '5だん' }, { e: '🐧', n: 'ペンギン', r: '2だん' },
-  { e: '👴', n: 'となりの おじいちゃん', r: '8だん' }, { e: '🍙', n: 'おにぎり（しゃけ）', r: '1きゅう' }, { e: '🐙', n: 'たこ', r: '6だん' }, { e: '🦖', n: 'きょうりゅう', r: '7だん' },
-  { e: '🐸', n: 'かえる', r: '2きゅう' }, { e: '🍌', n: 'バナナ', r: '4だん' }, { e: '🦀', n: 'かに', r: '3だん' }, { e: '🍮', n: 'プリン', r: '9だん' },
-  { e: '🐔', n: 'にわとり', r: 'しょだん' }, { e: '👻', n: 'おばけ', r: '？だん' }, { e: '🍣', n: 'まぐろの おすし', r: '5だん' }, { e: '🐼', n: 'パンダ', r: '4だん' },
-  { e: '🥚', n: 'たまご', r: '10きゅう' }, { e: '🦆', n: 'あひる', r: '2だん' }, { e: '🍓', n: 'いちご', r: '3だん' }, { e: '🐻', n: 'くま', r: '6だん' },
-  { e: '🧅', n: 'たまねぎ', r: 'しょだん' }, { e: '🐷', n: 'ぶた', r: '2だん' }, { e: '🦑', n: 'いか', r: '5だん' }, { e: '⛄', n: 'ゆきだるま', r: '1だん' },
+  { h: '🐱', i: '👑', n: 'おうさまに なりたい ねこ', p: 'men', c: '#ffcc33' }, { h: '👨', i: '🎩', n: 'てじなしの おじさん', p: 'men', c: '#333a55' },
+  { h: '🐧', i: '🍎', n: 'りんごを のせた ペンギン', p: 'men', c: '#3a4a6a' }, { h: '👴', i: '🐦', n: 'あたまに とりの す おじいちゃん', p: 'men', c: '#8a6a4a' },
+  { h: '🐻', i: '🎂', n: 'ケーキを のせた くま', p: 'men', c: '#c07a3a' }, { h: '🤖', i: '🍮', n: 'プリンを のせた ロボ', p: 'men', c: '#9aa6b8' },
+  { h: '🐸', i: '🌵', n: 'サボテンあたまの かえる', p: 'men', c: '#3a9a4a' }, { h: '🐷', i: '🎀', n: 'でっかい リボンの ぶた', p: 'men', c: '#ff8ab0' },
+  { h: '🧒', i: '🍦', n: 'アイスを なめる こども', p: 'kote', c: '#3fa8ff' }, { h: '🐼', i: '📱', n: 'スマホに むちゅうの パンダ', p: 'kote', c: '#555' },
+  { h: '😼', i: '🐟', n: 'さかなを ぬすんだ ねこ', p: 'kote', c: '#e07a2a' }, { h: '🐙', i: '🍩', n: 'ドーナツを もった たこ', p: 'kote', c: '#ff6a6a' },
+  { h: '🐘', i: '🎈', n: 'ふうせんを もった ゾウ', p: 'kote', c: '#8a9ab8' }, { h: '🦖', i: '🍗', n: 'チキンを もった きょうりゅう', p: 'kote', c: '#4a9a3a' },
+  { h: '🐔', i: '🔔', n: 'ベルを ならす にわとり', p: 'kote', c: '#ffffff' }, { h: '👻', i: '🍭', n: 'キャンディを なめる おばけ', p: 'kote', c: '#e8e8ff' },
+  { h: '🦝', i: '🥁', n: 'たいこを かかえた たぬき', p: 'dou', c: '#8a5a3a' }, { h: '🦍', i: '🍉', n: 'すいかを かかえた ゴリラ', p: 'dou', c: '#444' },
+  { h: '🎅', i: '🎁', n: 'プレゼントを かかえた サンタ', p: 'dou', c: '#d0281e' }, { h: '🦆', i: '🐣', n: 'ひよこを だっこした あひる', p: 'dou', c: '#ffd23a' },
+  { h: '🐭', i: '🍕', n: 'ピザを かかえた ねずみ', p: 'dou', c: '#aaa' }, { h: '🐰', i: '🏀', n: 'ボールを かかえた うさぎ', p: 'dou', c: '#ffb0c8' },
+  { h: '👹', i: '🧸', n: 'ぬいぐるみを だいた おに', p: 'dou', c: '#d03a3a' }, { h: '🦁', i: '🍙', n: 'おにぎりを かかえた ライオン', p: 'dou', c: '#d09a3a' },
 ];
+const REI = [{ h: '👦', n: 'れいぎ ただしい しょうねん' }, { h: '🐶', n: 'れいぎ ただしい いぬ' }, { h: '👵', n: 'れいぎ ただしい おばあちゃん' }, { h: '🐨', n: 'れいぎ ただしい コアラ' }];
 const PARTS = ['men', 'kote', 'dou'], PN = { men: 'メーン！', kote: 'コテー！', dou: 'ドーウ！' };
 const EVENTS = [
-  { k: 'shuffle', t: 'ねこが ボタンを いれかえた！' }, { k: 'giant', t: 'でっかい あいてが きた！' }, { k: 'tiny', t: 'ちっちゃくて すばしっこい！' },
-  { k: 'spin', t: 'どうじょうが まわりだした！' }, { k: 'double', t: '2人 いっぺんに きた！' }, { k: 'dark', t: 'でんきが チカチカ…' },
+  { k: 'giant', t: 'でっかい あいてが きた！' }, { k: 'tiny', t: 'ちっちゃくて すばしっこい！' }, { k: 'spin', t: 'どうじょうが まわりだした！' },
+  { k: 'double', t: '2人 いっぺんに きた！' }, { k: 'dark', t: 'でんきが チカチカ…' }, { k: 'fast', t: 'みんな せっかち！' },
 ];
 
 /* ---------- じょうたい ---------- */
 let G = null, W = 0, H = 0, DPR = 1;
 function newGame() {
-  G = { t: 0, score: 0, life: 3, combo: 0, maxCombo: 0, n: 0, foes: [], phase: 'intro', pt: 0, ev: null, evLeft: 0, shake: 0, flash: 0, fx: [], swing: null, gal: [], order: PARTS.slice() };
-  $('menuOv').hidden = true; $('resOv').hidden = true; $('pad').hidden = false; $('hud').hidden = false;
-  applyOrder(); nextFoe(); hud(); Kit.audio();
+  G = { t: 0, score: 0, life: 3, combo: 0, maxCombo: 0, n: 0, foes: [], ev: null, evLeft: 0, shake: 0, flash: 0, swing: null, gal: [], trail: [] };
+  $('menuOv').hidden = true; $('resOv').hidden = true; $('hud').hidden = false;
+  nextFoe(); hud(); Kit.audio();
   say('はじめ！', '#fff', 1);
 }
-const win = () => Math.max(.42, 1.2 - G.n * .03) * (G.ev && G.ev.k === 'tiny' ? .9 : 1);
+const win = () => Math.max(.85, 2.0 - G.n * .035) * (G.ev && G.ev.k === 'fast' ? .65 : 1);
 function nextFoe() {
   G.n++;
-  // じけん：6人目から ときどき
-  if (G.evLeft > 0) G.evLeft--; else { G.ev = null; if (G.order.join() !== PARTS.join()) { G.order = PARTS.slice(); applyOrder(); } }
-  if (!G.ev && G.n >= 6 && Math.random() < .3) { G.ev = pick(EVENTS); G.evLeft = G.ev.k === 'double' ? 0 : 2; banner(G.ev.t); if (G.ev.k === 'shuffle') { do { G.order = Kit.shuffle(PARTS.slice()); } while (G.order.join() === PARTS.join()); applyOrder(); } if (snd()) Kit.tone(300, .3, { type: 'sawtooth', vol: .08, slide: -200 }); }
-  const k = G.ev ? G.ev.k : '';
-  const cnt = k === 'double' ? 2 : 1;
+  if (G.evLeft > 0) G.evLeft--; else G.ev = null;
+  if (!G.ev && G.n >= 6 && Math.random() < .3) { G.ev = pick(EVENTS); G.evLeft = G.ev.k === 'double' ? 0 : 2; banner(G.ev.t); if (snd()) Kit.tone(300, .3, { type: 'sawtooth', vol: .08, slide: -200 }); }
+  const k = G.ev ? G.ev.k : '', cnt = k === 'double' ? 2 : 1;
   G.foes = [];
   for (let i = 0; i < cnt; i++) {
-    const f = pick(FOES);
-    G.foes.push({ f, x: cnt === 1 ? 0 : (i ? .26 : -.26), s: k === 'giant' ? 1.55 : k === 'tiny' ? .5 : cnt === 2 ? .62 : 1, st: 'enter', t: 0, part: null, feint: false, wait: rnd(.5, 1.4), pose: 'kamae', fly: 0, wob: rnd(0, 6) });
+    const rei = G.n >= 3 && Math.random() < .14 && cnt === 1, f = rei ? Object.assign({ p: 'rei', c: '#f5f5f5', i: '' }, pick(REI)) : pick(FOES);
+    G.foes.push({ f, x: cnt === 1 ? 0 : (i ? .25 : -.25), s: k === 'giant' ? 1.45 : k === 'tiny' ? .55 : cnt === 2 ? .62 : 1, st: 'enter', t: 0, side: Math.random() < .5 ? -1 : 1, fly: 0, wob: rnd(0, 6), dur: win() * (cnt === 2 ? 1.3 : 1) });
   }
   G.cur = 0;
-  G.label = `${G.n}人め：${G.foes.map(o => o.f.n + ' ' + o.f.r).join(' と ')}`;
+  G.label = G.foes.map(o => o.f.n).join(' と ');
 }
-function applyOrder() { const pad = $('pad'); G.order.forEach(k => pad.appendChild(pad.querySelector(`[data-k="${k}"]`))); }
 
-/* ---------- そうさ ---------- */
-function press(k) {
-  if (!G || G.over) return;
-  const o = G.foes[G.cur]; if (!o) return;
-  const tx = o.st === 'open' ? target(o, k) : target(o, k);
-  G.swing = { k, t: 0, x: tx.x, y: tx.y };
-  if (snd()) Kit.noise(.08, { vol: .1, freq: 2500, filter: 'highpass' });
-  if (o.st === 'open' && !o.feint && o.part === k) ippon(o, k);
-  else miss(o.st === 'open' && o.feint ? 'フェイントに ひっかかった！' : o.st === 'open' ? 'そこじゃない！' : 'まだ スキが ないよ！');
+/* ---------- スワイプ ---------- */
+// メン：あたまの うえで 上から下へ ／ コテ：もって いる てで 上から下へ ／ ドウ：おなかを よこに
+let sw = null;
+const spinA = () => G && G.ev && G.ev.k === 'spin' ? Math.sin(performance.now() / 1000 * 1.6) * .35 : 0;
+function toWorld(px, py) { const a = -spinA(); if (!a) return [px, py]; const dx = px - W / 2, dy = py - H / 2; return [W / 2 + dx * Math.cos(a) - dy * Math.sin(a), H / 2 + dx * Math.sin(a) + dy * Math.cos(a)]; }
+stage.addEventListener('pointerdown', e => { if (!G || G.over || e.target !== cv) return; e.preventDefault(); const r = cv.getBoundingClientRect(); sw = { id: e.pointerId, pts: [toWorld(e.clientX - r.left, e.clientY - r.top)], t0: performance.now() }; cv.setPointerCapture(e.pointerId); });
+stage.addEventListener('pointermove', e => { if (!sw || e.pointerId !== sw.id) return; const r = cv.getBoundingClientRect(); const p = toWorld(e.clientX - r.left, e.clientY - r.top); sw.pts.push(p); G.trail.push({ x: p[0], y: p[1], t: 0 }); const a = sw.pts[0]; if (Math.hypot(p[0] - a[0], p[1] - a[1]) > Math.min(W, H) * .2) endSwipe(); });
+const endUp = e => { if (sw && e.pointerId === sw.id) endSwipe(); };
+stage.addEventListener('pointerup', endUp); stage.addEventListener('pointercancel', () => { sw = null; });
+function endSwipe() {
+  const s = sw; sw = null; if (!s || s.pts.length < 2) return;
+  const a = s.pts[0], b = s.pts[s.pts.length - 1], dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
+  if (len < 30) return;   // みじかすぎる タップは むし
+  const dir = dy > Math.abs(dx) * .6 ? 'down' : Math.abs(dx) > Math.abs(dy) * 1.2 ? 'side' : dy < -Math.abs(dx) * .6 ? 'up' : 'diag';
+  const mid = { x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2 };
+  strike(mid, dir);
 }
-$('pad').querySelectorAll('button').forEach(b => {
-  b.addEventListener('pointerdown', e => { e.preventDefault(); b.classList.add('down'); press(b.dataset.k); });
-  const up = () => b.classList.remove('down'); b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', up);
-});
-addEventListener('keydown', e => {
+function strike(mid, dir) {
+  if (!G || G.over) return;
+  // いちばん ちかい あいての いちばん ちかい ばしょ
+  let best = null;
+  G.foes.forEach((o, i) => { if (i < G.cur || o.st === 'fly' || o.st === 'gone') return; for (const k of PARTS) { const p = target(o, k), d = Math.hypot(p.x - mid.x, p.y - mid.y) / foeLayout(o).s; if (!best || d < best.d) best = { o, k, d, p }; } });
+  if (!best) return;
+  const { o, k, p } = best;
+  G.swing = { t: 0, x: p.x, y: p.y };
+  if (snd()) Kit.noise(.08, { vol: .1, freq: 2500, filter: 'highpass' });
+  if (best.d > 34) { tip('あいての からだを ねらって！', 900); return; }
+  if (o.st !== 'ready') return miss(o, o.st === 'enter' ? 'まだ はやい！' : 'あいてを よく みて！');
+  if (o.f.p === 'rei') return miss(o, 'れいを して いる 人を うっちゃ ダメ！');
+  const needDir = k === 'dou' ? 'side' : 'down';
+  if (k !== o.f.p) return miss(o, `そこじゃない！ ${o.f.i} を ねらおう`);
+  if (dir !== needDir && !(needDir === 'down' && dir === 'diag')) return miss(o, k === 'dou' ? 'ドウは よこに きろう！' : '上から 下へ うとう！');
+  ippon(o, k);
+}
+addEventListener('keydown', e => {   // キーボードでも あそべる
   if (!G || e.repeat) return;
-  const m = { ArrowUp: 'men', KeyJ: 'men', Digit1: 'men', ArrowLeft: 'kote', KeyK: 'kote', Digit2: 'kote', ArrowRight: 'dou', ArrowDown: 'dou', KeyL: 'dou', Digit3: 'dou' }[e.code];
-  if (m) { e.preventDefault(); press(m); }
+  const m = { ArrowUp: 'men', KeyJ: 'men', ArrowLeft: 'kote', KeyK: 'kote', ArrowRight: 'dou', ArrowDown: 'dou', KeyL: 'dou' }[e.code];
+  if (!m) return; e.preventDefault();
+  const o = G.foes[G.cur]; if (!o) return; const p = target(o, m); strike(p, m === 'dou' ? 'side' : 'down');
 });
 function ippon(o, k) {
-  o.st = 'fly'; o.t = 0; o.vx = rnd(-1, 1) > 0 ? 1 : -1;
-  G.score++; G.combo++; G.maxCombo = Math.max(G.maxCombo, G.combo); G.gal.push(o.f.e);
+  o.st = 'fly'; o.t = 0; o.vx = Math.random() < .5 ? 1 : -1;
+  G.score++; G.combo++; G.maxCombo = Math.max(G.maxCombo, G.combo); G.gal.push(o.f.h);
   say(PN[k], '#fff', 0); setTimeout(() => G && say('いっぽん！', '#ffd23a', 0), 260);
   G.flags = 1;
   if (snd()) { Kit.tone(880, .08, { type: 'square', vol: .1 }); Kit.tone(1320, .12, { type: 'square', vol: .1, delay: .08 }); Kit.noise(.12, { vol: .12, freq: 3000, filter: 'highpass' }); }
   Kit.vibrate && Kit.vibrate(30);
-  if (G.combo > 0 && G.combo % 10 === 0 && G.life < 3) { G.life++; banner(`${G.combo}れんぞく！ ❤️ ふえた`); }
+  if (G.combo % 10 === 0 && G.life < 3) { G.life++; banner(`${G.combo}れんぞく！ ❤️ ふえた`); }
   hud();
 }
-function miss(msg) {
-  const o = G.foes[G.cur];
+function miss(o, msg) {
   G.life--; G.combo = 0; G.shake = .4; G.flash = .35;
-  say(o ? pick(['いたっ！', 'ポコッ！', 'ぎゃっ！', 'ペシッ！']) : 'いたっ！', '#ff5a5a', 0); tip(msg);
-  if (o) { o.st = 'kamae'; o.t = 0; o.wait = rnd(.6, 1.2); o.part = null; o.feint = false; o.pose = 'attack'; o.atk = .35; }
+  say(pick(['いたっ！', 'ポコッ！', 'ぎゃっ！', 'ペシッ！']), '#ff5a5a', 0); tip(msg, 1500);
+  if (o && o.st !== 'fly') { o.st = 'gone'; o.t = 0; }   // あいては にげて いく
   if (snd()) Kit.sfx('bad'); Kit.vibrate && Kit.vibrate(120);
   hud();
   if (G.life <= 0) { G.over = true; setTimeout(showResult, 1300); say('それまで！', '#fff', 1); }
@@ -155,36 +168,29 @@ function step(dt) {
   G.t += dt; G.shake = Math.max(0, G.shake - dt); G.flash = Math.max(0, G.flash - dt);
   if (G.swing) { G.swing.t += dt; if (G.swing.t > .25) G.swing = null; }
   if (G.flags) { G.flags += dt; if (G.flags > 1.3) G.flags = 0; }
+  for (const p of G.trail) p.t += dt; G.trail = G.trail.filter(p => p.t < .25);
   if (G.over) return;
   const o = G.foes[G.cur]; if (!o) return;
+  for (const q of G.foes) if (q !== o && q.st === 'enter') { q.t += dt; if (q.t > .55) { q.st = 'wait'; q.t = 0; } }
   o.t += dt;
-  if (o.st === 'enter') { if (o.t > .55) { o.st = 'kamae'; o.t = 0; } }
-  else if (o.st === 'kamae') {
-    if (o.atk) o.atk = Math.max(0, o.atk - dt); else o.pose = 'kamae';
-    if (o.t > o.wait) {
-      o.st = 'open'; o.t = 0;
-      o.feint = G.n >= 4 && Math.random() < Math.min(.28, .08 + G.n * .01);
-      o.part = pick(PARTS); o.pose = o.part; o.dur = win() * (o.feint ? 1.1 : 1);
-      if (snd()) Kit.tone(o.feint ? 300 : 700, .06, { type: 'triangle', vol: .07 });
-    }
-  } else if (o.st === 'open') {
+  if (o.st === 'enter' || o.st === 'wait') { if (o.st === 'wait' || o.t > .55) { o.st = 'ready'; o.t = 0; if (snd()) Kit.tone(o.f.p === 'rei' ? 400 : 700, .06, { type: 'triangle', vol: .06 }); } }
+  else if (o.st === 'ready') {
     if (o.t > o.dur) {
-      if (o.feint) { o.st = 'kamae'; o.t = 0; o.wait = rnd(.25, .7); o.pose = 'kamae'; o.feint = false; tip('よく がまん できたね！', 900); }
-      else miss('おそい！');
+      if (o.f.p === 'rei') { o.st = 'gone'; o.t = 0; tip('れい！ よく がまん できたね', 1000); if (snd()) Kit.tone(660, .1, { type: 'sine', vol: .08 }); }
+      else miss(o, 'にげられた！ はやく うとう');
     }
-  } else if (o.st === 'fly') {
+  } else if (o.st === 'fly' || o.st === 'gone') {
     if (o.t > .7) { G.cur++; if (G.cur >= G.foes.length) nextFoe(); }
   }
 }
-function target(o, k) {   // そのばしょの がめんの いち
-  const L = foeLayout(o), p = { men: [0, -86], kote: [-20, -56], dou: [0, -46] }[k];
-  return { x: L.x + p[0] * L.s, y: L.y + p[1] * L.s };
-}
+function partPos(o, k) { return { men: [0, -112], kote: [o.side * 40, -60], dou: [0, -44] }[k]; }
+function target(o, k) { const L = foeLayout(o), p = partPos(o, k); return { x: L.x + p[0] * L.s, y: L.y + p[1] * L.s }; }
 function foeLayout(o) {
-  const S = Math.min(W * .7, (H - 170) * .55) / 100 * o.s;
-  let x = W / 2 + o.x * W, y = H * .66;
-  if (G && G.ev && G.ev.k === 'tiny') x += Math.sin(G.t * 5 + o.wob) * W * .28;
-  if (o.st === 'enter') x += (1 - o.t / .55) * W * .9;
+  const S = Math.min(W * .62, (H - 120) * .5) / 100 * o.s;
+  let x = W / 2 + o.x * W, y = H * .78;
+  if (G && G.ev && G.ev.k === 'tiny') x += Math.sin(G.t * 4 + o.wob) * W * .25;
+  if (o.st === 'enter') x += (1 - o.t / .55) * W * .9 * (o.x < 0 ? -1 : 1);
+  if (o.st === 'gone') x -= (o.t / .7) * W * .9 * (o.x > 0 ? -1 : 1);
   return { x, y, s: S };
 }
 
@@ -211,51 +217,58 @@ function drawDojo(t) {
   for (let i = -8; i <= 8; i++) { cx.beginPath(); cx.moveTo(W / 2 + i * W * .04, hz); cx.lineTo(W / 2 + i * W * .3, H); cx.stroke(); }
   for (let y = hz; y < H; y += (y - hz) * .25 + 8) { cx.beginPath(); cx.moveTo(0, y); cx.lineTo(W, y); cx.stroke(); }
 }
-// 剣道の ぼうぐを つけた ヘンな あいて
+// ぼうぐ なしの ヘンな あいて。もちもので うつ ばしょが わかる
 function drawFoe(o, t) {
   const L = foeLayout(o); let { x, y, s } = L;
   cx.save();
-  if (o.st === 'fly') { const k = o.t / .7; x += o.vx * k * W * .7; y -= Math.sin(k * Math.PI) * H * .35 + k * H * .1; cx.translate(x, y - 50 * s); cx.rotate(o.vx * k * 8); cx.translate(-x, -(y - 50 * s)); cx.globalAlpha = 1 - k * .6; }
-  const bob = o.st === 'kamae' ? Math.sin(t * 6 + o.wob) * 2 * s : 0, pose = o.pose;
-  cx.translate(x, y + bob); cx.scale(s, s);
-  // かげ
-  cx.fillStyle = 'rgba(0,0,0,.25)'; cx.beginPath(); cx.ellipse(0, 2, 34, 7, 0, 0, TAU); cx.fill();
-  // はかま
-  cx.fillStyle = '#1f2a4a'; cx.beginPath(); cx.moveTo(-18, -38); cx.lineTo(18, -38); cx.lineTo(30, 0); cx.lineTo(-30, 0); cx.closePath(); cx.fill();
-  cx.strokeStyle = '#0f1a3a'; cx.lineWidth = 1.5; for (const lx of [-12, -4, 4, 12]) { cx.beginPath(); cx.moveTo(lx * .8, -36); cx.lineTo(lx * 1.5, -1); cx.stroke(); }
-  // たれ
-  cx.fillStyle = '#26324f'; for (const tx of [-17, -6, 6]) { cx.fillRect(tx, -40, 11, 15); } cx.fillStyle = '#fff'; cx.font = '900 6px sans-serif'; cx.textAlign = 'center'; cx.fillText(o.f.n.slice(0, 2), -0, -30);
-  // どう
-  const dg = cx.createLinearGradient(-20, -64, 20, -38); dg.addColorStop(0, '#5a2a10'); dg.addColorStop(.5, '#a0502a'); dg.addColorStop(1, '#3a1a08');
-  cx.fillStyle = dg; cx.beginPath(); cx.moveTo(-20, -64); cx.quadraticCurveTo(0, -70, 20, -64); cx.lineTo(18, -40); cx.quadraticCurveTo(0, -35, -18, -40); cx.closePath(); cx.fill();
-  cx.strokeStyle = '#ffd23a'; cx.lineWidth = 1; cx.stroke();
-  // かお（えもじ）と めん
-  const hx = pose === 'men' ? 4 : 0, hy = -86;
-  cx.font = '30px sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(o.f.e, hx, hy + 1);
-  cx.strokeStyle = '#1a2340'; cx.lineWidth = 5; cx.beginPath(); cx.arc(hx, hy, 17, Math.PI * 1.05, Math.PI * 1.95); cx.stroke();
-  cx.fillStyle = '#1a2340'; cx.beginPath(); cx.moveTo(hx - 17, hy); cx.lineTo(hx - 24, hy + 18); cx.lineTo(hx - 13, hy + 14); cx.closePath(); cx.fill(); cx.beginPath(); cx.moveTo(hx + 17, hy); cx.lineTo(hx + 24, hy + 18); cx.lineTo(hx + 13, hy + 14); cx.closePath(); cx.fill();
-  cx.strokeStyle = 'rgba(220,225,235,.85)'; cx.lineWidth = 1.4; for (let i = -3; i <= 3; i++) { cx.beginPath(); cx.moveTo(hx - 13, hy - 6 + i * 3.5); cx.lineTo(hx + 13, hy - 6 + i * 3.5); cx.stroke(); }
-  cx.beginPath(); cx.moveTo(hx, hy - 16); cx.lineTo(hx, hy + 12); cx.stroke();
-  // こて と しない
-  const P = { kamae: [[-5, -50], [0, -48], [6, -78]], men: [[16, -44], [22, -42], [46, -20]], kote: [[-14, -68], [-6, -70], [-2, -104]], dou: [[-4, -100], [4, -102], [-30, -118]], attack: [[-2, -80], [2, -82], [0, -122]] }[pose];
-  const [h1, h2, tip] = P;
-  cx.strokeStyle = '#e8d29a'; cx.lineWidth = 3.5; cx.lineCap = 'round'; cx.beginPath(); cx.moveTo(h2[0], h2[1]); cx.lineTo(tip[0], tip[1]); cx.stroke();
-  cx.strokeStyle = '#8a6a3a'; cx.lineWidth = 1; cx.stroke();
-  cx.fillStyle = '#fff'; cx.beginPath(); cx.arc(tip[0], tip[1], 2.2, 0, TAU); cx.fill();
-  cx.fillStyle = '#1f2a6a'; for (const h of [h1, h2]) { cx.beginPath(); cx.ellipse(h[0], h[1], 6, 5, 0, 0, TAU); cx.fill(); }
-  cx.restore();
-  // スキ（ひかる わ）
-  if (o.st === 'open') {
-    const p = { men: [hx, -86], kote: [h1[0], h1[1]], dou: [0, -50] }[o.part];
-    const k = 1 - o.t / o.dur, px = x + p[0] * s, py = y + bob + p[1] * s, r = (14 + Math.sin(t * 25) * 2) * s;
-    const col = o.feint ? '#b060ff' : '#ffe14a';
-    cx.save(); cx.strokeStyle = col; cx.lineWidth = Math.max(4, 3 * s); cx.shadowColor = col; cx.shadowBlur = 20;
-    cx.beginPath(); cx.arc(px, py, r, 0, TAU); cx.stroke();
-    cx.lineWidth = Math.max(3, 2 * s); cx.beginPath(); cx.arc(px, py, r * 1.45, -Math.PI / 2, -Math.PI / 2 + TAU * k); cx.stroke();
-    cx.font = `900 ${Math.max(14, 7 * s)}px 'Zen Maru Gothic', sans-serif`; cx.fillStyle = col; cx.shadowBlur = 6; cx.shadowColor = '#000'; cx.textAlign = 'center';
-    cx.fillText(o.feint ? '…？' : 'スキあり！', px, py - r * 1.7);
-    cx.restore();
+  if (o.st === 'fly') { const k = o.t / .7; x += o.vx * k * W * .7; y -= Math.sin(k * Math.PI) * H * .35 + k * H * .1; cx.translate(x, y - 60 * s); cx.rotate(o.vx * k * 8); cx.translate(-x, -(y - 60 * s)); cx.globalAlpha = 1 - k * .6; }
+  const f = o.f, rei = f.p === 'rei', ready = o.st === 'ready';
+  const bob = Math.abs(Math.sin(t * (o.st === 'enter' || o.st === 'gone' ? 14 : 5) + o.wob)) * 3 * s;
+  cx.translate(x, y - bob); cx.scale(s, s);
+  cx.fillStyle = 'rgba(0,0,0,.22)'; cx.beginPath(); cx.ellipse(0, bob / s + 2, 30, 6, 0, 0, TAU); cx.fill();
+  // あし
+  cx.strokeStyle = '#3a2a1a'; cx.lineWidth = 7; cx.lineCap = 'round';
+  const lg = o.st === 'enter' || o.st === 'gone' ? Math.sin(t * 14) * 6 : 0;
+  cx.beginPath(); cx.moveTo(-8, -30); cx.lineTo(-10 + lg, 0); cx.moveTo(8, -30); cx.lineTo(10 - lg, 0); cx.stroke();
+  cx.save();
+  if (rei && ready) { const k = Math.min(1, o.t * 4); cx.translate(0, -30); cx.rotate(.75 * k); cx.translate(0, 30); }
+  // からだ
+  cx.fillStyle = f.c; cx.strokeStyle = 'rgba(0,0,0,.35)'; cx.lineWidth = 2;
+  cx.beginPath(); cx.roundRect(-20, -72, 40, 46, 14); cx.fill(); cx.stroke();
+  // うで ＋ もちもの
+  cx.strokeStyle = f.c; cx.lineWidth = 9;
+  cx.font = '24px sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+  const wig = ready ? Math.sin(t * 9 + o.wob) * 3 : 0;
+  if (f.p === 'kote') {
+    const sd = o.side;
+    cx.beginPath(); cx.moveTo(sd * 16, -64); cx.lineTo(sd * 36, -60 + wig); cx.stroke();
+    cx.beginPath(); cx.moveTo(-sd * 16, -64); cx.lineTo(-sd * 22, -40); cx.stroke();
+    cx.fillStyle = '#ffd2ad'; cx.beginPath(); cx.arc(sd * 38, -60 + wig, 5, 0, TAU); cx.fill();
+    cx.font = '26px sans-serif'; cx.fillText(f.i, sd * 42, -70 + wig);
+  } else if (f.p === 'dou') {
+    cx.font = '34px sans-serif'; cx.fillText(f.i, 0, -46 + wig * .5);
+    cx.beginPath(); cx.moveTo(-16, -64); cx.lineTo(-18, -46); cx.moveTo(16, -64); cx.lineTo(18, -46); cx.stroke();
+  } else {
+    const up = rei ? 0 : 1;
+    cx.beginPath(); cx.moveTo(-16, -64); cx.lineTo(-22, -40); cx.moveTo(16, -64); cx.lineTo(22, -40); cx.stroke();
   }
+  // あたま
+  cx.font = '40px sans-serif'; cx.fillText(f.h, 0, -88);
+  if (f.p === 'men') { cx.font = '28px sans-serif'; cx.fillText(f.i, 0, -116 + wig * .6); }
+  cx.restore();
+  cx.restore();
+  // のこり じかん（あたまの うえの バー）・れい の しるし
+  if (ready || o.st === 'wait') {
+    const k = ready ? Math.max(0, 1 - o.t / o.dur) : 1, bw = 70 * s, bx = x - bw / 2, by = y - bob - 145 * s;
+    cx.fillStyle = 'rgba(0,0,0,.35)'; cx.fillRect(bx, by, bw, 7); cx.fillStyle = rei ? '#7ad07a' : k > .35 ? '#ffd23a' : '#ff5a3a'; cx.fillRect(bx, by, bw * k, 7);
+    if (rei && ready) { cx.font = `900 ${Math.max(15, 12 * s)}px 'Zen Maru Gothic', sans-serif`; cx.fillStyle = '#fff'; cx.strokeStyle = '#2a1000'; cx.lineWidth = 4; cx.textAlign = 'center'; cx.strokeText('🙇 よろしく おねがいします', x, by - 14); cx.fillText('🙇 よろしく おねがいします', x, by - 14); }
+  }
+}
+function drawTrail() {
+  if (!G || G.trail.length < 2) return;
+  cx.save(); cx.lineCap = 'round'; cx.lineJoin = 'round';
+  for (let i = 1; i < G.trail.length; i++) { const a = G.trail[i - 1], b = G.trail[i]; if (Math.hypot(a.x - b.x, a.y - b.y) > 120) continue; const k = 1 - b.t / .25; cx.strokeStyle = `rgba(255,255,255,${k})`; cx.lineWidth = 12 * k + 2; cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y); cx.stroke(); }
+  cx.restore();
 }
 function drawShinai(t) {   // じぶんの しない
   const bx = W * .78, by = H + 10;
@@ -323,9 +336,9 @@ function frame(now) {
   if (G && G.shake) cx.translate(rnd(-1, 1) * 12 * G.shake, rnd(-1, 1) * 12 * G.shake);
   if (G && G.ev && G.ev.k === 'spin') { cx.translate(W / 2, H / 2); cx.rotate(Math.sin(t * 1.6) * .35); cx.translate(-W / 2, -H / 2); }
   drawDojo(t);
-  if (G) { drawFlags(); G.foes.forEach((o, i) => { if (i >= G.cur || o.st === 'fly') drawFoe(o, t); }); }
-  else drawFoe({ f: FOES[Math.floor(t / 2) % FOES.length], x: 0, s: 1, st: 'kamae', t: 0, pose: ['kamae', 'men', 'kote', 'dou'][Math.floor(t * 1.5) % 4], wob: 0 }, t);
-  drawShinai(t);
+  if (G) { drawFlags(); G.foes.forEach((o, i) => { if (i >= G.cur || o.st === 'fly' || o.st === 'gone') drawFoe(o, t); }); }
+  else drawFoe({ f: FOES[Math.floor(t / 1.5) % FOES.length], x: 0, s: 1, st: 'ready', t: 0, side: 1, wob: 0, dur: 9 }, t);
+  drawShinai(t); drawTrail();
   cx.restore();
   if (G && G.ev && G.ev.k === 'dark' && Math.sin(t * 9) + Math.sin(t * 23) > .9) { cx.fillStyle = 'rgba(0,0,0,.85)'; cx.fillRect(0, 0, W, H); }
   if (G && G.flash) { cx.fillStyle = `rgba(255,0,0,${G.flash})`; cx.fillRect(0, 0, W, H); }
@@ -337,7 +350,7 @@ let hudT = 0;
 /* ---------- おわり ---------- */
 const RANKS = [[0, 'みならい'], [5, '3きゅう'], [10, '1きゅう'], [16, 'しょだん'], [24, '3だん'], [34, '5だん'], [46, '8だん'], [60, 'けんどう の かみさま']];
 function showResult() {
-  $('pad').hidden = true; $('hud').hidden = true;
+  $('hud').hidden = true;
   const sc = G.score, best = Kit.store.get('kendo:best', 0), isBest = sc > best; if (isBest) Kit.store.set('kendo:best', sc);
   const rank = RANKS.filter(r => sc >= r[0]).pop()[1];
   $('resCard').innerHTML = `<div class="ttl">${rank}</div><div class="big">${sc}<small> いっぽん${isBest ? '　ベスト！' : ''}</small></div>
@@ -350,23 +363,24 @@ function showResult() {
   $('rMenu').onclick = () => { Kit.sfx('tap'); showMenu(); };
 }
 function showMenu() {
-  G = null; $('pad').hidden = true; $('hud').hidden = true; $('resOv').hidden = true; $('menuOv').hidden = false;
+  G = null; $('hud').hidden = true; $('resOv').hidden = true; $('menuOv').hidden = false;
   const b = Kit.store.get('kendo:best', 0); $('mBest').textContent = b ? `ベスト：${b} いっぽん` : '';
 }
 $('mStart').onclick = () => { Kit.sfx('tap'); Kit.audio(); newGame(); };
 
 Kit.bar({ id: 'kendo', title: '🥋 メン！コテ！ドウ！', help: `
-  <p>どうじょうに つぎつぎ あらわれる ヘンな あいて（ねこ・はくさい・そうじロボ…）と けんどうの しあい！ スキを みつけて いっぽん とろう。</p>
+  <p>どうじょうに つぎつぎ あらわれる ヘンな あいてと けんどうの しあい！ あいての もちものを みて、うつ ばしょを きめる ゲーム。</p>
   <ul>
-    <li>あいてに ひかる わ（スキあり！）が でたら、その ばしょの ボタンを おす。あたま＝メン、て＝コテ、おなか＝ドウ</li>
-    <li>わの まわりの せんが なくなる まえに おそう。だんだん はやく なるよ</li>
-    <li>むらさきの わ は フェイント。おさずに がまん！</li>
-    <li>まちがい・おそい・スキが ない ときに おす → いたっ！ ❤️が へる。10れんぞくで ❤️が ふえる</li>
-    <li>ときどき じけん：ボタンが いれかわる、でっかい・ちっちゃい あいて、どうじょうが まわる、2人 いっぺん、でんきが チカチカ</li>
+    <li>あたまの うえに もの（かんむり・ケーキ…）→ メン。あたまの うえを 上から 下へ スワイプ</li>
+    <li>てに もの（アイス・スマホ…）→ コテ。その てを 上から 下へ スワイプ</li>
+    <li>おなかで かかえてる もの（すいか・たいこ…）→ ドウ。おなかを よこに スワイプ</li>
+    <li>🙇 おじぎ している 子は うたずに まつ。まてたら セーフ</li>
+    <li>ちがう ばしょ・ちがう むき・はやすぎ・おそすぎ → いたっ！ ❤️が へる。10れんぞくで ❤️が ふえる</li>
+    <li>ときどき じけん：でっかい・ちっちゃい あいて、どうじょうが まわる、2人 いっぺん、でんきが チカチカ、みんな せっかち</li>
     <li>キーボード：↑ か J＝メン、← か K＝コテ、→ か L＝ドウ</li>
   </ul>` });
 resize(); showMenu(); requestAnimationFrame(frame);
-if (location.hash === '#debug') window.__t = { get G() { return G; }, newGame, press, step, nextFoe };
+if (location.hash === '#debug') window.__t = { get G() { return G; }, newGame, strike, target, step, nextFoe };
 })();
 </script>
 </body>
