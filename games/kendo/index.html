@@ -29,6 +29,15 @@
   .big small { font: 900 1rem 'Zen Maru Gothic', sans-serif; color: #8a6a4a; }
   .ttl { text-align: center; font: 400 1.6rem 'Dela Gothic One', sans-serif; color: #c0281e; }
   .gal { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; font-size: 1.3rem; }
+  .vrow { display: grid; grid-template-columns: 4.2em 1fr; align-items: center; gap: 8px; padding: 8px; border-radius: 14px; background: #f5ead6; }
+  .vrow b { font: 400 1.2rem 'Dela Gothic One', sans-serif; }
+  .vbtns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .vbtns button, .vbtns label { appearance: none; border: none; border-radius: 10px; padding: 8px 10px; font: 900 .9rem 'Zen Maru Gothic', sans-serif; background: #fff; color: #3a2a1a; box-shadow: 0 3px 0 rgba(0,0,0,.15); cursor: pointer; }
+  .vbtns .rec { background: #e0382a; color: #fff; }
+  .vbtns .rec.on { background: #3a2a1a; animation: blink .6s infinite alternate; }
+  .vbtns button:disabled { opacity: .4; }
+  .vst { grid-column: 2; font-size: .8rem; font-weight: 700; color: #8a6a4a; }
+  @keyframes blink { to { opacity: .6; } }
 </style>
 </head>
 <body>
@@ -47,6 +56,13 @@
     </ul>
     <div class="best" id="mBest"></div>
     <button class="btn main" id="mStart">はじめ！</button>
+    <button class="btn" id="mVoice">🎤 じぶんの かけごえを ろくおん</button>
+  </div></div>
+  <div class="over" id="voiceOv" hidden><div class="card">
+    <div class="ttl">🎤 かけごえ ろくおん</div>
+    <p>●を おして 「メーン！」など 大きな こえで さけぼう（2びょうで とまるよ）。ろくおんした こえは この スマホの 中だけに のこるよ。</p>
+    <div id="vList"></div>
+    <button class="btn main" id="vClose">OK</button>
   </div></div>
   <div class="over" id="resOv" hidden><div class="card" id="resCard"></div></div>
 </div>
@@ -77,6 +93,7 @@ try { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; } catch (e) { }
 const VO = { men: 'メーン', kote: 'コテー', dou: 'ドォー' };
 function voice(k) {
   if (!snd()) return;
+  if (vBuf[k]) { playRec(k); return; }   // ろくおんした こえ が あれば それを つかう
   let ok = false;
   try {
     if (window.speechSynthesis && jaVoice) {
@@ -86,6 +103,59 @@ function voice(k) {
     }
   } catch (e) { }
   if (!ok) { const f = { men: 520, kote: 700, dou: 420 }[k]; Kit.tone(f, .22, { type: 'sawtooth', vol: .09, slide: -f * .4 }); }   // こえが でない ときの かわり
+}
+
+/* ---------- ろくおんした かけごえ（この きかいの IndexedDB に ほぞん） ---------- */
+const vBuf = {}, vOff = {}; let vSrc = null;
+function vdb() { return new Promise((ok, ng) => { try { const r = indexedDB.open('kendo-voice', 1); r.onupgradeneeded = () => r.result.createObjectStore('v'); r.onsuccess = () => ok(r.result); r.onerror = () => ng(r.error); } catch (e) { ng(e); } }); }
+async function vPut(k, blob) { const d = await vdb(); return new Promise(ok => { const tx = d.transaction('v', 'readwrite'); blob ? tx.objectStore('v').put(blob, k) : tx.objectStore('v').delete(k); tx.oncomplete = () => ok(); tx.onerror = () => ok(); }); }
+async function vGet(k) { const d = await vdb(); return new Promise(ok => { const r = d.transaction('v').objectStore('v').get(k); r.onsuccess = () => ok(r.result || null); r.onerror = () => ok(null); }); }
+async function vLoad(k, blob) {
+  delete vBuf[k]; if (!blob) return;
+  const a = Kit.audio(); if (!a) return;
+  try {
+    const buf = await a.decodeAudioData(await blob.arrayBuffer());
+    // さいしょの しずかな ところを とばす（すぐ こえが でるように）
+    const d = buf.getChannelData(0); let mx = 0; for (let i = 0; i < d.length; i++) mx = Math.max(mx, Math.abs(d[i]));
+    let st = 0; const th = mx * .15; while (st < d.length && Math.abs(d[st]) < th) st++;
+    vBuf[k] = buf; vOff[k] = Math.max(0, st / buf.sampleRate - .02);
+  } catch (e) { }
+}
+function playRec(k) {
+  const a = Kit.audio(); if (!a || !vBuf[k]) return;
+  try { if (vSrc) vSrc.stop(); } catch (e) { }
+  const s = a.createBufferSource(), g = a.createGain(); s.buffer = vBuf[k]; g.gain.value = 1.4;
+  s.connect(g); g.connect(a.destination); s.start(0, vOff[k] || 0, 1.6); vSrc = s;
+}
+async function vInit() { for (const k of LANES) await vLoad(k, await vGet(k).catch(() => null)); }
+let rec = null;
+async function startRec(k) {
+  if (rec) return stopRec();
+  if (!navigator.mediaDevices || !window.MediaRecorder) { Kit.toast ? Kit.toast('この きかいでは ろくおん できないよ') : alert('ろくおん できないよ'); return; }
+  let st;
+  try { st = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true, autoGainControl: true } }); }
+  catch (e) { Kit.toast && Kit.toast('マイクが つかえないよ。マイクを ゆるして ね'); return; }
+  const mr = new MediaRecorder(st), chunks = [];
+  rec = { k, mr, st, timer: setTimeout(stopRec, 2000) };
+  mr.ondataavailable = e => e.data.size && chunks.push(e.data);
+  mr.onstop = async () => {
+    st.getTracks().forEach(t => t.stop());
+    const blob = new Blob(chunks, { type: mr.mimeType || 'audio/webm' });
+    await vPut(k, blob); await vLoad(k, blob); renderVoice(); if (vBuf[k]) playRec(k);
+  };
+  mr.start(); renderVoice();
+}
+function stopRec() { if (!rec) return; clearTimeout(rec.timer); const r = rec; rec = null; try { r.mr.stop(); } catch (e) { } }
+function renderVoice() {
+  $('vList').innerHTML = LANES.map(k => `<div class="vrow" style="margin-bottom:6px"><b style="color:${LC[k]}">${{ men: 'メン', kote: 'コテ', dou: 'ドウ' }[k]}</b>
+    <div class="vbtns"><button class="rec ${rec && rec.k === k ? 'on' : ''}" data-r="${k}">${rec && rec.k === k ? '■ とめる' : '● ろくおん'}</button>
+    <button data-p="${k}" ${vBuf[k] ? '' : 'disabled'}>▶ きく</button><button data-d="${k}" ${vBuf[k] ? '' : 'disabled'}>けす</button>
+    <label>📁 ファイル<input type="file" accept="audio/*" data-f="${k}" hidden></label></div>
+    <div class="vst">${rec && rec.k === k ? 'ろくおん中… さけんで！' : vBuf[k] ? '✅ じぶんの こえ' : 'いまは よみあげの こえ'}</div></div>`).join('');
+  $('vList').querySelectorAll('[data-r]').forEach(b => b.onclick = () => startRec(b.dataset.r));
+  $('vList').querySelectorAll('[data-p]').forEach(b => b.onclick = () => playRec(b.dataset.p));
+  $('vList').querySelectorAll('[data-d]').forEach(b => b.onclick = async () => { await vPut(b.dataset.d, null); delete vBuf[b.dataset.d]; renderVoice(); });
+  $('vList').querySelectorAll('[data-f]').forEach(inp => inp.onchange = async () => { const f = inp.files[0]; if (!f) return; const k = inp.dataset.f; await vLoad(k, f); if (!vBuf[k]) { Kit.toast && Kit.toast('その ファイルは つかえないよ'); return; } await vPut(k, f); renderVoice(); playRec(k); });
 }
 
 /* ---------- きった おと ---------- */
@@ -113,7 +183,7 @@ let G = null, W = 0, H = 0, DPR = 1;
 function newGame() {
   G = { t: 0, score: 0, hits: 0, life: 3, combo: 0, maxCombo: 0, objs: [], ev: null, evT: 0, nextEv: 14, spawnT: .8, shake: 0, flash: 0, swing: null, gal: [], trail: [], fx: [] };
   $('menuOv').hidden = true; $('resOv').hidden = true; $('hud').hidden = false;
-  hud(); Kit.audio(); pickVoice();
+  hud(); Kit.audio(); pickVoice(); vInit();
   say('はじめ！', '#fff', 1);
 }
 const travel = () => Math.max(1.15, 2.7 - G.hits * .018) * (G.ev && G.ev.k === 'fast' ? .68 : 1);
@@ -429,6 +499,8 @@ function showMenu() {
   const b = Kit.store.get('kendo:best2', 0); $('mBest').textContent = b ? `ベスト：${b} てん` : '';
 }
 $('mStart').onclick = () => { Kit.sfx('tap'); Kit.audio(); newGame(); };
+$('mVoice').onclick = async () => { Kit.sfx('tap'); Kit.audio(); await vInit(); $('menuOv').hidden = true; $('voiceOv').hidden = false; renderVoice(); };
+$('vClose').onclick = () => { stopRec(); Kit.sfx('tap'); $('voiceOv').hidden = true; $('menuOv').hidden = false; };
 
 Kit.bar({ id: 'kendo', title: '🥋 メン！コテ！ドウ！', help: `
   <p>まえから とんでくる ヘンな もの（トマト・くつした・さかな…）を しないで おとす ゲーム。とんでくる コースで わざを つかいわけよう。かけごえも でるよ。</p>
@@ -439,6 +511,7 @@ Kit.bar({ id: 'kendo', title: '🥋 メン！コテ！ドウ！', help: `
     <li>スワイプは 画面の どこでも OK。まとが ひかって いる あいだに うつ</li>
     <li>🐣 ひよこは うたない。🌟 は 3てん。15れんぞくで ❤️が ふえる</li>
     <li>ときどき じけん：はやい、たくさん、くねくね、コースが かわる、チカチカ、でっかい</li>
+    <li>🎤 メニューの「じぶんの かけごえを ろくおん」で、じぶんの こえ（または おんせい ファイル）を かけごえに できる。ろくおんは この きかいの 中だけに のこる</li>
     <li>キーボード：↑ か J＝メン、← か K＝コテ、→ か L＝ドウ</li>
   </ul>` });
 resize(); showMenu(); requestAnimationFrame(frame);
