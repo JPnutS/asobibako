@@ -20,7 +20,7 @@ self.ASOBI_GAMES = [
   { id: 'hosomichi', cat: 'play', name: '一本ばし リレー', icon: '🪵', color: 'sky', tag: '対戦', who: '2チーム（4人ずつ・ひとりずつ CPUにも できる）', desc: 'くねくねの 一本ばしを ジョイスティックで わたって、小島で たすきを つなぐ リレー。かぜや さかなの じゃまも' },
   { id: 'snowboard', cat: 'play', name: 'ゆきやま スノボ', icon: '🏂', color: 'grape', tag: '一人で', who: '1人', desc: 'スノーボードで ゆきやまを すべる タイム アタック。きゅうカーブは ブレーキで スピードを おとして、ジャンプだいの ふうせんで タイムを へらそう' },
   { id: 'dodge', cat: 'play', name: 'ドッジボール たいけつ', icon: '🏐', color: 'orange', tag: '対戦', who: '1人（CPUと たいせん）', desc: 'てまえの あかチームで CPUと ドッジボール。ジョイスティックで はしって、なげる・キャッチ・ジャンプ。ダッシュして なげると ひっさつ シュート！' },
-  { id: 'kendo', cat: 'play', name: 'メン！コテ！ドウ！', icon: '🥋', color: 'berry', tag: '一人で', who: '1人', desc: 'ねこ・はくさい・そうじロボ…ヘンな あいてと けんどう！ ひかる スキを みて メン・コテ・ドウ。へんな じけんも おきるよ' },
+  { id: 'kendo', cat: 'play', name: 'メン！コテ！ドウ！', icon: '🥋', color: 'berry', tag: '一人で', who: '1人', desc: 'まえから とんでくる ヘンな ものを しないで おとせ！ うえは メン、よこは コテ、したは ドウ。かけごえも でるよ' },
   { id: 'bouken', hidden: true, cat: 'play', name: 'ぷっちーのぼうけん', icon: '🚩', color: 'grass', tag: '一人で', who: '1人', desc: 'はしって とんで てきを ふんで、ゴールの はたを めざす よこスクロール アクション' },
   { id: 'puchic', cat: 'play', name: 'ぷちぷちチャレンジ', icon: '🫧', color: 'sky', tag: '対戦', who: '1〜2人＋CPU', desc: 'ぷちぷちを つぶして とくてんを きそおう' },
   { id: 'kamizumo', cat: 'play', name: '紙ずもう', icon: '🤼', color: 'orange', tag: '対戦', who: '1〜2人', desc: 'トントン たたいて 紙の 力士を たたかわせよう。番付を 上がって 横綱へ' },
