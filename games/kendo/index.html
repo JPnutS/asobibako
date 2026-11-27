@@ -41,7 +41,7 @@
     <ul class="how">
       <li><b style="color:#e0382a">うえ</b> に くる → <b>メン</b>：<b>上から 下へ ながーく</b> シュッ</li>
       <li><b style="color:#1f7ad8">ひだり・みぎ</b> に くる → <b>コテ</b>：<b>みじかく</b> シュッ（トンと タップでも OK）</li>
-      <li><b style="color:#1f9a3a">した</b> に くる → <b>ドウ</b>：<b>よこに</b> シュッ</li>
+      <li><b style="color:#1f9a3a">まんなか</b> に くる → <b>ドウ</b>：<b>よこに</b> シュッ</li>
       <li>まとが ピカピカ ひかったら いまだ！ 🐣 ひよこは うたずに とおして あげて。🌟は 3てん</li>
       <li>あたると ❤️が へる。ときどき へんな ことが おきるよ…</li>
     </ul>
@@ -88,6 +88,26 @@ function voice(k) {
   if (!ok) { const f = { men: 520, kote: 700, dou: 420 }[k]; Kit.tone(f, .22, { type: 'sawtooth', vol: .09, slide: -f * .4 }); }   // こえが でない ときの かわり
 }
 
+/* ---------- きった おと ---------- */
+function sweepNoise(a, t, dur, f0, f1, vol, q) {   // しゅっ と ながれる ノイズ
+  const len = Math.floor(a.sampleRate * dur), buf = a.createBuffer(1, len, a.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+  s.buffer = buf; f.type = 'bandpass'; f.Q.value = q; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + dur * .25); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  s.connect(f); f.connect(g); g.connect(a.destination); s.start(t); s.stop(t + dur + .02);
+  s.onended = () => { s.disconnect(); f.disconnect(); g.disconnect(); };
+}
+function whoosh() { const a = Kit.audio(); if (!a) return; sweepNoise(a, a.currentTime, .14, 900, 3500, .09, 1.2); }   // ふった おと（ひゅっ）
+function slashSfx(star) {   // きった おと（ズバッ！）
+  const a = Kit.audio(); if (!a) return; const t = a.currentTime;
+  sweepNoise(a, t, .09, 7000, 2500, .28, .8);                 // シャキッ
+  sweepNoise(a, t + .03, .22, 2200, 400, .2, .7);           // ザッ
+  Kit.tone(1900, .05, { type: 'square', vol: .06 });         // きらっと
+  Kit.tone(160, .12, { type: 'sine', vol: .25, slide: -90 }); // てごたえ
+  if (star) { Kit.tone(1320, .1, { type: 'triangle', vol: .12, delay: .08 }); Kit.tone(1760, .16, { type: 'triangle', vol: .12, delay: .16 }); }
+}
+
 /* ---------- じょうたい ---------- */
 let G = null, W = 0, H = 0, DPR = 1;
 function newGame() {
@@ -111,7 +131,7 @@ function spawn() {
 function laneTarget(lane, side) {
   if (lane === 'men') return { x: W / 2, y: H * .24 };
   if (lane === 'kote') return { x: W / 2 + side * W * .3, y: H * .5 };
-  return { x: W / 2, y: H * .74 };
+  return { x: W / 2, y: H * .5 };   // ドウは コテと コテの あいだ
 }
 const ringR = () => Math.min(W, H) * .12;
 function objPos(o) {
@@ -156,7 +176,7 @@ function swing(k) {
   const hit = live.filter(o => o.lane === k).sort((a, b) => b.u - a.u)[0];
   const tg = hit ? objPos(hit) : laneTarget(k, live[0] && live[0].lane === 'kote' ? live[0].side : 1);
   G.swing = { t: 0, x: tg.x, y: tg.y, k };
-  if (snd()) Kit.noise(.08, { vol: .1, freq: 2500, filter: 'highpass' });
+  if (snd()) whoosh();
   if (hit) {
     if (hit.kind === 'piyo') return ouch(hit, 'ひよこは うっちゃ ダメ〜！');
     cut(hit, k); return;
@@ -181,7 +201,7 @@ function cut(o, k) {
   const p = objPos(o); for (let i = 0; i < 10; i++) G.fx.push({ x: p.x, y: p.y, vx: rnd(-1, 1) * 380, vy: rnd(-1, .6) * 380, t: 0, c: o.kind === 'star' ? '#ffd23a' : LC[k] });
   if (o.kind === 'star') say('+3 キラーン！', '#ffd23a', 0);
   if (G.combo && G.combo % 10 === 0) { G.flags = 1; say(`${G.combo}れんぞく！`, '#ffd23a', 1); }
-  if (snd()) { Kit.tone(880, .06, { type: 'square', vol: .08 }); Kit.noise(.1, { vol: .12, freq: 3200, filter: 'highpass' }); }
+  if (snd()) slashSfx(o.kind === 'star');
   Kit.vibrate && Kit.vibrate(25);
   if (G.combo % 15 === 0 && G.life < 3) { G.life++; banner(`${G.combo}れんぞく！ ❤️ ふえた`); }
   hud();
@@ -269,7 +289,7 @@ function drawRings(t, demo) {
     cx.strokeStyle = LC[k]; cx.fillStyle = lv === 1 ? LC[k] + '55' : 'rgba(255,255,255,.12)';
     cx.beginPath(); cx.arc(p.x, p.y, R, 0, TAU); cx.fill(); cx.stroke();
     cx.font = `400 ${R * .38}px 'Dela Gothic One', sans-serif`; cx.textAlign = 'center'; cx.textBaseline = 'middle';
-    cx.lineWidth = 5; cx.strokeStyle = '#2a1000'; const lb = { men: 'メン', kote: 'コテ', dou: 'ドウ' }[k], ly = k === 'dou' ? p.y + R * 1.3 : p.y - R * 1.3;
+    cx.lineWidth = 5; cx.strokeStyle = '#2a1000'; const lb = { men: 'メン', kote: 'コテ', dou: 'ドウ' }[k], ly = p.y - R * 1.3;
     cx.strokeText(lb, p.x, ly); cx.fillStyle = LC[k]; cx.fillText(lb, p.x, ly);
     cx.restore();
     if (lv) arrow(p.x, p.y, k, R, lv === 1 ? 1 : .55);
@@ -415,7 +435,7 @@ Kit.bar({ id: 'kendo', title: '🥋 メン！コテ！ドウ！', help: `
   <ul>
     <li>うえの まと（あたま）→ メン。上から 下へ ながく スワイプ（画面の 5ぶんの1 より ながく）</li>
     <li>ひだり・みぎの まと（て）→ コテ。みじかく シュッ、または トンと タップ</li>
-    <li>したの まと（おなか）→ ドウ。よこに スワイプ</li>
+    <li>まんなかの まと（コテと コテの あいだ・おなか）→ ドウ。よこに スワイプ</li>
     <li>スワイプは 画面の どこでも OK。まとが ひかって いる あいだに うつ</li>
     <li>🐣 ひよこは うたない。🌟 は 3てん。15れんぞくで ❤️が ふえる</li>
     <li>ときどき じけん：はやい、たくさん、くねくね、コースが かわる、チカチカ、でっかい</li>
